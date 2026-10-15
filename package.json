@@ -1,0 +1,90 @@
+{
+  "name": "nimblescape-plantuml",
+  "displayName": "nimblescape PlantUML",
+  "description": "Renders PlantUML diagrams in VS Code with the PlantUML engine compiled to JavaScript: no Java, no Graphviz installation and no server.",
+  "publisher": "nimblescape",
+  "author": {
+    "name": "nimblescape e.U.",
+    "url": "https://nimblescape.com"
+  },
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Visualization"
+  ],
+  "keywords": [
+    "plantuml",
+    "uml",
+    "diagram",
+    "puml",
+    "markdown"
+  ],
+  "license": "MIT",
+  "homepage": "https://nimblescape.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nimblescape/nimblescape-plantuml.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nimblescape/nimblescape-plantuml/issues"
+  },
+  "pricing": "Free",
+  "galleryBanner": {
+    "color": "#1a365d",
+    "theme": "dark"
+  },
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "package": "vsce package --no-dependencies --no-rewrite-relative-links"
+  },
+  "dependencies": {
+    "@plantuml/core": "1.2026.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/vscode": "~1.125.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "The extension reads PlantUML text to show it and runs no program of the workspace."
+    },
+    "virtualWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "plantuml",
+        "aliases": [
+          "PlantUML",
+          "plantuml"
+        ],
+        "extensions": [
+          ".puml",
+          ".plantuml",
+          ".pu",
+          ".iuml",
+          ".wsd"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  }
+}

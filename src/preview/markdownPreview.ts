@@ -21,7 +21,7 @@
  * "Disable"), the script loads Viz.js first.
  */
 
-import { blockClass, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, sourceAttribute } from '../markdown/markdownIt';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
 export interface Engine {
@@ -166,27 +166,35 @@ export class PreviewRenderer {
 }
 
 /**
- * show puts the result of a rendering into the element of a block: the diagram, or the message of the error
- * above the text of the block. The SVG text comes from the engine; the security policy of the preview keeps any
- * script in it from running.
+ * show puts the result of a rendering into the content element of a block: the diagram, or the message of the
+ * error above the text of the block. Other children of the block, such as the bar that the rendered diff of
+ * VS Code adds to a changed block, stay. The SVG text comes from the engine; the security policy of the preview
+ * keeps any script in it from running.
  * @param element - The element of the block.
  * @param source - The text of the block.
  * @param result - The result of the rendering.
  */
 function show(element: HTMLElement, source: string, result: Result): void {
+  const page = element.ownerDocument;
+  let content = element.querySelector<HTMLElement>(`:scope > .${contentClass}`);
+  if (!content) {
+    content = page.createElement('div');
+    content.className = contentClass;
+    element.prepend(content);
+  }
   if ('svg' in result) {
-    element.innerHTML = result.svg;
+    content.innerHTML = result.svg;
     return;
   }
-  const message = element.ownerDocument.createElement('pre');
+  const message = page.createElement('pre');
   message.className = `${blockClass}-error`;
   message.textContent = result.error;
-  const text = element.ownerDocument.createElement('pre');
+  const text = page.createElement('pre');
   text.className = `${blockClass}-source`;
-  const code = element.ownerDocument.createElement('code');
+  const code = page.createElement('code');
   code.textContent = source;
   text.append(code);
-  element.replaceChildren(message, text);
+  content.replaceChildren(message, text);
 }
 
 /** bundledScripts are the further scripts of the engine that the package contains. */

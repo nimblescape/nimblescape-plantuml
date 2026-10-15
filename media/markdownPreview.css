@@ -9,14 +9,21 @@
  * apply to the elements of the extension only, so the rest of the preview
  * keeps its look (R-MD-006). A diagram is never wider than the preview, and
  * an error uses the error color of the theme.
+ *
+ * The rendered diff of VS Code draws the bar of a changed block left of the
+ * block, as a child of the block. For this reason, the block itself does not
+ * clip its content; only the inner content element scrolls.
  */
 
 .nimblescape-plantuml {
   margin: 1em 0;
+}
+
+.nimblescape-plantuml-content {
   overflow-x: auto;
 }
 
-.nimblescape-plantuml > svg {
+.nimblescape-plantuml-content > svg {
   display: block;
   max-width: 100%;
   height: auto;

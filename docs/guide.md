@@ -20,12 +20,12 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | --- | --- | --- | --- | --- |
 | [Language PlantUML](#plantuml-files) | | yes | available | [R-PUML-001](requirements.md#r-puml-001) |
 | [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
-| [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
-| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
+| [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
+| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | Markdown: in development; PlantUML files: planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | planned | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | planned | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
-| [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | planned | [R-MD-006](requirements.md#r-md-006) |
+| [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
 
 ## How the extension renders
 
@@ -103,8 +103,11 @@ VS Code can show the diff of a Markdown file as rendered text:
 
 The diff then shows the old and the new version as rendered Markdown, with
 marks on the blocks that changed. The PlantUML blocks of both versions show as
-diagrams. The setting `diffEditor.renderSideBySide` selects whether both
-versions show next to each other or in one column.
+diagrams. A PlantUML block that changed gets the same mark as any other block:
+a colored background for an added or a deleted block, and a bar on the left
+for a changed block. The mark covers the whole diagram; the diff does not mark
+single elements of a diagram. The setting `diffEditor.renderSideBySide`
+selects whether both versions show next to each other or in one column.
 
 To open every Markdown diff in this way, add the preview to the setting
 `workbench.diffEditorAssociations`.

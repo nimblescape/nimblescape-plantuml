@@ -9,12 +9,13 @@
  * with a fake engine. They check the lines that the engine receives, the
  * detection of a dark theme, the rendering of one diagram at a time, the
  * reuse of a result after the preview replaced its content, the new
- * rendering after a change of the theme, and the display of errors. The real
- * engine runs in the preview of VS Code only.
+ * rendering after a change of the theme, the display of errors, and that the
+ * bar of the rendered diff stays in a block. The real engine runs in the
+ * preview of VS Code only.
  */
 
 import { describe, expect, test } from 'vitest';
-import { blockClass, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, sourceAttribute } from '../markdown/markdownIt';
 import { diagramLines, Engine, isDarkTheme, PreviewRenderer } from './markdownPreview';
 
 /** FakeEngine records its calls and answers each call after a turn of the event loop. */
@@ -43,7 +44,8 @@ class FakeEngine implements Engine {
  * @param source - The text of the block.
  */
 const block = (source: string): string =>
-  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}"><pre class="${blockClass}-source"><code>${source}</code></pre></div>`;
+  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}">` +
+  `<div class="${contentClass}"><pre class="${blockClass}-source"><code>${source}</code></pre></div></div>`;
 
 describe('diagramLines', () => {
   test('keeps a diagram with its @start line and drops the final line break of the block', () => {
@@ -85,7 +87,7 @@ describe('PreviewRenderer', () => {
       ['@startuml', 'C -> D', '@enduml'],
     ]);
     expect(engine.maxRunning).toBe(1);
-    const diagrams = [...root.querySelectorAll(`.${blockClass} > svg`)].map((svg) => svg.getAttribute('data-text'));
+    const diagrams = [...root.querySelectorAll(`.${contentClass} > svg`)].map((svg) => svg.getAttribute('data-text'));
     expect(diagrams).toEqual(['@startuml|A -> B|@enduml', '@startuml|C -> D|@enduml']);
     expect(root.querySelector(':scope > pre')?.textContent).toBe('other');
   });
@@ -128,9 +130,24 @@ describe('PreviewRenderer', () => {
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     await renderer.whenIdle();
-    const children = [...root.querySelector(`.${blockClass}`)!.children];
+    const children = [...root.querySelector(`.${contentClass}`)!.children];
     expect(children.map((child) => child.className)).toEqual([`${blockClass}-error`, `${blockClass}-source`]);
     expect(children.map((child) => child.textContent)).toEqual(['Syntax error', 'fail']);
+  });
+
+  test('keeps the bar that the rendered diff of VS Code adds to a changed block', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A');
+    // The preview adds the bar after it wrote the content, before the diagram is ready.
+    const bar = document.createElement('div');
+    bar.className = 'diff-modification-gutter';
+    root.querySelector(`.${blockClass}`)!.append(bar);
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    const children = [...root.querySelector(`.${blockClass}`)!.children];
+    expect(children.map((child) => child.className)).toEqual([contentClass, 'diff-modification-gutter']);
+    expect(children[0].querySelector(':scope > svg')).not.toBeNull();
   });
 
   test('shows the error when the engine does not load', async () => {

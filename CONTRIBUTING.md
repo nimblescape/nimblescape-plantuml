@@ -10,16 +10,17 @@ each requirement with an ID.
 
 | File | Purpose |
 | --- | --- |
-| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, refreshes the previews when a setting changes, and registers the code completion for PlantUML files and for the PlantUML blocks of Markdown files. |
+| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, refreshes the previews when a setting changes, and registers the code completion and the formatting for PlantUML files and for the PlantUML blocks of Markdown files. |
 | `src/settings.ts` | The settings of the extension that change the diagrams, their defaults, and their JSON form for the preview. It uses no API of VS Code, so the preview script can use it. |
 | `src/language/keywords.ts` | The keywords of PlantUML that the highlighting and the code completion share. |
 | `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
 | `src/language/completion.ts` | The code completion: the declared names of a PlantUML text, and the proposals for a position. It uses no API of VS Code. |
+| `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks. It uses no API of VS Code. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
 | `src/diagram/umlNotation.ts` | The UML notation for class diagrams of the setting `classIcons`: the commands `hide circle` and `skinparam classAttributeIconSize 0`, and the UML keyword as a stereotype in each declaration of a class kind. |
-| `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, comment, or free text of a note, title, legend, header, footer or caption. The UML notation and the code completion use it. |
+| `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
-| `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, for the code completion. |
+| `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, for the code completion and the formatting. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: loads the engine and renders the PlantUML blocks of the page, one at a time, and keeps the results. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
@@ -76,7 +77,7 @@ change can be tried without a package.
 - The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions.
 - The grammar contribution points to the grammars in `dist/syntaxes/`. The injection into `text.html.markdown` maps the scope `meta.embedded.block.plantuml` to the language `plantuml`, so that the editing rules of PlantUML, for example its comments, apply inside a PlantUML block of a Markdown file. A test checks the contribution against `src/language/grammars.ts`.
 - The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`. The section [Markdown preview](#markdown-preview) explains it.
-- The activation event `onLanguage:markdown` starts the extension when a Markdown file opens, for the code completion in PlantUML blocks. VS Code adds the event `onLanguage:plantuml` itself, because the extension contributes that language. The section [Code completion](#code-completion) explains it.
+- The activation event `onLanguage:markdown` starts the extension when a Markdown file opens, for the code completion and the formatting in PlantUML blocks. VS Code adds the event `onLanguage:plantuml` itself, because the extension contributes that language. The section [Code completion](#code-completion) explains it.
 - The configuration contribution declares the settings of `src/settings.ts` in the section `nimblescape.plantuml`, with the scope `resource`, so that a folder of a workspace can have its own value. A test keeps the defaults equal to `src/settings.ts`, and a test checks that the README and the guide name every setting.
 - The untrusted-workspace and virtual-workspace capabilities state that the extension only reads.
 - The runtime dependency is the engine `@plantuml/core`, pinned to one version; the section [Engine](#engine) explains it. The development dependencies are the build, test and packaging tools.
@@ -178,6 +179,27 @@ the editor shows nothing when there are no proposals; the command does
 nothing while the proposals show. An undo, a paste, several cursors and
 typing outside the PlantUML blocks start nothing. The extension reads the
 blocks once for each version of a document.
+
+## Formatting
+
+`src/language/formatting.ts` indents the lines of each UML diagram
+(`@startuml` … `@enduml`, or a text without `@start` lines) with a stack of
+open blocks: a closing line closes a block only when it fits the innermost
+open block, so that `end` inside an activity `if` stays a statement. Other
+diagram types keep their lines, because the indentation of a mind map, a work
+breakdown structure or YAML data has a meaning. Free text and the lines of
+block comments keep their text (`src/diagram/lineKinds.ts`). The further lines
+of an action of several lines move with its first line: a test in Chromium
+showed that PlantUML shows the indentation of a further line beyond the
+indentation of the first line as spaces, and ignores the indentation of notes
+and legends.
+
+`src/extension.ts` registers a document formatter and a range formatter for
+the languages `plantuml` and `markdown`. Each changed line gets one edit of
+its text, so that the line breaks stay. For Markdown, the edits cover the
+lines of the PlantUML blocks only, each with the indentation of its opening
+fence as the base. A range formatter reads the whole context, so that the
+lines of a selection get their depth.
 
 ## Naming
 

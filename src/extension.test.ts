@@ -121,10 +121,29 @@ interface FakeDocument {
   lineAt(line: number): { text: string };
 }
 
+/** FakeSaveEvent stands for a vscode.TextDocumentWillSaveEvent. */
+interface FakeSaveEvent {
+  document: FakeTextDocument & { languageId: string };
+  reason: number;
+  waitUntil(edits: Promise<FakeEdit[]>): void;
+}
+
+/** FakeEditor stands for a vscode.TextEditor. */
+interface FakeEditor {
+  document: FakeDocument | (FakeTextDocument & { languageId: string });
+  selections: unknown[];
+  options?: { tabSize: number | string; insertSpaces: boolean | string };
+  edit?(callback: (builder: { replace(range: FakeRange, text: string): void }) => void): Promise<boolean>;
+}
+
 /** changeListeners are the listeners for a change of a document. */
 let changeListeners: ((event: FakeChangeEvent) => void)[];
+/** saveListeners are the listeners for a save of a document. */
+let saveListeners: ((event: FakeSaveEvent) => void)[];
 /** activeEditor is the active text editor of the fake window. */
-let activeEditor: { document: FakeDocument; selections: unknown[] } | undefined;
+let activeEditor: FakeEditor | undefined;
+/** registeredCommands are the handlers of the registered commands, by their names. */
+let registeredCommands: Map<string, () => unknown>;
 
 beforeEach(() => {
   settingsOf = new Map();
@@ -133,7 +152,9 @@ beforeEach(() => {
   commandArguments = [];
   configurationListeners = [];
   changeListeners = [];
+  saveListeners = [];
   activeEditor = undefined;
+  registeredCommands = new Map();
   providers = new Map();
   formatters = new Map();
   vi.resetModules();
@@ -152,10 +173,17 @@ beforeEach(() => {
         changeListeners.push(listener);
         return { dispose() {} };
       },
+      onWillSaveTextDocument: (listener: (typeof saveListeners)[number]) => {
+        saveListeners.push(listener);
+        return { dispose() {} };
+      },
     },
     window: {
       get activeTextEditor() {
         return activeEditor;
+      },
+      get visibleTextEditors() {
+        return activeEditor ? [activeEditor] : [];
       },
       // These tests do not cover the previews of PlantUML files; the registrations only need to exist.
       registerCustomEditorProvider: () => ({ dispose() {} }),
@@ -167,7 +195,10 @@ beforeEach(() => {
         commands.push(command);
         commandArguments.push(args);
       },
-      registerCommand: () => ({ dispose() {} }),
+      registerCommand: (command: string, handler: () => unknown) => {
+        registeredCommands.set(command, handler);
+        return { dispose() {} };
+      },
     },
     languages: {
       registerCompletionItemProvider: (language: string, provider: FakeProvider, ...triggerCharacters: string[]) => {
@@ -183,6 +214,7 @@ beforeEach(() => {
         return { dispose() {} };
       },
     },
+    TextDocumentSaveReason: { Manual: 1, AfterDelay: 2, FocusOut: 3 },
     TextEdit: { replace: (range: FakeRange, newText: string): FakeEdit => ({ range, newText }) },
     Range: FakeRange,
     CompletionItem: FakeCompletionItem,
@@ -228,7 +260,7 @@ test('the export reads the settings of the rendered document and adds them to th
 
 test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
   const { context } = await activate();
-  expect(context.subscriptions).toHaveLength(17);
+  expect(context.subscriptions).toHaveLength(19);
   const change = (changed: string) => configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
   change('editor');
   expect(commands).toEqual([]);
@@ -381,4 +413,55 @@ test('the formatting of Markdown files changes the lines of the PlantUML blocks 
     { range: new FakeRange(15, 0, 15, 6), newText: '  A -> B' },
   ]);
   expect(formatters.get('markdown range')!.provideDocumentRangeFormattingEdits!(document, new FakeRange(0, 0, 1, 3), spaces)).toEqual([]);
+});
+
+/** markdownText is a Markdown text with a PlantUML block that the formatting changes, and a JavaScript block. */
+const markdownText = ['# Title   ', '```plantuml', 'package p {', 'class A', '}', '```', '```js', 'if (a) {', 'b', '}', '```'].join('\n');
+
+/**
+ * markdownDocument returns a fake Markdown document with a text.
+ * @param text - The text.
+ */
+const markdownDocument = (text: string) => ({ ...textDocument(text), languageId: 'markdown' });
+
+test('the command "Format PlantUML Blocks" formats the PlantUML blocks of the Markdown file of the active editor', async () => {
+  const { extension } = await activate();
+  const replaced: [FakeRange, string][] = [];
+  const edit = async (callback: Parameters<NonNullable<FakeEditor['edit']>>[0]) => {
+    callback({ replace: (range, text) => replaced.push([range, text]) });
+    return true;
+  };
+  activeEditor = { document: markdownDocument(markdownText), selections: [], options: { tabSize: 4, insertSpaces: true }, edit };
+  await registeredCommands.get(extension.formatBlocksCommand)!();
+  expect(replaced).toEqual([[new FakeRange(3, 0, 3, 7), '    class A']]);
+
+  // The command changes nothing in a file of another language.
+  replaced.length = 0;
+  activeEditor = { ...activeEditor, document: { ...markdownDocument(markdownText), languageId: 'plaintext' } };
+  await registeredCommands.get(extension.formatBlocksCommand)!();
+  expect(replaced).toEqual([]);
+});
+
+/**
+ * save sends the event of a save of a document and returns the edits that the extension makes before the save.
+ * @param document - The document.
+ * @param reason - The reason of the save: 1 by the user, 2 after a delay.
+ */
+async function save(document: FakeSaveEvent['document'], reason = 1): Promise<FakeEdit[]> {
+  const edits: Promise<FakeEdit[]>[] = [];
+  saveListeners.forEach((listener) => listener({ document, reason, waitUntil: (promise) => edits.push(promise) }));
+  return (await Promise.all(edits)).flat();
+}
+
+test('a save formats the PlantUML blocks of a Markdown file when editor.formatOnSave is on, with the settings of the indentation', async () => {
+  await activate();
+  const document = markdownDocument(markdownText);
+  expect(await save(document)).toEqual([]);
+
+  settingsOf.set('', { formatOnSave: true, tabSize: 3, insertSpaces: true });
+  expect(await save(document)).toEqual([{ range: new FakeRange(3, 0, 3, 7), newText: '   class A' }]);
+
+  // An automatic save after a delay and a file of another language keep their text, as with VS Code's own formatting.
+  expect(await save(document, 2)).toEqual([]);
+  expect(await save({ ...document, languageId: 'plantuml' })).toEqual([]);
 });

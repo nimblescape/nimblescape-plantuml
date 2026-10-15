@@ -289,12 +289,27 @@ The size of one level is the indentation of the editor: the settings
 `editor.tabSize` and `editor.insertSpaces`, or the indentation that VS Code
 detects in the file.
 
+The extension is the default formatter of PlantUML files, also when the
+setting `editor.defaultFormatter` names another formatter for all files, for
+example Prettier. To use another formatter for PlantUML files, set it for the
+language: `"[plantuml]": { "editor.defaultFormatter": "<extension ID>" }`.
+
 In a Markdown file, the formatting changes only the lines of the PlantUML
 blocks and no other text of the file. Each block keeps the indentation of its
-opening fence, for example inside a list. If you use another formatter for
-Markdown files as well, VS Code asks once which formatter to use, or uses the
-one of the setting `editor.defaultFormatter`. The command "Format Document
-With…" selects a formatter for one run.
+opening fence, for example inside a list.
+
+VS Code runs only one formatter for "Format Document": the default formatter
+of Markdown files. When another extension is that formatter, for example
+Prettier, it formats the Markdown text and leaves the PlantUML blocks as they
+are. The PlantUML blocks are then formatted in these two ways:
+
+| Way | Effect |
+| --- | --- |
+| Command "PlantUML: Format PlantUML Blocks" | Formats every PlantUML block of the Markdown file. The command palette shows it in Markdown files. |
+| Save, when `editor.formatOnSave` is on | Formats every PlantUML block of the Markdown file, after or before the other formatter. An automatic save after a delay does not format, as with the formatting of VS Code. |
+
+The command "Format Document With…" selects a formatter for one run, for
+example "nimblescape PlantUML" for the PlantUML blocks only.
 
 ## Settings
 

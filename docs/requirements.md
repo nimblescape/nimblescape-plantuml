@@ -133,7 +133,10 @@ and aliases. Names that other blocks of the file declare are not proposed.
 ### R-MD-005
 
 **Formatting in Markdown.** The extension formats the text of the PlantUML
-blocks of a Markdown file and changes no other text of the file.
+blocks of a Markdown file and changes no other text of the file. This also
+works when another extension, for example Prettier, is the default formatter
+of Markdown files: with a command, and on each save when
+`editor.formatOnSave` is on.
 
 ### R-MD-006
 
@@ -189,7 +192,9 @@ the same file declares, for example participants, classes and aliases.
 
 ### R-PUML-007
 
-**Formatting of PlantUML files.** The extension formats PlantUML files.
+**Formatting of PlantUML files.** The extension formats PlantUML files. It
+is the default formatter of PlantUML files, also when the user has set another
+default formatter for all files.
 
 ---
 

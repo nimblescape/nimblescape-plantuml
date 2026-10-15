@@ -11,7 +11,8 @@
  * previews when a setting of the extension changes, registers the previews
  * of PlantUML files (`src/pumlPreviews.ts`), and registers the code completion
  * and the formatting for `.puml` files and for the PlantUML blocks of
- * Markdown files.
+ * Markdown files, with the command "Format PlantUML Blocks" and the formatting
+ * of the blocks on save for Markdown files that another extension formats.
  */
 
 import type MarkdownIt from 'markdown-it';
@@ -254,6 +255,61 @@ const markdownFormatting: vscode.DocumentFormattingEditProvider & vscode.Documen
   provideDocumentRangeFormattingEdits: (document, range, options) => markdownEdits(document, options, range),
 };
 
+/** formatBlocksCommand is the command "Format PlantUML Blocks" for Markdown files. */
+export const formatBlocksCommand = 'nimblescape.plantuml.formatBlocks';
+
+/**
+ * formattingOptions returns the formatting options of a document: the options of the editor that shows it, or else
+ * the settings `editor.tabSize` and `editor.insertSpaces` of the document.
+ * @param document - The document.
+ */
+function formattingOptions(document: vscode.TextDocument): vscode.FormattingOptions {
+  const options = vscode.window.visibleTextEditors.find((editor) => editor.document === document)?.options;
+  const settings = vscode.workspace.getConfiguration('editor', document);
+  return {
+    tabSize: typeof options?.tabSize === 'number' ? options.tabSize : settings.get<number>('tabSize', 4),
+    insertSpaces: typeof options?.insertSpaces === 'boolean' ? options.insertSpaces : settings.get<boolean>('insertSpaces', true),
+  };
+}
+
+/**
+ * formatBlocks formats the PlantUML blocks of the Markdown file of the active editor
+ * ([R-MD-005](../docs/requirements.md#r-md-005)). VS Code runs one formatter for "Format Document": the default
+ * formatter of Markdown files, which is often another extension, for example Prettier. The command formats the
+ * PlantUML blocks whatever that formatter is.
+ */
+async function formatBlocks(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (editor?.document.languageId !== 'markdown') {
+    return;
+  }
+  const edits = markdownEdits(editor.document, formattingOptions(editor.document));
+  if (edits.length > 0) {
+    await editor.edit((builder) => edits.forEach((edit) => builder.replace(edit.range, edit.newText)));
+  }
+}
+
+/**
+ * formatBlocksOnSave formats the PlantUML blocks of a Markdown file on save when the setting `editor.formatOnSave`
+ * of the file is on ([R-MD-005](../docs/requirements.md#r-md-005)). VS Code formats on save with the default
+ * formatter of Markdown files only, so this keeps the blocks formatted when another extension is that formatter.
+ * As VS Code does, it does not format on an automatic save after a delay.
+ * @param event - The event of the save.
+ */
+function formatBlocksOnSave(event: vscode.TextDocumentWillSaveEvent): void {
+  const { document } = event;
+  if (document.languageId !== 'markdown' || event.reason === vscode.TextDocumentSaveReason.AfterDelay) {
+    return;
+  }
+  if (!vscode.workspace.getConfiguration('editor', document).get<boolean>('formatOnSave', false)) {
+    return;
+  }
+  const edits = markdownEdits(document, formattingOptions(document));
+  if (edits.length > 0) {
+    event.waitUntil(Promise.resolve(edits));
+  }
+}
+
 /**
  * activate starts the extension.
  * @param context - The extension context, which holds the registrations to dispose on deactivation.
@@ -277,6 +333,8 @@ export function activate(context: vscode.ExtensionContext): Api {
     vscode.languages.registerDocumentRangeFormattingEditProvider('plantuml', pumlFormatting),
     vscode.languages.registerDocumentFormattingEditProvider('markdown', markdownFormatting),
     vscode.languages.registerDocumentRangeFormattingEditProvider('markdown', markdownFormatting),
+    vscode.commands.registerCommand(formatBlocksCommand, formatBlocks),
+    vscode.workspace.onWillSaveTextDocument(formatBlocksOnSave),
   );
   return { extendMarkdownIt: (md) => extendMarkdownIt(md, (env) => readSettings(documentOf(env))) };
 }

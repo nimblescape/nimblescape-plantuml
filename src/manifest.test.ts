@@ -13,6 +13,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { expect, test, vi } from 'vitest';
+import { formatBlocksCommand } from './extension';
 import { grammarFiles } from './language/grammars';
 import { commands, diffPreviewViewType, previewViewType, sidePreviewViewType } from './pumlPreviews';
 import { defaultSettings, settingsSection } from './settings';
@@ -105,13 +106,24 @@ test('the icon is a PNG of 256 × 256 pixels, because the Marketplace takes no S
 
 test('the manifest contributes the custom editor, the commands and the activation events of the previews', () => {
   expect(manifest.contributes.customEditors.map((editor: { viewType: string }) => editor.viewType)).toEqual([previewViewType]);
-  expect(manifest.contributes.commands.map((command: { command: string }) => command.command).sort()).toEqual(Object.values(commands).sort());
+  expect(manifest.contributes.commands.map((command: { command: string }) => command.command).sort()).toEqual(
+    [...Object.values(commands), formatBlocksCommand].sort(),
+  );
   expect(manifest.activationEvents).toEqual(
     expect.arrayContaining([`onWebviewPanel:${sidePreviewViewType}`, `onWebviewPanel:${diffPreviewViewType}`]),
   );
   const whens = JSON.stringify([manifest.contributes.menus, manifest.contributes.keybindings]);
   expect(whens).toContain(`activeCustomEditorId == '${previewViewType}'`);
   expect(whens).toContain(`activeWebviewPanelId == '${diffPreviewViewType}'`);
+});
+
+test('the extension is the default formatter of PlantUML files, and the command "Format PlantUML Blocks" is for Markdown files', () => {
+  // A language-specific default of an extension wins over a general editor.defaultFormatter of the user, for example
+  // Prettier, but not over a formatter that the user sets for the language plantuml.
+  expect(manifest.contributes.configurationDefaults).toEqual({
+    '[plantuml]': { 'editor.defaultFormatter': `${manifest.publisher}.${manifest.name}` },
+  });
+  expect(manifest.contributes.menus.commandPalette).toContainEqual({ command: formatBlocksCommand, when: 'editorLangId == markdown' });
 });
 
 test('the manifest contributes the settings of src/settings.ts with their defaults', () => {

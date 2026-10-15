@@ -28,6 +28,7 @@ each requirement with an ID.
 | `src/preview/previewHtml.ts` | The page of the preview of PlantUML files, with its security policy. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |
+| `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
 | `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
 | `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
@@ -40,7 +41,7 @@ each requirement with an ID.
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked engine and development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
-| `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/pumlPreview.js`, `dist/engine/`, `dist/syntaxes/`, `media/markdownPreview.css`, `media/pumlPreview.css`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
+| `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/pumlPreview.js`, `dist/engine/`, `dist/syntaxes/`, `media/markdownPreview.css`, `media/pumlPreview.css`, `resources/icon.png`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
 | `.github/workflows/ci.yml` | Checks the types, tests and packages every push to `main`, every pull request and the commit of every release. |
 | `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
@@ -77,7 +78,8 @@ change can be tried without a package.
 - The version is the only source of the package version, and the tag of a release names it.
 - The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range.
 - `main` selects the bundle `dist/extension.js`. A test checks it.
-- `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundles, the engine, the styles of the preview, the language configuration and the documents. A test checks the list.
+- `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundles, the engine, the styles of the previews, the icon, the language configuration and the documents. A test checks the list.
+- `icon` is `resources/icon.png`, a PNG, because the Marketplace takes no SVG icon. `resources/icon.svg` is its source; after a change of the source, render it again as a PNG of 256 × 256 pixels with a transparent background, for example with a screenshot of the SVG in Chromium. A test checks the size.
 - `extensionKind` selects the workspace host.
 - The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions.
 - The grammar contribution points to the grammars in `dist/syntaxes/`. The injection into `text.html.markdown` maps the scope `meta.embedded.block.plantuml` to the language `plantuml`, so that the editing rules of PlantUML, for example its comments, apply inside a PlantUML block of a Markdown file. A test checks the contribution against `src/language/grammars.ts`.

@@ -13,6 +13,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { expect, test } from 'vitest';
+import { grammarFiles } from './language/grammars';
 import { defaultSettings, settingsSection } from './settings';
 
 /** repository is the root folder of this repository, which holds the manifest and the documents. */
@@ -82,6 +83,15 @@ test('the entry point is the bundle that esbuild.mjs writes', () => {
   expect(read('esbuild.mjs')).toContain(`const outfile = '${manifest.main.slice(2)}';`);
 });
 
+test('the manifest contributes the grammars that the build writes, with PlantUML as the language of the Markdown blocks', () => {
+  const grammars = manifest.contributes.grammars;
+  expect(grammars.map((grammar: { path: string }) => grammar.path)).toEqual(Object.keys(grammarFiles).map((file) => `./dist/syntaxes/${file}`));
+  expect(grammars.map((grammar: { scopeName: string }) => grammar.scopeName)).toEqual(Object.values(grammarFiles).map((grammar) => grammar.scopeName));
+  expect(grammars[0].language).toBe('plantuml');
+  expect(grammars[1].injectTo).toEqual(['text.html.markdown']);
+  expect(grammars[1].embeddedLanguages).toEqual({ 'meta.embedded.block.plantuml': 'plantuml' });
+});
+
 test('the manifest contributes the settings of src/settings.ts with their defaults', () => {
   const properties = manifest.contributes.configuration.properties;
   const contributed = Object.fromEntries(Object.entries<any>(properties).map(([key, value]) => [key, value.default]));
@@ -117,7 +127,7 @@ test('the file table of the README names every file extension of the language', 
   expect([...row!.split('|')[1].matchAll(/`([^`]+)`/g)].map((match) => match[1])).toEqual(fileExtensions);
 });
 
-test('the package holds the bundles, the engine, the preview styles, the language configuration and the documents only', () => {
+test('the package holds the bundles, the engine, the grammars, the preview styles, the language configuration and the documents only', () => {
   const patterns = read('.vscodeignore')
     .split('\n')
     .filter((line) => line && !line.startsWith('#'));
@@ -126,6 +136,7 @@ test('the package holds the bundles, the engine, the preview styles, the languag
     '!dist/extension.js',
     '!dist/markdownPreview.js',
     '!dist/engine/**',
+    '!dist/syntaxes/**',
     '!media/markdownPreview.css',
     '!language-configuration.json',
     '!package.json',

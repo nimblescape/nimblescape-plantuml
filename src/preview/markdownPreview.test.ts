@@ -17,7 +17,7 @@
 import { describe, expect, test } from 'vitest';
 import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { umlCommands } from '../diagram/umlNotation';
-import { Engine, isDarkTheme, PreviewRenderer } from './markdownPreview';
+import { Engine, isDarkTheme, policiesAllowWebAssembly, PreviewRenderer } from './markdownPreview';
 
 /** FakeEngine records its calls and answers each call after a turn of the event loop. */
 class FakeEngine implements Engine {
@@ -61,6 +61,23 @@ describe('isDarkTheme', () => {
       body.className = classes;
       expect(isDarkTheme(body), classes).toBe(dark);
     }
+  });
+});
+
+describe('policiesAllowWebAssembly', () => {
+  test('reads the script sources of the security policies of the Markdown preview', () => {
+    // The policy of the security levels "Strict" and "Allow insecure content", and of the level "Disable".
+    const strict = "default-src 'none'; img-src 'self' https: data:; script-src 'nonce-abc'; style-src 'self' 'unsafe-inline';";
+    expect(policiesAllowWebAssembly([strict])).toBe(false);
+    expect(policiesAllowWebAssembly([''])).toBe(true);
+    expect(policiesAllowWebAssembly([])).toBe(true);
+  });
+
+  test('allows WebAssembly when every policy allows it, by script-src or else by default-src', () => {
+    expect(policiesAllowWebAssembly(["script-src 'nonce-a' 'wasm-unsafe-eval'"])).toBe(true);
+    expect(policiesAllowWebAssembly(["default-src 'self' 'unsafe-eval'"])).toBe(true);
+    expect(policiesAllowWebAssembly(["default-src 'unsafe-eval'; script-src 'self'"])).toBe(false);
+    expect(policiesAllowWebAssembly(["img-src data:", "script-src 'self'"])).toBe(false);
   });
 });
 

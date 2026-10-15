@@ -22,7 +22,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
 | [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
 | [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | Markdown: in development; PlantUML files: planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
-| [Syntax highlighting](#syntax-highlighting) | yes | yes | planned | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
+| [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | planned | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
@@ -151,7 +151,26 @@ Markdown files.
 ### Syntax highlighting
 
 Keywords, arrows, strings, comments and the `@start…` and `@end…` lines of
-the diagram have their own colors, from the color theme of VS Code.
+the diagram have their own colors, from the color theme of VS Code. In
+detail, the highlighting colors:
+
+- the `@start…` and `@end…` lines;
+- comments: a line that starts with `'`, and a comment between `/'` and `'/`;
+- the directives of the preprocessor, for example `!include` or `!theme`, and
+  variables such as `$name`;
+- the keywords that declare an element, for example `participant`, `class`
+  or `component`, and the name that follows;
+- the keywords of statements, for example `if`, `else`, `alt`, `loop`,
+  `note`, `title` or `skinparam`;
+- strings in double quotes, stereotypes such as `<<Entity>>`, colors such as
+  `#pink`, the visibility of members, and modifiers such as `{static}`;
+- arrows, for example `->`, `-->`, `<|--`, `..>` or `-[#red]->`.
+
+The text of a note, a legend or a title of several lines keeps the color of
+plain text. In a Markdown file, only the text inside a PlantUML block gets
+these colors; the rest of the file keeps the colors of Markdown. Inside a
+PlantUML block, the command "Toggle Line Comment" (Ctrl+/) uses the comment
+of PlantUML (`'`).
 
 ### Code completion
 

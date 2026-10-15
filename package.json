@@ -56,7 +56,9 @@
     "happy-dom": "^21.0.1",
     "markdown-it": "^14.3.2",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.4",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
   },
   "extensionKind": [
     "workspace"
@@ -97,6 +99,23 @@
           ".wsd"
         ],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "plantuml",
+        "scopeName": "source.plantuml",
+        "path": "./dist/syntaxes/plantuml.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.plantuml.codeblock",
+        "path": "./dist/syntaxes/markdown-plantuml.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.plantuml": "plantuml"
+        }
       }
     ],
     "configuration": {

@@ -3,8 +3,8 @@
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
 # The package holds the bundles, the engine, the grammars, the styles of the
-# previews, the language configuration and the documents only: ignore
-# everything, then keep the listed files.
+# previews, the icon, the language configuration and the documents only:
+# ignore everything, then keep the listed files.
 **
 !dist/extension.js
 !dist/markdownPreview.js
@@ -13,6 +13,7 @@
 !dist/syntaxes/**
 !media/markdownPreview.css
 !media/pumlPreview.css
+!resources/icon.png
 !language-configuration.json
 !package.json
 !README.md

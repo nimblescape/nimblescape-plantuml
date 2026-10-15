@@ -32,6 +32,7 @@
     "url": "https://github.com/nimblescape/nimblescape-plantuml/issues"
   },
   "pricing": "Free",
+  "icon": "resources/icon.png",
   "galleryBanner": {
     "color": "#1a365d",
     "theme": "dark"

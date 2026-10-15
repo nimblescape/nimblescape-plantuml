@@ -96,6 +96,13 @@ test('the manifest contributes the grammars that the build writes, with PlantUML
   expect(grammars[1].embeddedLanguages).toEqual({ 'meta.embedded.block.plantuml': 'plantuml' });
 });
 
+test('the icon is a PNG of 256 × 256 pixels, because the Marketplace takes no SVG icon', () => {
+  expect(manifest.icon).toBe('resources/icon.png');
+  const png = fs.readFileSync(path.join(repository, manifest.icon));
+  expect(png.subarray(1, 4).toString('ascii')).toBe('PNG');
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([256, 256]);
+});
+
 test('the manifest contributes the custom editor, the commands and the activation events of the previews', () => {
   expect(manifest.contributes.customEditors.map((editor: { viewType: string }) => editor.viewType)).toEqual([previewViewType]);
   expect(manifest.contributes.commands.map((command: { command: string }) => command.command).sort()).toEqual(Object.values(commands).sort());
@@ -142,7 +149,7 @@ test('the file table of the README names every file extension of the language', 
   expect([...row!.split('|')[1].matchAll(/`([^`]+)`/g)].map((match) => match[1])).toEqual(fileExtensions);
 });
 
-test('the package holds the bundles, the engine, the grammars, the preview styles, the language configuration and the documents only', () => {
+test('the package holds the bundles, the engine, the grammars, the preview styles, the icon, the language configuration and the documents only', () => {
   const patterns = read('.vscodeignore')
     .split('\n')
     .filter((line) => line && !line.startsWith('#'));
@@ -155,6 +162,7 @@ test('the package holds the bundles, the engine, the grammars, the preview style
     '!dist/syntaxes/**',
     '!media/markdownPreview.css',
     '!media/pumlPreview.css',
+    '!resources/icon.png',
     '!language-configuration.json',
     '!package.json',
     '!README.md',

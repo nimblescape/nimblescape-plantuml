@@ -242,7 +242,11 @@ extension.
 
 The commands "Format Document" (Shift+Alt+F) and "Format Selection" indent
 the lines of a UML diagram by the depth of their blocks, and remove the spaces
-at the end of these lines. They change nothing else in a line. The setting
+at the end of these lines. Inside a statement, each run of spaces and tabs
+becomes one space, for example `Car -right->     "1"   Tank  :  tank` becomes
+`Car -right-> "1" Tank : tank`. Quoted text (`"…"`) and monospaced text
+(`""…""`) keep their spaces, and so do comments and the free text of notes.
+They change nothing else in a line. The setting
 `editor.formatOnSave` formats on each save. The blocks are:
 
 | Block | Opening line | Middle lines | Closing line |

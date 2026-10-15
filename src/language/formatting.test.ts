@@ -5,8 +5,8 @@
 /**
  * These tests check the formatting of PlantUML text (R-MD-005, R-PUML-007):
  * the indentation of the blocks of class, activity and sequence diagrams and
- * of the preprocessor, the lines that keep their text, and the diagrams of
- * other types, which stay as they are.
+ * of the preprocessor, the single spaces inside statements, the lines that
+ * keep their text, and the diagrams of other types, which stay as they are.
  */
 
 import { describe, expect, test } from 'vitest';
@@ -219,12 +219,46 @@ describe('formatLines', () => {
     ]);
   });
 
+  test('writes one space for each run of spaces and tabs in a statement, outside quoted and monospaced text', () => {
+    expect(
+      format(
+        '@startuml',
+        'class Car {',
+        '- type:             string',
+        '+ getTank():\tTank',
+        '}',
+        'Car -right->            "1"       Tank     :      tank',
+        'A -> B : ""mono   space""  and "quoted   text"   end',
+        'C -> D : 5"   screen    rest',
+        "'   comment    text",
+        'note left of A',
+        'free   text',
+        'end note',
+        '@enduml',
+      ),
+    ).toEqual([
+      '@startuml',
+      'class Car {',
+      '  - type: string',
+      '  + getTank(): Tank',
+      '}',
+      'Car -right-> "1" Tank : tank',
+      'A -> B : ""mono   space"" and "quoted   text" end',
+      'C -> D : 5"   screen    rest',
+      "'   comment    text",
+      'note left of A',
+      'free   text',
+      'end note',
+      '@enduml',
+    ]);
+  });
+
   test('puts the base before every formatted line, removes the spaces at the end, and keeps empty lines empty', () => {
     expect(formatLines(['package p {  ', '   ', 'class A', '}'], '  ', '  ')).toEqual(['  package p {', '', '    class A', '  }']);
   });
 
   test('gives the same result when it formats a formatted text again', () => {
-    const text = ['@startuml', 'alt x', 'if (a) then', 'A -> B', 'endif', 'end', 'package p {', 'note as N', 'x', 'end note', '}', '@enduml'];
+    const text = ['@startuml', 'alt x', 'if (a) then', 'A  ->   B : "a  b"', 'endif', 'end', 'package p {', 'note as N', 'x', 'end note', '}', '@enduml'];
     const formatted = formatLines(text, '  ');
     expect(formatLines(formatted, '  ')).toEqual(formatted);
   });

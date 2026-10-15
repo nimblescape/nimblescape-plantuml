@@ -5,8 +5,12 @@
 /**
  * The formatting of PlantUML text ([R-MD-005](../../docs/requirements.md#r-md-005),
  * [R-PUML-007](../../docs/requirements.md#r-puml-007)). It indents the lines
- * inside the blocks of a UML diagram by their depth, and removes the spaces at
- * the end of these lines. It changes nothing else in a line.
+ * inside the blocks of a UML diagram by their depth, removes the spaces at the
+ * end of these lines, and writes one space for each run of spaces and tabs
+ * inside a statement, for example `Car  -->   Tank` becomes `Car --> Tank`.
+ * Quoted text (`"…"`) and monospaced text of Creole (`""…""`) keep their
+ * spaces, and so does the rest of a line after a quote without end. It changes
+ * nothing else in a line.
  *
  * A block has an opening line, optional middle lines and a closing line:
  *
@@ -70,6 +74,28 @@ const blocks: readonly Block[] = [
 ];
 
 /**
+ * keptSpaces matches the parts of a statement that keep their spaces: monospaced text of Creole (`""…""`), quoted
+ * text (`"…"`), and the rest of a line after a quote without end.
+ */
+const keptSpaces = /""(?:(?!"").)*""|"[^"]*"|".*$/g;
+
+/**
+ * singleSpaces writes one space for each run of spaces and tabs in a statement, outside the parts that keep their
+ * spaces.
+ * @param statement - The statement, without the spaces at its start and end.
+ */
+export function singleSpaces(statement: string): string {
+  const single = (text: string) => text.replace(/[ \t]+/g, ' ');
+  let result = '';
+  let start = 0;
+  for (const kept of statement.matchAll(keptSpaces)) {
+    result += single(statement.slice(start, kept.index)) + kept[0];
+    start = kept.index + kept[0].length;
+  }
+  return result + single(statement.slice(start));
+}
+
+/**
  * formatBody indents the lines of the body of a UML diagram.
  * @param lines - The lines of the body.
  * @param unit - The text of one level of indentation, for example two spaces or a tab.
@@ -92,13 +118,13 @@ function formatBody(lines: readonly string[], unit: string, base: string): strin
       return line;
     }
     action = undefined;
-    const trimmed = line.trim();
-    if (trimmed === '') {
+    if (line.trim() === '') {
       return '';
     }
     if (kind === 'comment') {
-      return indent(open.length) + trimmed;
+      return indent(open.length) + line.trim();
     }
+    const trimmed = singleSpaces(line.trim());
     const innermost = open.at(-1);
     let result: string;
     if (innermost?.close.test(trimmed)) {

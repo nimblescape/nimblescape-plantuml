@@ -207,6 +207,10 @@ The kind of a class shows as a keyword above its name:
 | `protocol`, `struct`, `exception`, `record`, `dataclass` | «protocol», «struct», «exception», «record», «dataclass» |
 | `metaclass`, `stereotype` | «metaclass», «stereotype» |
 
+An abstract attribute or method (`{abstract}`) shows in italics, and a static
+one (`{static}` or `{classifier}`) is underlined, as the UML standard
+defines. PlantUML draws them so with and without the setting.
+
 How the extension does this, and the limits:
 
 - It adds the lines `skinparam classAttributeIconSize 0` and `hide circle`

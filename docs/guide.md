@@ -151,9 +151,12 @@ the diagram have their own colors, from the color theme of VS Code.
 
 ### Code completion
 
-While you type, the editor proposes PlantUML keywords and names, for example
-diagram types after `@start`, and keywords such as `participant`, `class` or
-`skinparam`. Ctrl+Space shows the proposals at any time.
+While you type, the editor proposes PlantUML keywords, for example diagram
+types after `@start`, and keywords such as `participant`, `class` or
+`skinparam`. It also proposes the names that the diagram declares, for example
+participants, classes and aliases. These names come from the same PlantUML
+file, or in a Markdown file from the same PlantUML block. Ctrl+Space shows the
+proposals at any time.
 
 ### Formatting
 

@@ -86,7 +86,9 @@ has syntax highlighting.
 ### R-MD-004
 
 **Code completion in Markdown.** The text editor offers code completion inside
-a PlantUML block of a Markdown file.
+a PlantUML block of a Markdown file. The proposals are the PlantUML keywords
+and the names that the same block declares, for example participants, classes
+and aliases. Names that other blocks of the file declare are not proposed.
 
 ### R-MD-005
 
@@ -138,7 +140,8 @@ highlighting.
 ### R-PUML-006
 
 **Code completion in PlantUML files.** The text editor offers code completion
-in a PlantUML file.
+in a PlantUML file. The proposals are the PlantUML keywords and the names that
+the same file declares, for example participants, classes and aliases.
 
 ### R-PUML-007
 

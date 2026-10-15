@@ -3,15 +3,15 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 /**
- * These tests check the UML notation for class diagrams (R-GEN-007): the
- * commands after each `@startuml` line, the keywords of the declarations,
- * and the lines and diagrams that stay as they are. The forms of the
- * declarations are those that the engine accepted with a stereotype in a
- * test in Chromium.
+ * These tests check the UML notation (R-GEN-007): the commands after each
+ * `@startuml` line, the keywords of the declarations, the modifiers of the
+ * members, the lines and diagrams that stay as they are, and that nothing is
+ * added twice. The forms of the declarations are those that the engine
+ * accepted with a stereotype in a test in Chromium.
  */
 
 import { describe, expect, test } from 'vitest';
-import { umlCommands, umlNotation, withKeyword } from './umlNotation';
+import { umlCommands, umlNotation, withKeyword, withModifiers } from './umlNotation';
 
 describe('withKeyword', () => {
   test('adds the UML keyword of each class kind after the name', () => {
@@ -57,10 +57,45 @@ describe('withKeyword', () => {
       'interface Map<K, List<V>>',
       'interface A as B',
       'interface I <<Interface>>',
+      'interface I «interface»',
+      'interface Remote <<Service, interface>>',
       'enum E <<enumeration>>',
+      'enum E <<enum>>',
       'C ..|> I',
     ]) {
       expect(withKeyword(line), line).toBe(line);
+    }
+  });
+});
+
+describe('withModifiers', () => {
+  test('writes the modifiers static and abstract at the start of a member as modifiers of PlantUML', () => {
+    const cases: [string, string][] = [
+      ['+ static count() : int', '+ {static} count() : int'],
+      ['  - static int max', '  - {static} int max'],
+      ['#abstract void park()', '#{abstract} void park()'],
+      ['abstract drive() : void', '{abstract} drive() : void'],
+      ['~ static final String NAME', '~ {static} final String NAME'],
+      ['+ final static int MAX', '+ final {static} int MAX'],
+      ['static abstract Ä()', '{static} {abstract} Ä()'],
+    ];
+    for (const [line, expected] of cases) {
+      expect(withModifiers(line), line).toBe(expected);
+    }
+  });
+
+  test('leaves members with a modifier of PlantUML and other lines as they are', () => {
+    for (const line of [
+      '+ {static} count() : int',
+      '+ {classifier} static count() : int',
+      '{abstract} abstract drive()',
+      '- id : int',
+      '+ staticCount : int',
+      'static : boolean',
+      '-- static members --',
+      'final int MAX',
+    ]) {
+      expect(withModifiers(line), line).toBe(line);
     }
   });
 });
@@ -71,6 +106,60 @@ describe('umlNotation', () => {
     expect(umlNotation(lines)).toEqual([
       '@startuml', ...umlCommands, 'interface I <<interface>>', '@enduml',
       '@startuml', ...umlCommands, 'enum E <<enumeration>>', '@enduml',
+    ]);
+  });
+
+  test('changes a diagram without an @enduml line up to the end of the text', () => {
+    expect(umlNotation(['@startuml', 'interface I'])).toEqual(['@startuml', ...umlCommands, 'interface I <<interface>>']);
+  });
+
+  test('does not add a command that the diagram sets itself', () => {
+    const cases: [string[], string[]][] = [
+      [['skinparam style strictuml'], ['skinparam classAttributeIconSize 0']],
+      [['SkinParam Style StrictUML'], ['skinparam classAttributeIconSize 0']],
+      [['skinparam classAttributeIconSize 8'], ['skinparam style strictuml']],
+      [['skinparam class {', '  AttributeIconSize 8', '}'], ['skinparam style strictuml']],
+      [['skinparam style strictuml', 'skinparam classAttributeIconSize 0'], []],
+      [["' skinparam style strictuml"], umlCommands as string[]],
+    ];
+    for (const [body, added] of cases) {
+      expect(umlNotation(['@startuml', ...body, '@enduml']), body.join('\n')).toEqual(['@startuml', ...added, ...body, '@enduml']);
+    }
+  });
+
+  test('writes the modifiers of the members in the body of a class only', () => {
+    const body = [
+      'package shop {',
+      'abstract class Vehicle {',
+      '+ static count() : int',
+      '+ abstract drive() : void',
+      '}',
+      'interface Movable {',
+      '+ abstract move() : void',
+      '}',
+      'static Thing',
+      '}',
+      'skinparam class {',
+      '  abstract Value',
+      '}',
+    ];
+    expect(umlNotation(['@startuml', ...body, '@enduml'])).toEqual([
+      '@startuml',
+      ...umlCommands,
+      'package shop {',
+      'abstract class Vehicle {',
+      '+ {static} count() : int',
+      '+ {abstract} drive() : void',
+      '}',
+      'interface Movable <<interface>> {',
+      '+ {abstract} move() : void',
+      '}',
+      'static Thing',
+      '}',
+      'skinparam class {',
+      '  abstract Value',
+      '}',
+      '@enduml',
     ]);
   });
 

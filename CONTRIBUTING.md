@@ -17,7 +17,7 @@ each requirement with an ID.
 | `src/language/completion.ts` | The code completion: the declared names of a PlantUML text, and the proposals for a position. It uses no API of VS Code. |
 | `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks. It uses no API of VS Code. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
-| `src/diagram/umlNotation.ts` | The UML notation for class diagrams of the setting `classIcons`: the commands `hide circle` and `skinparam classAttributeIconSize 0`, and the UML keyword as a stereotype in each declaration of a class kind. |
+| `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
 | `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, for the code completion and the formatting. |

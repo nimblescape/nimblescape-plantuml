@@ -33,23 +33,23 @@ describe('diagramSources', () => {
 describe('showDiagrams', () => {
   test('writes one block for each diagram and reuses the blocks of the last message', () => {
     const container = document.createElement('main');
-    showDiagrams(container, { type: 'update', text: '@startuml\nA\n@enduml\n@startuml\nB\n@enduml', settings: { classIcons: true } });
+    showDiagrams(container, { type: 'update', text: '@startuml\nA\n@enduml\n@startuml\nB\n@enduml', settings: { umlNotation: true } });
     const first = container.querySelector(`.${blockClass}`);
     expect([...container.children].map((block) => block.getAttribute(sourceAttribute))).toEqual(['@startuml\nA\n@enduml', '@startuml\nB\n@enduml']);
     expect(first?.hasAttribute(settingsAttribute)).toBe(false);
 
-    showDiagrams(container, { type: 'update', text: '@startuml\nA2\n@enduml', settings: { classIcons: false } });
+    showDiagrams(container, { type: 'update', text: '@startuml\nA2\n@enduml', settings: { umlNotation: false } });
     expect(container.children).toHaveLength(1);
     expect(container.firstElementChild).toBe(first);
     expect(first?.getAttribute(sourceAttribute)).toBe('@startuml\nA2\n@enduml');
-    expect(first?.getAttribute(settingsAttribute)).toBe('{"classIcons":false}');
+    expect(first?.getAttribute(settingsAttribute)).toBe('{"umlNotation":false}');
   });
 
   test('shows a message for a file without a diagram', () => {
     const container = document.createElement('main');
-    showDiagrams(container, { type: 'update', text: '', settings: { classIcons: true } });
+    showDiagrams(container, { type: 'update', text: '', settings: { umlNotation: true } });
     expect(container.querySelector(`.${emptyClass}`)?.textContent).toBe('The file has no diagram.');
-    showDiagrams(container, { type: 'update', text: 'A -> B', settings: { classIcons: true } });
+    showDiagrams(container, { type: 'update', text: 'A -> B', settings: { umlNotation: true } });
     expect(container.querySelector(`.${emptyClass}`)).toBeNull();
   });
 });

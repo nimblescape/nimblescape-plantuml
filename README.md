@@ -25,7 +25,7 @@ installation and no server, and it works offline.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `nimblescape.plantuml.classIcons` | `true` | Shows the colored icons of PlantUML in class diagrams. The value `false` shows the UML notation instead: a keyword such as «interface» above the name of a class, and the characters `-`, `#`, `~` and `+` for the visibility of its attributes and methods. |
+| `nimblescape.plantuml.umlNotation` | `true` | Renders UML diagrams in the notation of the UML standard, as far as PlantUML allows: a keyword such as «interface» above the name of a class instead of a colored circle, the characters `-`, `#`, `~` and `+` for the visibility of attributes and methods, underlined static members, and the UML style of PlantUML for sequence and object diagrams. The value `false` shows the own notation of PlantUML. |
 
 ## About PlantUML
 

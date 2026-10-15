@@ -94,11 +94,11 @@ describe('extendMarkdownIt', () => {
     const envs: unknown[] = [];
     const md = extendMarkdownIt(new MarkdownIt(), (env) => {
       envs.push(env);
-      return { ...defaultSettings, classIcons: false };
+      return { ...defaultSettings, umlNotation: false };
     });
     const env = { currentDocument: 'a.md' };
     const html = md.render('```plantuml\nA\n```\n\n```js\nx\n```\n', env);
-    expect(html).toContain(`${settingsAttribute}="{&quot;classIcons&quot;:false}"`);
+    expect(html).toContain(`${settingsAttribute}="{&quot;umlNotation&quot;:false}"`);
     expect(html.match(new RegExp(settingsAttribute, 'g'))).toHaveLength(1);
     expect(envs).toEqual([env]);
     expect(extendMarkdownIt(new MarkdownIt(), () => defaultSettings).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);

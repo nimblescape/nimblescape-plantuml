@@ -21,7 +21,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Language PlantUML](#plantuml-files) | | yes | available | [R-PUML-001](requirements.md#r-puml-001) |
 | [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | in development | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
 | [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | in development | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
-| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | in development | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
+| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side, with marks on the changed diagrams | in development | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | in development | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | in development | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
@@ -128,20 +128,40 @@ PlantUML files work like Markdown files:
 | Command | Keys | Effect |
 | --- | --- | --- |
 | PlantUML: Open Preview to the Side | Ctrl+K V | Opens the preview next to the text. The preview follows every change while you type. |
-| PlantUML: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview, in both directions. |
-| PlantUML: Open as Preview | button in the title bar of the text editor | Shows the preview in the same tab. |
-| PlantUML: Reopen as Source | button in the title bar of the preview | Shows the text in the same tab. |
+| PlantUML: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview, in both directions. In a diff, it switches between the diff and the rendered diff. |
+| PlantUML: Open as Preview | button in the title bar of the text editor or of the diff | Shows the preview or the rendered diff in the same tab. |
+| PlantUML: Reopen as Source | button in the title bar of the preview or of the rendered diff | Shows the text or the diff in the same tab. |
 
 ### Rendered Git diff of PlantUML files
 
 1. Open the diff of the file, for example from the view "Source Control".
-2. Run "View: Reopen Editor With…" from the command palette, and choose "PlantUML Preview".
+2. Press Ctrl+Shift+V, or click the button "Open as Preview" in the title bar.
 
-The diff then shows the old diagram and the new diagram next to each other.
-It has no marks on the changes: VS Code offers the marks only through an API
-that is still in test (`customEditorDiffs`), and extensions in the Marketplace
-cannot use such an API. The extension adds the marks when VS Code makes the
-API final.
+The tab then shows the rendered diff: the old diagrams on the left and the new
+diagrams on the right. Equal diagrams stand next to each other, and a changed
+diagram stands next to its old version. A bar in the colors of the change
+marks of the editor marks each change:
+
+| Bar | Meaning |
+| --- | --- |
+| On both sides, in the color of changed lines | The diagram changed. |
+| On the right side, in the color of added lines | The diagram is new. |
+| On the left side, in the color of deleted lines | The diagram was removed. |
+
+The rendered diff follows your changes while you type. Ctrl+Shift+V or the
+button "Reopen as Source" switches back to the diff.
+
+Limits:
+
+- The marks show which diagrams changed, not which elements in a diagram
+  changed. VS Code offers marks on single lines only through an API that is
+  still in test (`customEditorDiffs`), and extensions in the Marketplace
+  cannot use such an API.
+- In VS Code 1.142 and earlier, "View: Reopen Editor With…" and
+  "PlantUML Preview" in a diff show the message "The editor could not be
+  opened due to an unexpected error". This is an error of VS Code, and the
+  source code of the next VS Code version has a fix for it. Use Ctrl+Shift+V
+  or the button instead.
 
 ## Editing
 

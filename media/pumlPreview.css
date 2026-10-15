@@ -5,9 +5,12 @@
  */
 
 /*
- * The styles of the preview of PlantUML files. The page uses the colors and
- * the fonts of the theme of VS Code. A diagram is never wider than the
- * preview, and an error uses the error color of the theme.
+ * The styles of the preview of PlantUML files and of their rendered diff. The
+ * page uses the colors and the fonts of the theme of VS Code. A diagram is
+ * never wider than its column, and an error uses the error color of the
+ * theme. A rendered diff shows the original diagrams on the left and the
+ * modified ones on the right; a bar in the colors of the change marks of the
+ * editor marks a changed side.
  */
 
 body {
@@ -46,4 +49,27 @@ body {
 
 .nimblescape-plantuml-empty {
   color: var(--vscode-descriptionForeground);
+}
+
+.nimblescape-plantuml-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.nimblescape-plantuml-side {
+  padding-left: 8px;
+  border-left: 3px solid transparent;
+}
+
+.nimblescape-plantuml-row-modified > .nimblescape-plantuml-side {
+  border-left-color: var(--vscode-editorGutter-modifiedBackground);
+}
+
+.nimblescape-plantuml-row-removed > .nimblescape-plantuml-side:first-child {
+  border-left-color: var(--vscode-editorGutter-deletedBackground);
+}
+
+.nimblescape-plantuml-row-added > .nimblescape-plantuml-side:last-child {
+  border-left-color: var(--vscode-editorGutter-addedBackground);
 }

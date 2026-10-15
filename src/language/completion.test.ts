@@ -184,6 +184,14 @@ describe('complete', () => {
     }
   });
 
+  test('proposes nothing for a complete word, so that Enter starts a new line', () => {
+    expect(at('@startuml|').labels).toEqual([]);
+    expect(at('@StartUML|').labels).toEqual([]);
+    expect(at('participant Bob', 'Alice -> Bob|').labels).toEqual([]);
+    expect(at('participant Bob', 'participant Bobby', 'Alice -> Bob|').labels).toEqual(['Bob', 'Bobby', ...linkKeywords]);
+    expect(at('@start|').labels).toContain('@startuml');
+  });
+
   test('does not propose the name that the line of the cursor declares', () => {
     expect(at('class Ca|').labels).not.toContain('Ca');
     expect(at('Alice -> Bo|').labels).not.toContain('Alice');

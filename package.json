@@ -65,7 +65,8 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onWebviewPanel:nimblescape.plantuml.sidePreview"
+    "onWebviewPanel:nimblescape.plantuml.sidePreview",
+    "onWebviewPanel:nimblescape.plantuml.diffPreview"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -180,14 +181,14 @@
         },
         {
           "command": "nimblescape.plantuml.reopenAsSource",
-          "when": "activeCustomEditorId == 'nimblescape.plantuml.preview'",
+          "when": "activeCustomEditorId == 'nimblescape.plantuml.preview' || activeWebviewPanelId == 'nimblescape.plantuml.diffPreview'",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
           "command": "nimblescape.plantuml.togglePreview",
-          "when": "resourceLangId == plantuml || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+          "when": "resourceLangId == plantuml || activeCustomEditorId == 'nimblescape.plantuml.preview' || activeWebviewPanelId == 'nimblescape.plantuml.diffPreview'"
         },
         {
           "command": "nimblescape.plantuml.reopenAsPreview",
@@ -195,7 +196,7 @@
         },
         {
           "command": "nimblescape.plantuml.reopenAsSource",
-          "when": "activeCustomEditorId == 'nimblescape.plantuml.preview'"
+          "when": "activeCustomEditorId == 'nimblescape.plantuml.preview' || activeWebviewPanelId == 'nimblescape.plantuml.diffPreview'"
         },
         {
           "command": "nimblescape.plantuml.showPreviewToSide",
@@ -208,7 +209,7 @@
         "command": "nimblescape.plantuml.togglePreview",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "(editorLangId == plantuml && !notebookEditorFocused) || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+        "when": "(editorLangId == plantuml && !notebookEditorFocused) || activeCustomEditorId == 'nimblescape.plantuml.preview' || activeWebviewPanelId == 'nimblescape.plantuml.diffPreview'"
       },
       {
         "command": "nimblescape.plantuml.showPreviewToSide",

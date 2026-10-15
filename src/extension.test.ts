@@ -61,9 +61,17 @@ class FakeCompletionItem {
   ) {}
 }
 
+/** FakeCompletionList stands for a vscode.CompletionList. */
+class FakeCompletionList {
+  constructor(
+    readonly items: FakeCompletionItem[],
+    readonly isIncomplete: boolean,
+  ) {}
+}
+
 /** FakeProvider stands for a vscode.CompletionItemProvider with a fake document. */
 interface FakeProvider {
-  provideCompletionItems(document: { version: number; getText(): string }, position: { line: number; character: number }): FakeCompletionItem[] | undefined;
+  provideCompletionItems(document: { version: number; getText(): string }, position: { line: number; character: number }): FakeCompletionList | undefined;
 }
 
 /** providers records the registered completion providers by their language, with their trigger characters. */
@@ -178,6 +186,7 @@ beforeEach(() => {
     TextEdit: { replace: (range: FakeRange, newText: string): FakeEdit => ({ range, newText }) },
     Range: FakeRange,
     CompletionItem: FakeCompletionItem,
+    CompletionList: FakeCompletionList,
     // The kinds are their names here, so that the tests can read them.
     CompletionItemKind: new Proxy({}, { get: (_target, name) => name }),
   }));
@@ -212,14 +221,14 @@ test('the export reads the settings of the rendered document and adds them to th
   expect(md.render(block, { currentDocument: document })).toContain(`${settingsAttribute}="{&quot;umlNotation&quot;:false}"`);
   expect(requests).toEqual([[settingsSection, document.path]]);
 
-  // A text without a document gets the settings of the window, which keep the icons here.
+  // A text without a document gets the settings of the window, which have the default values here.
   expect(md.render(block)).not.toContain(settingsAttribute);
   expect(requests.at(-1)).toEqual([settingsSection, '']);
 });
 
 test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
   const { context } = await activate();
-  expect(context.subscriptions).toHaveLength(16);
+  expect(context.subscriptions).toHaveLength(17);
   const change = (changed: string) => configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
   change('editor');
   expect(commands).toEqual([]);
@@ -236,7 +245,7 @@ function completeIn(language: string, text: string) {
   const before = text.slice(0, text.indexOf('‸')).split('\n');
   const document = { version: 1, getText: () => text.replace('‸', '') };
   const position = { line: before.length - 1, character: before.at(-1)!.length };
-  return providers.get(language)!.provider.provideCompletionItems(document, position);
+  return providers.get(language)!.provider.provideCompletionItems(document, position)?.items;
 }
 
 test('the completion of PlantUML files proposes keywords and the names of the file, for the word at the cursor', async () => {
@@ -247,6 +256,15 @@ test('the completion of PlantUML files proposes keywords and the names of the fi
   const shape = items.find((item) => item.label === 'Shape')!;
   expect(shape).toMatchObject({ kind: 'Interface', detail: 'interface' });
   expect(shape.range).toEqual({ inserting: new FakeRange(3, 9, 3, 11), replacing: new FakeRange(3, 9, 3, 14) });
+});
+
+test('the completion list is incomplete, so that VS Code asks again and closes it after a complete word', async () => {
+  await activate();
+  const provider = providers.get('plantuml')!.provider;
+  const document = { version: 1, getText: () => '@startuml\n' };
+  expect(provider.provideCompletionItems(document, { line: 0, character: 1 })).toMatchObject({ isIncomplete: true });
+  expect(provider.provideCompletionItems(document, { line: 0, character: 1 })!.items.length).toBeGreaterThan(0);
+  expect(provider.provideCompletionItems(document, { line: 0, character: 9 })!.items).toEqual([]);
 });
 
 test('the completion of Markdown files works in PlantUML blocks only, with the names of the same block', async () => {

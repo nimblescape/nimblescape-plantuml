@@ -84,21 +84,24 @@ function blockAt(document: vscode.TextDocument, line: number): { lines: string[]
 
 /**
  * completionItems turns the result of the completion into completion items. Each item replaces the word at the
- * cursor, with its `@`, `!` or opening quote, so that the editor filters the items by that word.
+ * cursor, with its `@`, `!` or opening quote, so that the editor filters the items by that word. The list is
+ * incomplete, so that the editor asks again for each typed character: the completion proposes nothing for a
+ * complete word, and the editor then closes the list, so that Enter starts a new line.
  * @param completion - The result of the completion.
  * @param position - The position of the cursor.
  */
-function completionItems(completion: Completion, position: vscode.Position): vscode.CompletionItem[] {
+function completionItems(completion: Completion, position: vscode.Position): vscode.CompletionList {
   const range = {
     inserting: new vscode.Range(position.line, completion.start, position.line, position.character),
     replacing: new vscode.Range(position.line, completion.start, position.line, completion.end),
   };
-  return completion.proposals.map((proposal) => {
+  const items = completion.proposals.map((proposal) => {
     const item = new vscode.CompletionItem(proposal.label, vscode.CompletionItemKind[proposal.kind]);
     item.range = range;
     item.detail = proposal.detail;
     return item;
   });
+  return new vscode.CompletionList(items, true);
 }
 
 /**

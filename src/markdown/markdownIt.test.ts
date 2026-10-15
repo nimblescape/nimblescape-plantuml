@@ -13,7 +13,7 @@
 
 import MarkdownIt from 'markdown-it';
 import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, extendMarkdownIt, isPlantUmlInfo, sourceAttribute, withoutDiffMarkers } from './markdownIt';
+import { blockClass, contentClass, extendMarkdownIt, isPlantUmlInfo, preambleAttribute, sourceAttribute, withoutDiffMarkers } from './markdownIt';
 
 /**
  * sourceMap is the rule of the Markdown preview of VS Code that adds the first source line and the class
@@ -87,6 +87,20 @@ describe('extendMarkdownIt', () => {
       `<div data-line="2" class="code-line ${blockClass}" dir="auto" ${sourceAttribute}="@startuml\nA -&gt; B\n@enduml\n">` +
         `<div class="${contentClass}"><pre class="${blockClass}-source"><code>@startuml\nA -&gt; B\n@enduml\n</code></pre></div></div>`,
     );
+  });
+
+  test('adds the lines of the settings to a PlantUML block only, and only when there are lines', () => {
+    const envs: unknown[] = [];
+    const md = extendMarkdownIt(new MarkdownIt(), (env) => {
+      envs.push(env);
+      return ['skinparam a 1', 'skinparam b 2'];
+    });
+    const env = { currentDocument: 'a.md' };
+    const html = md.render('```plantuml\nA\n```\n\n```js\nx\n```\n', env);
+    expect(html).toContain(`${preambleAttribute}="skinparam a 1\nskinparam b 2"`);
+    expect(html.match(new RegExp(preambleAttribute, 'g'))).toHaveLength(1);
+    expect(envs).toEqual([env]);
+    expect(preview(true).render('```plantuml\nA\n```\n')).not.toContain(preambleAttribute);
   });
 
   test('escapes the diagram text in the attribute and in the text', () => {

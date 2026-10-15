@@ -21,7 +21,7 @@
  * "Disable"), the script loads Viz.js first.
  */
 
-import { blockClass, contentClass, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, preambleAttribute, sourceAttribute } from '../markdown/markdownIt';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
 export interface Engine {
@@ -50,13 +50,22 @@ const renderTimeout = 60_000;
 const cacheLimit = 200;
 
 /**
+ * isStartLine tells whether a line starts a diagram.
+ * @param line - A line of the diagram text.
+ */
+const isStartLine = (line: string): boolean => line.trimStart().startsWith('@start');
+
+/**
  * diagramLines returns the lines that the engine renders for the text of a block. A block without a line that
  * starts with `@start` holds the body of a diagram only, so the lines get `@startuml` and `@enduml` around it.
+ * The lines of the settings follow each `@start` line, so the lines of the diagram itself override them.
  * @param source - The text of the block.
+ * @param preamble - The lines of the settings.
  */
-export function diagramLines(source: string): string[] {
+export function diagramLines(source: string, preamble: readonly string[] = []): string[] {
   const lines = source.replace(/\r?\n$/, '').split(/\r\n|\r|\n/);
-  return lines.some((line) => line.trimStart().startsWith('@start')) ? lines : ['@startuml', ...lines, '@enduml'];
+  const diagram = lines.some(isStartLine) ? lines : ['@startuml', ...lines, '@enduml'];
+  return preamble.length ? diagram.flatMap((line) => (isStartLine(line) ? [line, ...preamble] : [line])) : diagram;
 }
 
 /**
@@ -94,13 +103,15 @@ export class PreviewRenderer {
 
   /**
    * update shows the kept result in every block that does not show it yet, and queues the rendering of the
-   * blocks without a result.
+   * blocks without a result. A result belongs to the theme, the lines of the settings and the text of a block.
    */
   update(): void {
     const dark = this.#isDark();
     for (const element of this.#root.querySelectorAll<HTMLElement>(`.${blockClass}[${sourceAttribute}]`)) {
       const source = element.getAttribute(sourceAttribute) ?? '';
-      const key = `${dark ? 'dark' : 'light'}\n${source}`;
+      const preamble = element.getAttribute(preambleAttribute);
+      const lines = preamble ? preamble.split('\n') : [];
+      const key = JSON.stringify([dark, lines, source]);
       if (element.dataset.plantumlShown === key) {
         continue;
       }
@@ -111,7 +122,7 @@ export class PreviewRenderer {
       } else if (!this.#pending.has(key)) {
         this.#pending.add(key);
         this.#queue = this.#queue
-          .then(() => this.#render(source, dark))
+          .then(() => this.#render(diagramLines(source, lines), dark))
           .then((rendered) => this.#keep(key, rendered))
           .finally(() => {
             this.#pending.delete(key);
@@ -130,7 +141,7 @@ export class PreviewRenderer {
 
   /**
    * #keep stores a result and removes the oldest results above the limit.
-   * @param key - The theme and the text of the diagram.
+   * @param key - The theme, the lines of the settings and the text of the diagram.
    * @param result - The result of its rendering.
    */
   #keep(key: string, result: Result): void {
@@ -145,10 +156,10 @@ export class PreviewRenderer {
 
   /**
    * #render renders one diagram.
-   * @param source - The text of the block.
+   * @param lines - The lines of the diagram.
    * @param dark - Whether the diagram is for a dark background.
    */
-  async #render(source: string, dark: boolean): Promise<Result> {
+  async #render(lines: string[], dark: boolean): Promise<Result> {
     try {
       const engine = await this.#loadEngine();
       return await new Promise<Result>((resolve) => {
@@ -157,7 +168,7 @@ export class PreviewRenderer {
           clearTimeout(timer);
           resolve(result);
         };
-        engine.renderToString(diagramLines(source), (svg) => finish({ svg }), (message) => finish({ error: String(message) }), { dark });
+        engine.renderToString(lines, (svg) => finish({ svg }), (message) => finish({ error: String(message) }), { dark });
       });
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };

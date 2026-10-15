@@ -98,6 +98,17 @@
         ],
         "configuration": "./language-configuration.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "nimblescape PlantUML",
+      "properties": {
+        "nimblescape.plantuml.visibilityIcons": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "Show the visibility of the attributes and methods of classes as the colored icons of PlantUML. The value `false` shows the UML characters instead: `-` private, `#` protected, `~` package private, `+` public. A diagram that sets `skinparam classAttributeIconSize` itself keeps its own value."
+        }
+      }
+    }
   }
 }

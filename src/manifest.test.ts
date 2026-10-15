@@ -5,15 +5,15 @@
 /**
  * These tests check the parts of the extension that are files, not code: the
  * name and the entry point of the manifest, the language contribution and its
- * editing rules, the files of the package, the bundled engine and its license,
- * the third-party notices, and the links of the documents. No installed
- * editor is touched.
+ * editing rules, the settings and their documentation, the files of the
+ * package, the bundled engine and its license, the third-party notices, and
+ * the links of the documents. No installed editor is touched.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { expect, test } from 'vitest';
-import * as extension from './extension';
+import { defaultSettings, settingsSection } from './settings';
 
 /** repository is the root folder of this repository, which holds the manifest and the documents. */
 const repository = path.resolve(__dirname, '..');
@@ -77,11 +77,23 @@ test('the manifest follows the naming scheme of the publisher nimblescape', () =
   expect(manifest.license).toBe('MIT');
 });
 
-test('the entry point is the bundle that esbuild.mjs writes, and the module exports activate and deactivate', () => {
+test('the entry point is the bundle that esbuild.mjs writes', () => {
   expect(manifest.main).toBe('./dist/extension.js');
   expect(read('esbuild.mjs')).toContain(`const outfile = '${manifest.main.slice(2)}';`);
-  expect(typeof extension.activate).toBe('function');
-  expect(typeof extension.deactivate).toBe('function');
+});
+
+test('the manifest contributes the settings of src/settings.ts with their defaults', () => {
+  const properties = manifest.contributes.configuration.properties;
+  const contributed = Object.fromEntries(Object.entries<any>(properties).map(([key, value]) => [key, value.default]));
+  const expected = Object.fromEntries(Object.entries(defaultSettings).map(([key, value]) => [`${settingsSection}.${key}`, value]));
+  expect(contributed).toEqual(expected);
+});
+
+test('the README and the guide name every setting that the manifest contributes', () => {
+  for (const setting of Object.keys(manifest.contributes.configuration.properties)) {
+    expect(read('README.md'), `README.md does not name ${setting}`).toContain(`\`${setting}\``);
+    expect(read('docs/guide.md'), `docs/guide.md does not name ${setting}`).toContain(`\`${setting}\``);
+  }
 });
 
 test('the language plantuml covers the PlantUML file extensions with the comments of PlantUML', () => {

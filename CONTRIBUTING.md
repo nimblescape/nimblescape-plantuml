@@ -10,11 +10,12 @@ each requirement with an ID.
 
 | File | Purpose |
 | --- | --- |
-| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview. |
+| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, and refreshes the previews when a setting changes. |
+| `src/settings.ts` | The settings of the extension, their defaults, and the PlantUML lines that apply them to a diagram. It uses no API of VS Code, so its tests need no fake of the editor API. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: loads the engine and renders the PlantUML blocks of the page, one at a time, and keeps the results. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
-| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
 | `dist/` | The bundles `dist/extension.js` and `dist/markdownPreview.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
@@ -67,6 +68,7 @@ change can be tried without a package.
 - `extensionKind` selects the workspace host.
 - The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions.
 - The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`, so the extension needs no activation event. The section [Markdown preview](#markdown-preview) explains it.
+- The configuration contribution declares the settings of `src/settings.ts` in the section `nimblescape.plantuml`, with the scope `resource`, so that a folder of a workspace can have its own value. A test keeps the defaults equal to `src/settings.ts`, and a test checks that the README and the guide name every setting.
 - The untrusted-workspace and virtual-workspace capabilities state that the extension only reads.
 - The runtime dependency is the engine `@plantuml/core`, pinned to one version; the section [Engine](#engine) explains it. The development dependencies are the build, test and packaging tools.
 
@@ -124,11 +126,19 @@ requests and no frames. The script therefore:
 - loads the engine with a dynamic import, which keeps the nonce, and only when the page has a PlantUML block;
 - sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) through script elements with the nonce; a library of the PlantUML standard library, which the package does not contain, fails with a message;
 - loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly;
-- renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme and text;
+- puts the lines of the settings, which the plugin writes into the attribute `data-plantuml-preamble`, after each `@start` line of the diagram;
+- renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, lines of the settings and text;
 - renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once.
 
 The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
 or high contrast dark.
+
+The plugin reads the settings of the extension for the document that the
+preview names in `currentDocument` of the render environment; the rendered
+diff renders a text without a document, which gets the settings of the
+window. The preview renders again only when its document or a setting of the
+Markdown extension changes, so the extension runs the command
+`markdown.preview.refresh` when one of its own settings changes.
 
 ## Naming
 

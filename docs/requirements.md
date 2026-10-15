@@ -16,8 +16,8 @@ comes first, the support of PlantUML files second.
 | Step | Content | Requirements |
 | --- | --- | --- |
 | 1 | Setup: manifest, build, the bundled engine, CI, release workflows, license notices | [R-GEN-001](#r-gen-001), [R-GEN-004](#r-gen-004), [R-GEN-005](#r-gen-005), [R-GEN-006](#r-gen-006), [R-PUML-001](#r-puml-001) |
-| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006) |
-| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-007](#r-puml-007) |
+| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007) |
+| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-007](#r-puml-007), [R-GEN-007](#r-gen-007) |
 | 4 | Tests, README, icon, and a release workflow that is ready but not run | all |
 
 ## General
@@ -62,6 +62,16 @@ official product of the PlantUML project.
 workflows as the other extensions of the publisher (`release.yml`,
 `marketplace-identity.yml`). Nobody publishes the extension until Hannes asks
 for it.
+
+### R-GEN-007
+
+**UML characters for visibility.** A setting replaces the colored icons that
+PlantUML draws for the visibility of the attributes and methods of classes
+with the UML characters `-` (private), `#` (protected), `~` (package private)
+and `+` (public). The setting applies to the PlantUML blocks of Markdown files
+and to PlantUML files. By default, the icons of PlantUML show. A diagram that
+sets this display itself (`skinparam classAttributeIconSize`) keeps its own
+value.
 
 ## Markdown
 

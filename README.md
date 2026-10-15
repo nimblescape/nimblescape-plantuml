@@ -20,6 +20,12 @@ installation and no server, and it works offline.
 | --- | --- |
 | `.puml`, `.plantuml`, `.pu`, `.iuml` and `.wsd` | PlantUML, with the line comment `'` and the block comment `/' '/` |
 
+## Settings
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `nimblescape.plantuml.visibilityIcons` | `true` | Shows the visibility of the attributes and methods of classes as the colored icons of PlantUML. The value `false` shows the UML characters `-`, `#`, `~` and `+` instead. |
+
 ## About PlantUML
 
 nimblescape PlantUML is not a product of the PlantUML project, and the

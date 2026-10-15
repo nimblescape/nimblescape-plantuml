@@ -26,6 +26,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Code completion](#code-completion) | yes | yes | planned | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
+| [UML characters for visibility](#uml-characters-for-visibility) | yes | yes | Markdown: in development; PlantUML files: planned | [R-GEN-007](requirements.md#r-gen-007) |
 
 ## How the extension renders
 
@@ -167,6 +168,35 @@ The commands "Format Document" and "Format Selection" indent
 the blocks of a PlantUML file, for example the content of `package { … }` or
 `if … endif`. In a Markdown file, the formatting changes only the text of the
 PlantUML blocks and no other text of the file.
+
+## Settings
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `nimblescape.plantuml.visibilityIcons` | `true` | `true` shows the visibility of the attributes and methods of classes as the colored icons of PlantUML. `false` shows the UML characters. |
+
+The settings apply to the PlantUML blocks of Markdown files and to PlantUML
+files. You can set them for the user, for a workspace or for a folder of a
+workspace. An open preview renders again when a setting changes.
+
+### UML characters for visibility
+
+PlantUML shows the visibility of the attributes and methods of a class as
+colored icons. With `nimblescape.plantuml.visibilityIcons` set to `false`, the
+diagrams show the characters of the UML standard instead:
+
+| Visibility | Character |
+| --- | --- |
+| private | `-` |
+| protected | `#` |
+| package private | `~` |
+| public | `+` |
+
+The extension does this with the line `skinparam classAttributeIconSize 0`,
+which it adds after the `@start` line of each diagram. A diagram that sets
+`skinparam classAttributeIconSize` itself keeps its own value, because its own
+line comes later. When a diagram has an error, the error picture of PlantUML
+can show the added line.
 
 ---
 

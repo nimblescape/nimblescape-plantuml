@@ -38,6 +38,13 @@ export const contentClass = `${blockClass}-content`;
 export const sourceAttribute = 'data-plantuml-source';
 
 /**
+ * preambleAttribute is the attribute that carries the lines of the settings
+ * ([R-GEN-007](../../docs/requirements.md#r-gen-007)) to the preview script, which puts them after the `@start`
+ * line of the diagram. A block without lines of the settings has no such attribute.
+ */
+export const preambleAttribute = 'data-plantuml-preamble';
+
+/**
  * diffMarker matches an empty element that the rendered diff of VS Code inserts into the Markdown text at the
  * start or at the end of a changed part of a line
  * (extensions/markdown-language-features/src/preview/documentRenderer.ts).
@@ -65,9 +72,12 @@ export function isPlantUmlInfo(info: string): boolean {
  * extendMarkdownIt adds the rendering of PlantUML blocks to a markdown-it instance. The Markdown extension of
  * VS Code calls it for the preview, through the export of the same name of the extension.
  * @param md - The markdown-it instance of the preview.
+ * @param preamble - Returns the lines of the settings for a rendering; it receives the environment of the
+ *   rendering, in which the preview names the document. It runs on every rendering, so a changed setting applies
+ *   to the next one.
  * @returns The same instance.
  */
-export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
+export function extendMarkdownIt(md: MarkdownIt, preamble: (env: unknown) => readonly string[] = () => []): MarkdownIt {
   const fence = md.renderer.rules.fence;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
@@ -78,6 +88,10 @@ export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
     // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute.
     token.attrJoin('class', blockClass);
     token.attrSet(sourceAttribute, source);
+    const lines = preamble(env);
+    if (lines.length) {
+      token.attrSet(preambleAttribute, lines.join('\n'));
+    }
     // The text of the block shows until the diagram replaces it, and stays when the preview runs no scripts.
     return (
       `<div${self.renderAttrs(token)}><div class="${contentClass}">` +

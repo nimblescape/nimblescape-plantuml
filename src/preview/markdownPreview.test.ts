@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, preambleAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { diagramLines, Engine, isDarkTheme, PreviewRenderer } from './markdownPreview';
 
 /** FakeEngine records its calls and answers each call after a turn of the event loop. */
@@ -43,8 +43,8 @@ class FakeEngine implements Engine {
  * block returns the HTML of a PlantUML block as the markdown-it plugin writes it.
  * @param source - The text of the block.
  */
-const block = (source: string): string =>
-  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}">` +
+const block = (source: string, preamble?: string): string =>
+  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}"${preamble ? ` ${preambleAttribute}="${preamble}"` : ''}>` +
   `<div class="${contentClass}"><pre class="${blockClass}-source"><code>${source}</code></pre></div></div>`;
 
 describe('diagramLines', () => {
@@ -55,6 +55,13 @@ describe('diagramLines', () => {
 
   test('puts @startuml and @enduml around the body of a diagram', () => {
     expect(diagramLines('A -> B\n')).toEqual(['@startuml', 'A -> B', '@enduml']);
+  });
+
+  test('puts the lines of the settings after each @start line, before the lines of the diagram', () => {
+    expect(diagramLines('A -> B\n', ['s 1', 's 2'])).toEqual(['@startuml', 's 1', 's 2', 'A -> B', '@enduml']);
+    expect(diagramLines('@startuml\nA\n@enduml\n@startuml\nB\n@enduml', ['s'])).toEqual([
+      '@startuml', 's', 'A', '@enduml', '@startuml', 's', 'B', '@enduml',
+    ]);
   });
 });
 
@@ -122,6 +129,22 @@ describe('PreviewRenderer', () => {
     await renderer.whenIdle();
     expect(engine.calls.map((call) => call.dark)).toEqual([false, true]);
     expect(root.querySelector('svg')?.getAttribute('data-dark')).toBe('true');
+  });
+
+  test('renders with the lines of the settings, and again when they change', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A', 'skinparam classAttributeIconSize 0');
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    root.innerHTML = block('A');
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls.map((call) => call.lines)).toEqual([
+      ['@startuml', 'skinparam classAttributeIconSize 0', 'A', '@enduml'],
+      ['@startuml', 'A', '@enduml'],
+    ]);
   });
 
   test('shows the message of an error above the text of the block', async () => {

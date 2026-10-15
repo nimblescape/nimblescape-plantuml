@@ -46,6 +46,7 @@ each requirement with an ID.
 | `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
 | `.github/dependabot.yml` | Proposes weekly updates of the development tools, of the engine and of the pinned actions. |
+| `scripts/install-local.mjs` | Builds the package and installs it into the current VS Code profile. The section [Development](#development) explains it. |
 | `scripts/marketplace-setup.sh` | Sets up the Marketplace publishing of the repository. The section [Setup of a repository](#setup-of-a-repository) explains it. |
 | `.vscode/launch.json`, `.vscode/tasks.json` | Build the bundle and start a VS Code window that loads the extension from this folder. |
 
@@ -64,7 +65,7 @@ release in `.node-version` for the tools and CI, and the runtime of VS Code
 | `npm test` | Runs the tests with vitest. The tests touch no installed editor. |
 | `npm run build` | Bundles `dist/extension.js` with a source map and copies the engine into `dist/engine/`. |
 | `npm run package` | Builds `nimblescape-plantuml-<version>.vsix` with vsce, which first runs the production build (`vscode:prepublish`). vsce also validates the manifest and the README. |
-| `code --install-extension nimblescape-plantuml-<version>.vsix` | Installs the built package. Reload the window after an update of an active extension. |
+| `npm run install-local` | Builds the package and installs it into the current VS Code profile only: the profile of the VS Code window that has this repository open (or a parent folder of it), or the default profile when no window has opened it yet. `npm run install-local -- --profile <name>` installs it into the named profile instead. Other profiles stay as they are. Reload the windows of the profile after an update of an active extension. |
 
 The launch configuration "Run the extension" builds the bundle and starts a
 second VS Code window that loads the extension from this folder, so that a

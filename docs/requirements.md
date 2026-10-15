@@ -73,6 +73,8 @@ PlantUML in class diagrams with the notation of the UML standard:
 - The kind of a class shows as a keyword above its name, for example
   «interface» or «enumeration», instead of the circled letter (C, I, E, A …).
   A class shows no keyword, and an abstract class shows its name in italics.
+- An abstract attribute or method (`{abstract}`) shows in italics, and a
+  static one (`{static}` or `{classifier}`) is underlined.
 
 The setting applies to the PlantUML blocks of Markdown files and to PlantUML
 files. By default, the icons of PlantUML show. A diagram that sets these

@@ -86,8 +86,7 @@ has syntax highlighting.
 ### R-MD-004
 
 **Code completion in Markdown.** The text editor offers code completion inside
-a PlantUML block of a Markdown file. This requirement is a wish: it comes
-after the rendering, the highlighting and the formatting.
+a PlantUML block of a Markdown file.
 
 ### R-MD-005
 

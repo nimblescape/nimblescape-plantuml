@@ -41,6 +41,14 @@ class FakeRange {
     readonly endLine: number,
     readonly endCharacter: number,
   ) {}
+
+  get start() {
+    return { line: this.startLine, character: this.startCharacter };
+  }
+
+  get end() {
+    return { line: this.endLine, character: this.endCharacter };
+  }
 }
 
 /** FakeCompletionItem stands for a vscode.CompletionItem. */
@@ -60,6 +68,34 @@ interface FakeProvider {
 
 /** providers records the registered completion providers by their language, with their trigger characters. */
 let providers: Map<string, { provider: FakeProvider; triggerCharacters: string[] }>;
+
+/** FakeFormatter stands for a vscode.DocumentFormattingEditProvider and a vscode.DocumentRangeFormattingEditProvider. */
+interface FakeFormatter {
+  provideDocumentFormattingEdits?(document: FakeTextDocument, options: FakeOptions): FakeEdit[];
+  provideDocumentRangeFormattingEdits?(document: FakeTextDocument, range: FakeRange, options: FakeOptions): FakeEdit[];
+}
+
+/** FakeOptions stands for vscode.FormattingOptions. */
+interface FakeOptions {
+  tabSize: number;
+  insertSpaces: boolean;
+}
+
+/** FakeEdit stands for a vscode.TextEdit. */
+interface FakeEdit {
+  range: FakeRange;
+  newText: string;
+}
+
+/** FakeTextDocument stands for a vscode.TextDocument for the formatting. */
+interface FakeTextDocument {
+  version: number;
+  getText(): string;
+  lineAt(line: number): { lineNumber: number; text: string; range: FakeRange };
+}
+
+/** formatters records the registered formatting providers by their language and kind (document or range). */
+let formatters: Map<string, FakeFormatter>;
 
 /** FakeChangeEvent stands for a vscode.TextDocumentChangeEvent. */
 interface FakeChangeEvent {
@@ -91,6 +127,7 @@ beforeEach(() => {
   changeListeners = [];
   activeEditor = undefined;
   providers = new Map();
+  formatters = new Map();
   vi.resetModules();
   vi.doMock('vscode', () => ({
     workspace: {
@@ -124,7 +161,16 @@ beforeEach(() => {
         providers.set(language, { provider, triggerCharacters });
         return { dispose() {} };
       },
+      registerDocumentFormattingEditProvider: (language: string, provider: FakeFormatter) => {
+        formatters.set(`${language} document`, provider);
+        return { dispose() {} };
+      },
+      registerDocumentRangeFormattingEditProvider: (language: string, provider: FakeFormatter) => {
+        formatters.set(`${language} range`, provider);
+        return { dispose() {} };
+      },
     },
+    TextEdit: { replace: (range: FakeRange, newText: string): FakeEdit => ({ range, newText }) },
     Range: FakeRange,
     CompletionItem: FakeCompletionItem,
     // The kinds are their names here, so that the tests can read them.
@@ -168,7 +214,7 @@ test('the export reads the settings of the rendered document and adds them to th
 
 test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
   const { context } = await activate();
-  expect(context.subscriptions).toHaveLength(4);
+  expect(context.subscriptions).toHaveLength(8);
   const change = (changed: string) => configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
   change('editor');
   expect(commands).toEqual([]);
@@ -266,4 +312,50 @@ test('typing a word in a PlantUML block of a Markdown file shows the proposals, 
   settingsOf.set('', { quickSuggestions: true });
   typeIn(block, 'C');
   expect(commands).toEqual(['editor.action.triggerSuggest']);
+});
+
+/**
+ * textDocument returns a fake document with a text.
+ * @param text - The text.
+ */
+function textDocument(text: string): FakeTextDocument {
+  const lines = text.split('\n');
+  return {
+    version: 1,
+    getText: () => text,
+    lineAt: (line) => ({ lineNumber: line, text: lines[line], range: new FakeRange(line, 0, line, lines[line].length) }),
+  };
+}
+
+/** spaces are formatting options with two spaces for each level. */
+const spaces: FakeOptions = { tabSize: 2, insertSpaces: true };
+
+test('the formatting of PlantUML files indents the whole file or the lines of a selection', async () => {
+  await activate();
+  const document = textDocument('@startuml\npackage p {\nclass A\n  class B   \n}\n@enduml');
+  expect(formatters.get('plantuml document')!.provideDocumentFormattingEdits!(document, spaces)).toEqual([
+    { range: new FakeRange(2, 0, 2, 7), newText: '  class A' },
+    { range: new FakeRange(3, 0, 3, 12), newText: '  class B' },
+  ]);
+  // A selection of whole lines ends at the start of the next line, which it does not format.
+  const selection = new FakeRange(3, 0, 4, 0);
+  expect(formatters.get('plantuml range')!.provideDocumentRangeFormattingEdits!(document, selection, { tabSize: 4, insertSpaces: false })).toEqual([
+    { range: new FakeRange(3, 0, 3, 12), newText: '\tclass B' },
+  ]);
+});
+
+test('the formatting of Markdown files changes the lines of the PlantUML blocks only, with the indentation of the fence', async () => {
+  await activate();
+  const markdown = ['# Title   ', '- item', '  ```plantuml', '  package p {', '  class A', '  }', '  ```', '', '```js', 'if (a) {', 'b', '}', '```', '```plantuml', 'alt x', 'A -> B', 'end', '```'];
+  const document = textDocument(markdown.join('\n'));
+  expect(formatters.get('markdown document')!.provideDocumentFormattingEdits!(document, spaces)).toEqual([
+    { range: new FakeRange(4, 0, 4, 9), newText: '    class A' },
+    { range: new FakeRange(15, 0, 15, 6), newText: '  A -> B' },
+  ]);
+  // A selection formats the lines of the blocks inside it only.
+  const selection = new FakeRange(10, 0, 15, 3);
+  expect(formatters.get('markdown range')!.provideDocumentRangeFormattingEdits!(document, selection, spaces)).toEqual([
+    { range: new FakeRange(15, 0, 15, 6), newText: '  A -> B' },
+  ]);
+  expect(formatters.get('markdown range')!.provideDocumentRangeFormattingEdits!(document, new FakeRange(0, 0, 1, 3), spaces)).toEqual([]);
 });

@@ -24,7 +24,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | Markdown: in development; PlantUML files: planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | in development | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
-| [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
+| [Formatting](#formatting) | yes | yes | in development | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
 | [UML notation in class diagrams](#uml-notation-in-class-diagrams) | yes | yes | Markdown: in development; PlantUML files: planned | [R-GEN-007](requirements.md#r-gen-007) |
 
@@ -220,10 +220,61 @@ extension.
 
 ### Formatting
 
-The commands "Format Document" and "Format Selection" indent
-the blocks of a PlantUML file, for example the content of `package { … }` or
-`if … endif`. In a Markdown file, the formatting changes only the text of the
-PlantUML blocks and no other text of the file.
+The commands "Format Document" (Shift+Alt+F) and "Format Selection" indent
+the lines of a UML diagram by the depth of their blocks, and remove the spaces
+at the end of these lines. They change nothing else in a line. The setting
+`editor.formatOnSave` formats on each save. The blocks are:
+
+| Block | Opening line | Middle lines | Closing line |
+| --- | --- | --- | --- |
+| Braces | a line that ends with `{`, for example `package shop {` | | a line that starts with `}` |
+| Group of a sequence diagram | `alt`, `opt`, `loop`, `par`, `break …`, `critical`, `group`, `box` | `else` | `end`, `end box`, `end group` |
+| Condition | `if` | `else`, `elseif` | `endif` |
+| Loop | `while`; `repeat` | `backward` | `endwhile`; `repeat while` |
+| Parallel flows | `fork`, `split` | `fork again`, `split again` | `end fork`, `end merge`, `end split` |
+| Switch | `switch` | `case` | `endswitch` |
+| Note, title, legend, header, footer, caption, reference of several lines | for example `note left of A` | | for example `end note` |
+| Style | `<style>` | | `</style>` |
+| Preprocessor | `!if`, `!ifdef`, `!ifndef`, `!while`, `!foreach`, `!procedure`, `!function`, `!startsub`, `!definelong` | `!else`, `!elseif` | `!endif`, `!endwhile`, `!endfor`, `!endprocedure`, `!endfunction`, `!endsub`, `!enddefinelong` |
+
+For example:
+
+```plantuml
+package shop {
+  class Car {
+    - id : int
+  }
+}
+alt success
+  Shop -> Bank : pay
+else failure
+  Shop -> Shop : cancel
+end
+```
+
+The formatting keeps these lines as they are:
+
+- the text of a note, title, legend, header, footer, caption or reference of
+  several lines, and the lines of a comment between `/'` and `'/`;
+- the lines of the diagram types whose indentation has a meaning or that have
+  no blocks, for example mind maps, work breakdown structures, JSON and YAML
+  data, and Gantt charts.
+
+The further lines of an action of several lines in an activity diagram, for
+example `:first line` and `second line;`, move with the first line, because
+PlantUML shows their indentation beyond the first line as spaces. An `end`
+inside an `if` ends the activity flow and does not close a block.
+
+The size of one level is the indentation of the editor: the settings
+`editor.tabSize` and `editor.insertSpaces`, or the indentation that VS Code
+detects in the file.
+
+In a Markdown file, the formatting changes only the lines of the PlantUML
+blocks and no other text of the file. Each block keeps the indentation of its
+opening fence, for example inside a list. If you use another formatter for
+Markdown files as well, VS Code asks once which formatter to use, or uses the
+one of the setting `editor.defaultFormatter`. The command "Format Document
+With…" selects a formatter for one run.
 
 ## Settings
 

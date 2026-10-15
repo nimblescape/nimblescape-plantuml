@@ -7,9 +7,9 @@ installation and no server, and it works offline.
 
 > **Status: in development.** This version registers the language PlantUML
 > for the files below, renders the ```` ```plantuml ```` blocks of Markdown
-> files in the built-in Markdown preview, and adds syntax highlighting and
-> code completion to PlantUML files and to these blocks. The preview of
-> PlantUML files and the formatting follow. The
+> files in the built-in Markdown preview, and adds syntax highlighting, code
+> completion and formatting to PlantUML files and to these blocks. The
+> preview of PlantUML files follows. The
 > [user guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md)
 > describes every feature and its state, and the
 > [requirements](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/requirements.md)

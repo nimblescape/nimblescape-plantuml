@@ -9,12 +9,14 @@
  * markdown-it plugin, which the Markdown extension of VS Code reads from the
  * export `extendMarkdownIt` when it builds its preview, refreshes the Markdown
  * previews when a setting of the extension changes, and registers the code
- * completion for `.puml` files and for the PlantUML blocks of Markdown files.
+ * completion and the formatting for `.puml` files and for the PlantUML blocks
+ * of Markdown files.
  */
 
 import type MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
 import { Completion, complete } from './language/completion';
+import { formatLines } from './language/formatting';
 import { Block, plantUmlBlocks } from './markdown/blocks';
 import { extendMarkdownIt } from './markdown/markdownIt';
 import { defaultSettings, Settings, settingsSection } from './settings';
@@ -54,19 +56,28 @@ const linesOf = (document: vscode.TextDocument): string[] => document.getText().
 const markdownBlocks = new WeakMap<vscode.TextDocument, { version: number; lines: string[]; blocks: Block[] }>();
 
 /**
- * blockAt returns the lines of a Markdown document and its PlantUML block that holds a line. The extension reads
- * the blocks once for each version of the document, because it looks for them after each typed letter.
+ * blocksOf returns the lines and the PlantUML blocks of a Markdown document. The extension reads the blocks once
+ * for each version of the document, because it looks for them after each typed letter.
  * @param document - The Markdown document.
- * @param line - The index of the line.
  */
-function blockAt(document: vscode.TextDocument, line: number): { lines: string[]; block: Block | undefined } {
+function blocksOf(document: vscode.TextDocument): { lines: string[]; blocks: Block[] } {
   let known = markdownBlocks.get(document);
   if (!known || known.version !== document.version) {
     const lines = linesOf(document);
     known = { version: document.version, lines, blocks: plantUmlBlocks(lines) };
     markdownBlocks.set(document, known);
   }
-  return { lines: known.lines, block: known.blocks.find(({ start, end }) => start <= line && line < end) };
+  return known;
+}
+
+/**
+ * blockAt returns the lines of a Markdown document and its PlantUML block that holds a line.
+ * @param document - The Markdown document.
+ * @param line - The index of the line.
+ */
+function blockAt(document: vscode.TextDocument, line: number): { lines: string[]; block: Block | undefined } {
+  const { lines, blocks } = blocksOf(document);
+  return { lines, block: blocks.find(({ start, end }) => start <= line && line < end) };
 }
 
 /**
@@ -167,6 +178,78 @@ function suggestWhileTyping(event: vscode.TextDocumentChangeEvent): void {
 }
 
 /**
+ * indentUnit returns the text of one level of indentation for the options of the editor.
+ * @param options - The formatting options of the editor.
+ */
+const indentUnit = (options: vscode.FormattingOptions): string => (options.insertSpaces ? ' '.repeat(options.tabSize) : '\t');
+
+/**
+ * lastLine returns the index of the last line of a range. A range that ends at the start of a line, as a selection
+ * of whole lines does, ends on the line before.
+ * @param range - The range.
+ */
+const lastLine = (range: vscode.Range): number =>
+  range.end.character === 0 && range.end.line > range.start.line ? range.end.line - 1 : range.end.line;
+
+/**
+ * lineEdits returns the edits that replace the lines of a document by formatted lines. Each changed line gets one
+ * edit of its text; the line breaks stay as they are.
+ * @param document - The document.
+ * @param first - The index of the line of the first formatted line.
+ * @param formatted - The formatted lines.
+ * @param range - The range to format, or undefined for every line.
+ */
+function lineEdits(document: vscode.TextDocument, first: number, formatted: readonly string[], range?: vscode.Range): vscode.TextEdit[] {
+  const edits: vscode.TextEdit[] = [];
+  formatted.forEach((text, offset) => {
+    const line = document.lineAt(first + offset);
+    const inRange = !range || (line.lineNumber >= range.start.line && line.lineNumber <= lastLine(range));
+    if (inRange && line.text !== text) {
+      edits.push(vscode.TextEdit.replace(line.range, text));
+    }
+  });
+  return edits;
+}
+
+/**
+ * pumlFormatting is the formatting of PlantUML files ([R-PUML-007](../docs/requirements.md#r-puml-007)) for the
+ * commands "Format Document" and "Format Selection". It reads the whole file, so that a selection gets the depth
+ * of its lines in the file.
+ */
+const pumlFormatting: vscode.DocumentFormattingEditProvider & vscode.DocumentRangeFormattingEditProvider = {
+  provideDocumentFormattingEdits: (document, options) => lineEdits(document, 0, formatLines(linesOf(document), indentUnit(options))),
+  provideDocumentRangeFormattingEdits: (document, range, options) =>
+    lineEdits(document, 0, formatLines(linesOf(document), indentUnit(options)), range),
+};
+
+/**
+ * markdownEdits returns the edits that format the PlantUML blocks of a Markdown document. Each block keeps the
+ * indentation of its opening fence as its base, for example inside a list. No other line changes
+ * ([R-MD-006](../docs/requirements.md#r-md-006)).
+ * @param document - The Markdown document.
+ * @param options - The formatting options of the editor.
+ * @param range - The range to format, or undefined for every block.
+ */
+function markdownEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, range?: vscode.Range): vscode.TextEdit[] {
+  const { lines, blocks } = blocksOf(document);
+  return blocks
+    .filter(({ start, end }) => !range || (end > range.start.line && start <= lastLine(range)))
+    .flatMap(({ start, end }) => {
+      const base = /^\s*/.exec(lines[start - 1])?.[0] ?? '';
+      return lineEdits(document, start, formatLines(lines.slice(start, end), indentUnit(options), base), range);
+    });
+}
+
+/**
+ * markdownFormatting is the formatting of the PlantUML blocks of Markdown files
+ * ([R-MD-005](../docs/requirements.md#r-md-005)). It changes the lines of the PlantUML blocks only.
+ */
+const markdownFormatting: vscode.DocumentFormattingEditProvider & vscode.DocumentRangeFormattingEditProvider = {
+  provideDocumentFormattingEdits: (document, options) => markdownEdits(document, options),
+  provideDocumentRangeFormattingEdits: (document, range, options) => markdownEdits(document, options, range),
+};
+
+/**
  * activate starts the extension.
  * @param context - The extension context, which holds the registrations to dispose on deactivation.
  * @returns The export of the extension, which the Markdown extension of VS Code reads.
@@ -182,6 +265,10 @@ export function activate(context: vscode.ExtensionContext): Api {
     vscode.languages.registerCompletionItemProvider('plantuml', pumlCompletion, ...triggerCharacters),
     vscode.languages.registerCompletionItemProvider('markdown', markdownCompletion, ...triggerCharacters),
     vscode.workspace.onDidChangeTextDocument(suggestWhileTyping),
+    vscode.languages.registerDocumentFormattingEditProvider('plantuml', pumlFormatting),
+    vscode.languages.registerDocumentRangeFormattingEditProvider('plantuml', pumlFormatting),
+    vscode.languages.registerDocumentFormattingEditProvider('markdown', markdownFormatting),
+    vscode.languages.registerDocumentRangeFormattingEditProvider('markdown', markdownFormatting),
   );
   return { extendMarkdownIt: (md) => extendMarkdownIt(md, (env) => readSettings(documentOf(env))) };
 }

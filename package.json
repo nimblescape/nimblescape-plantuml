@@ -171,6 +171,11 @@
         "title": "Open Preview to the Side",
         "category": "PlantUML",
         "icon": "$(open-preview)"
+      },
+      {
+        "command": "nimblescape.plantuml.formatBlocks",
+        "title": "Format PlantUML Blocks",
+        "category": "PlantUML"
       }
     ],
     "menus": {
@@ -203,6 +208,10 @@
         {
           "command": "nimblescape.plantuml.showPreviewToSide",
           "when": "resourceLangId == plantuml || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+        },
+        {
+          "command": "nimblescape.plantuml.formatBlocks",
+          "when": "editorLangId == markdown"
         }
       ]
     },
@@ -220,6 +229,11 @@
         "when": "(editorLangId == plantuml && !notebookEditorFocused) || activeCustomEditorId == 'nimblescape.plantuml.preview'"
       }
     ],
+    "configurationDefaults": {
+      "[plantuml]": {
+        "editor.defaultFormatter": "nimblescape.nimblescape-plantuml"
+      }
+    },
     "configuration": {
       "title": "nimblescape PlantUML",
       "properties": {

@@ -14,7 +14,7 @@
 import type MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
 import { extendMarkdownIt } from './markdown/markdownIt';
-import { defaultSettings, preambleLines, Settings, settingsSection } from './settings';
+import { defaultSettings, Settings, settingsSection } from './settings';
 
 /** Api is the export of the extension. */
 export interface Api {
@@ -28,7 +28,7 @@ export interface Api {
  */
 export function readSettings(document: vscode.Uri | undefined): Settings {
   const configuration = vscode.workspace.getConfiguration(settingsSection, document);
-  return { visibilityIcons: configuration.get<boolean>('visibilityIcons', defaultSettings.visibilityIcons) };
+  return { classIcons: configuration.get<boolean>('classIcons', defaultSettings.classIcons) };
 }
 
 /**
@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext): Api {
       }
     }),
   );
-  return { extendMarkdownIt: (md) => extendMarkdownIt(md, (env) => preambleLines(readSettings(documentOf(env)))) };
+  return { extendMarkdownIt: (md) => extendMarkdownIt(md, (env) => readSettings(documentOf(env))) };
 }
 
 /** deactivate stops the extension. VS Code disposes the registrations of the context. */

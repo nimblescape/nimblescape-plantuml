@@ -6,17 +6,18 @@
 
 /**
  * These tests run the renderer of the preview script on a page of happy-dom
- * with a fake engine. They check the lines that the engine receives, the
- * detection of a dark theme, the rendering of one diagram at a time, the
- * reuse of a result after the preview replaced its content, the new
- * rendering after a change of the theme, the display of errors, and that the
- * bar of the rendered diff stays in a block. The real engine runs in the
- * preview of VS Code only.
+ * with a fake engine. They check the detection of a dark theme, the
+ * rendering of one diagram at a time, the reuse of a result after the
+ * preview replaced its content, the new rendering after a change of the
+ * theme or of the settings, the display of errors, and that the bar of the
+ * rendered diff stays in a block. The real engine runs in the preview of
+ * VS Code only.
  */
 
 import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, preambleAttribute, sourceAttribute } from '../markdown/markdownIt';
-import { diagramLines, Engine, isDarkTheme, PreviewRenderer } from './markdownPreview';
+import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { umlCommands } from '../diagram/umlNotation';
+import { Engine, isDarkTheme, PreviewRenderer } from './markdownPreview';
 
 /** FakeEngine records its calls and answers each call after a turn of the event loop. */
 class FakeEngine implements Engine {
@@ -43,27 +44,9 @@ class FakeEngine implements Engine {
  * block returns the HTML of a PlantUML block as the markdown-it plugin writes it.
  * @param source - The text of the block.
  */
-const block = (source: string, preamble?: string): string =>
-  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}"${preamble ? ` ${preambleAttribute}="${preamble}"` : ''}>` +
+const block = (source: string, settings?: string): string =>
+  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}"${settings ? ` ${settingsAttribute}='${settings}'` : ''}>` +
   `<div class="${contentClass}"><pre class="${blockClass}-source"><code>${source}</code></pre></div></div>`;
-
-describe('diagramLines', () => {
-  test('keeps a diagram with its @start line and drops the final line break of the block', () => {
-    expect(diagramLines('@startuml\nA -> B\n@enduml\n')).toEqual(['@startuml', 'A -> B', '@enduml']);
-    expect(diagramLines('  @startmindmap\r\n* a\r\n@endmindmap')).toEqual(['  @startmindmap', '* a', '@endmindmap']);
-  });
-
-  test('puts @startuml and @enduml around the body of a diagram', () => {
-    expect(diagramLines('A -> B\n')).toEqual(['@startuml', 'A -> B', '@enduml']);
-  });
-
-  test('puts the lines of the settings after each @start line, before the lines of the diagram', () => {
-    expect(diagramLines('A -> B\n', ['s 1', 's 2'])).toEqual(['@startuml', 's 1', 's 2', 'A -> B', '@enduml']);
-    expect(diagramLines('@startuml\nA\n@enduml\n@startuml\nB\n@enduml', ['s'])).toEqual([
-      '@startuml', 's', 'A', '@enduml', '@startuml', 's', 'B', '@enduml',
-    ]);
-  });
-});
 
 describe('isDarkTheme', () => {
   test('follows the class of the theme kind on the body', () => {
@@ -131,9 +114,9 @@ describe('PreviewRenderer', () => {
     expect(root.querySelector('svg')?.getAttribute('data-dark')).toBe('true');
   });
 
-  test('renders with the lines of the settings, and again when they change', async () => {
+  test('renders with the settings of the block, and again when they change', async () => {
     const root = document.createElement('div');
-    root.innerHTML = block('A', 'skinparam classAttributeIconSize 0');
+    root.innerHTML = block('A', '{"classIcons":false}');
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(root, async () => engine, () => false);
     renderer.update();
@@ -142,7 +125,7 @@ describe('PreviewRenderer', () => {
     renderer.update();
     await renderer.whenIdle();
     expect(engine.calls.map((call) => call.lines)).toEqual([
-      ['@startuml', 'skinparam classAttributeIconSize 0', 'A', '@enduml'],
+      ['@startuml', ...umlCommands, 'A', '@enduml'],
       ['@startuml', 'A', '@enduml'],
     ]);
   });

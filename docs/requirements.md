@@ -65,13 +65,18 @@ for it.
 
 ### R-GEN-007
 
-**UML characters for visibility.** A setting replaces the colored icons that
-PlantUML draws for the visibility of the attributes and methods of classes
-with the UML characters `-` (private), `#` (protected), `~` (package private)
-and `+` (public). The setting applies to the PlantUML blocks of Markdown files
-and to PlantUML files. By default, the icons of PlantUML show. A diagram that
-sets this display itself (`skinparam classAttributeIconSize`) keeps its own
-value.
+**UML notation in class diagrams.** A setting replaces the colored icons of
+PlantUML in class diagrams with the notation of the UML standard:
+
+- The visibility of attributes and methods shows as the characters `-`
+  (private), `#` (protected), `~` (package private) and `+` (public).
+- The kind of a class shows as a keyword above its name, for example
+  «interface» or «enumeration», instead of the circled letter (C, I, E, A …).
+  A class shows no keyword, and an abstract class shows its name in italics.
+
+The setting applies to the PlantUML blocks of Markdown files and to PlantUML
+files. By default, the icons of PlantUML show. A diagram that sets these
+displays itself keeps its own values.
 
 ## Markdown
 

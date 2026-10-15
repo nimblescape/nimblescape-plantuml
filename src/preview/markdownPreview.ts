@@ -21,7 +21,9 @@
  * "Disable"), the script loads Viz.js first.
  */
 
-import { blockClass, contentClass, preambleAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { diagramLines } from '../diagram/diagramLines';
+import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { parseSettings } from '../settings';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
 export interface Engine {
@@ -48,25 +50,6 @@ const renderTimeout = 60_000;
 
 /** cacheLimit is the number of results that the renderer keeps. */
 const cacheLimit = 200;
-
-/**
- * isStartLine tells whether a line starts a diagram.
- * @param line - A line of the diagram text.
- */
-const isStartLine = (line: string): boolean => line.trimStart().startsWith('@start');
-
-/**
- * diagramLines returns the lines that the engine renders for the text of a block. A block without a line that
- * starts with `@start` holds the body of a diagram only, so the lines get `@startuml` and `@enduml` around it.
- * The lines of the settings follow each `@start` line, so the lines of the diagram itself override them.
- * @param source - The text of the block.
- * @param preamble - The lines of the settings.
- */
-export function diagramLines(source: string, preamble: readonly string[] = []): string[] {
-  const lines = source.replace(/\r?\n$/, '').split(/\r\n|\r|\n/);
-  const diagram = lines.some(isStartLine) ? lines : ['@startuml', ...lines, '@enduml'];
-  return preamble.length ? diagram.flatMap((line) => (isStartLine(line) ? [line, ...preamble] : [line])) : diagram;
-}
 
 /**
  * isDarkTheme tells whether the color theme of VS Code has a dark background. VS Code marks the body of a webview
@@ -103,15 +86,14 @@ export class PreviewRenderer {
 
   /**
    * update shows the kept result in every block that does not show it yet, and queues the rendering of the
-   * blocks without a result. A result belongs to the theme, the lines of the settings and the text of a block.
+   * blocks without a result. A result belongs to the theme, the settings and the text of a block.
    */
   update(): void {
     const dark = this.#isDark();
     for (const element of this.#root.querySelectorAll<HTMLElement>(`.${blockClass}[${sourceAttribute}]`)) {
       const source = element.getAttribute(sourceAttribute) ?? '';
-      const preamble = element.getAttribute(preambleAttribute);
-      const lines = preamble ? preamble.split('\n') : [];
-      const key = JSON.stringify([dark, lines, source]);
+      const settings = parseSettings(element.getAttribute(settingsAttribute));
+      const key = JSON.stringify([dark, settings, source]);
       if (element.dataset.plantumlShown === key) {
         continue;
       }
@@ -122,7 +104,7 @@ export class PreviewRenderer {
       } else if (!this.#pending.has(key)) {
         this.#pending.add(key);
         this.#queue = this.#queue
-          .then(() => this.#render(diagramLines(source, lines), dark))
+          .then(() => this.#render(diagramLines(source, settings), dark))
           .then((rendered) => this.#keep(key, rendered))
           .finally(() => {
             this.#pending.delete(key);
@@ -141,7 +123,7 @@ export class PreviewRenderer {
 
   /**
    * #keep stores a result and removes the oldest results above the limit.
-   * @param key - The theme, the lines of the settings and the text of the diagram.
+   * @param key - The theme, the settings and the text of the diagram.
    * @param result - The result of its rendering.
    */
   #keep(key: string, result: Result): void {

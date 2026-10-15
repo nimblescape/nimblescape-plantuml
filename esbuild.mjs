@@ -2,10 +2,11 @@
 // © 2026 Hannes Stauss (scalarion@nimblescape.com)
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-// Bundle the extension into dist/extension.js and the script of the Markdown
-// preview into dist/markdownPreview.js, write the TextMate grammars into
+// Bundle the extension into dist/extension.js, the script of the Markdown
+// preview into dist/markdownPreview.js and the script of the preview of
+// PlantUML files into dist/pumlPreview.js, write the TextMate grammars into
 // dist/syntaxes/, and copy the PlantUML engine into dist/engine/. VS Code provides the module `vscode` at run time, so the bundle
-// of the extension leaves it out. The preview loads its script as a module in
+// of the extension leaves it out. A preview loads its script as a module in
 // the browser of the webview; that script imports the engine from
 // ./engine/plantuml.js at run time. A production build (--production, which
 // vscode:prepublish passes) is minified and has no source maps.
@@ -26,13 +27,14 @@ import * as esbuild from 'esbuild';
 const production = process.argv.includes('--production');
 const outfile = 'dist/extension.js';
 const previewOutfile = 'dist/markdownPreview.js';
+const pumlPreviewOutfile = 'dist/pumlPreview.js';
 const engineDir = 'dist/engine';
 
 // A production build writes no source maps: remove the maps of an earlier
 // development build, so that no map that does not match a minified bundle
 // stays in dist/.
 if (production) {
-  for (const file of [outfile, previewOutfile]) fs.rmSync(`${file}.map`, { force: true });
+  for (const file of [outfile, previewOutfile, pumlPreviewOutfile]) fs.rmSync(`${file}.map`, { force: true });
 }
 
 await esbuild.build({
@@ -50,17 +52,22 @@ await esbuild.build({
 
 // The webview of VS Code runs the Chromium of its Electron release, which
 // supports the ES2022 target of the TypeScript settings.
-await esbuild.build({
-  entryPoints: ['src/preview/markdownPreview.ts'],
-  outfile: previewOutfile,
-  bundle: true,
-  platform: 'browser',
-  format: 'esm',
-  target: 'es2022',
-  sourcemap: !production,
-  minify: production,
-  logLevel: 'info',
-});
+for (const [entry, file] of [
+  ['src/preview/markdownPreview.ts', previewOutfile],
+  ['src/preview/pumlPreview.ts', pumlPreviewOutfile],
+]) {
+  await esbuild.build({
+    entryPoints: [entry],
+    outfile: file,
+    bundle: true,
+    platform: 'browser',
+    format: 'esm',
+    target: 'es2022',
+    sourcemap: !production,
+    minify: production,
+    logLevel: 'info',
+  });
+}
 
 // The grammars are TypeScript objects in src/language/grammars.ts, so that
 // the highlighting and the code completion share one list of keywords. The

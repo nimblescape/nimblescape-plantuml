@@ -149,12 +149,17 @@ beforeEach(() => {
       get activeTextEditor() {
         return activeEditor;
       },
+      // These tests do not cover the previews of PlantUML files; the registrations only need to exist.
+      registerCustomEditorProvider: () => ({ dispose() {} }),
+      registerWebviewPanelSerializer: () => ({ dispose() {} }),
+      onDidChangeActiveTextEditor: () => ({ dispose() {} }),
     },
     commands: {
       executeCommand: async (command: string, ...args: unknown[]) => {
         commands.push(command);
         commandArguments.push(args);
       },
+      registerCommand: () => ({ dispose() {} }),
     },
     languages: {
       registerCompletionItemProvider: (language: string, provider: FakeProvider, ...triggerCharacters: string[]) => {
@@ -181,7 +186,7 @@ beforeEach(() => {
 /** activate imports the extension with the fake API and activates it. */
 const activate = async () => {
   const extension = await import('./extension');
-  const context = { subscriptions: [] as { dispose(): void }[] };
+  const context = { subscriptions: [] as { dispose(): void }[], extensionUri: { scheme: 'file', path: '/extension' } };
   return { api: extension.activate(context as never), context, extension };
 };
 
@@ -214,7 +219,7 @@ test('the export reads the settings of the rendered document and adds them to th
 
 test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
   const { context } = await activate();
-  expect(context.subscriptions).toHaveLength(8);
+  expect(context.subscriptions).toHaveLength(16);
   const change = (changed: string) => configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
   change('editor');
   expect(commands).toEqual([]);

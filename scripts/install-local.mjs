@@ -9,8 +9,10 @@
 // (userDataProfiles). A window that has a parent folder of the repository open counts too; the nearest folder wins. A
 // repository that no window has opened yet gets the default profile. Other profiles stay as they are.
 // `npm run install-local -- --profile <name>` installs into the named profile instead.
+// The script first installs the locked development tools (`npm ci --ignore-scripts`, as CI does) when they are missing
+// or older than package-lock.json, for example after a fresh clone or a git pull that changed package-lock.json.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -122,6 +124,11 @@ if (named) {
   console.log(`VS Code profile: ${profileName} (no VS Code window has opened ${root} yet)`);
 }
 
+// npm writes node_modules/.package-lock.json at each installation of the dependencies.
+const installed = join(root, 'node_modules', '.package-lock.json');
+if (!existsSync(installed) || statSync(join(root, 'package-lock.json')).mtimeMs > statSync(installed).mtimeMs) {
+  run('npm', ['ci', '--ignore-scripts']);
+}
 run('npm', ['run', 'package']);
 if (!existsSync(vsix)) {
   console.error(`The package ${vsix} was not written.`);

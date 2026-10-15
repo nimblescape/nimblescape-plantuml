@@ -65,7 +65,7 @@ release in `.node-version` for the tools and CI, and the runtime of VS Code
 | `npm test` | Runs the tests with vitest. The tests touch no installed editor. |
 | `npm run build` | Bundles `dist/extension.js` with a source map and copies the engine into `dist/engine/`. |
 | `npm run package` | Builds `nimblescape-plantuml-<version>.vsix` with vsce, which first runs the production build (`vscode:prepublish`). vsce also validates the manifest and the README. |
-| `npm run install-local` | Builds the package and installs it into the current VS Code profile only: the profile of the VS Code window that has this repository open (or a parent folder of it), or the default profile when no window has opened it yet. `npm run install-local -- --profile <name>` installs it into the named profile instead. Other profiles stay as they are. Reload the windows of the profile after an update of an active extension. |
+| `npm run install-local` | Builds the package and installs it into the current VS Code profile only: the profile of the VS Code window that has this repository open (or a parent folder of it), or the default profile when no window has opened it yet. `npm run install-local -- --profile <name>` installs it into the named profile instead. Other profiles stay as they are. Before the build, it installs the locked development tools with `npm ci --ignore-scripts` when they are missing or older than `package-lock.json`. Reload the windows of the profile after an update of an active extension. |
 
 The launch configuration "Run the extension" builds the bundle and starts a
 second VS Code window that loads the extension from this folder, so that a

@@ -10,20 +10,23 @@ each requirement with an ID.
 
 | File | Purpose |
 | --- | --- |
-| `src/extension.ts` | The editor wiring. The manifest contributes the language without code, so activation registers nothing yet. |
-| `src/manifest.test.ts` | The tests of the manifest, the package contents, the bundled engine and the documents, with vitest. |
-| `dist/` | The bundle `dist/extension.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
+| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview. |
+| `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
+| `src/preview/markdownPreview.ts` | The script of the Markdown preview: loads the engine and renders the PlantUML blocks of the page, one at a time, and keeps the results. |
+| `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
+| `dist/` | The bundles `dist/extension.js` and `dist/markdownPreview.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine, their licenses and the places of their source code. |
-| `esbuild.mjs` | Bundles `src/extension.ts` and the modules that it imports into `dist/extension.js`, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source map. |
+| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js and `src/preview/markdownPreview.ts` into `dist/markdownPreview.js` for the browser of the preview, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
-| `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node. |
+| `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node; a test file of the preview script selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked engine and development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
-| `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/engine/`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
+| `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/engine/`, `media/markdownPreview.css`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
 | `.github/workflows/ci.yml` | Checks the types, tests and packages every push to `main`, every pull request and the commit of every release. |
 | `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
@@ -60,9 +63,10 @@ change can be tried without a package.
 - The version is the only source of the package version, and the tag of a release names it.
 - The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range.
 - `main` selects the bundle `dist/extension.js`. A test checks it.
-- `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundle, the engine, the language configuration and the documents. A test checks the list.
+- `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundles, the engine, the styles of the preview, the language configuration and the documents. A test checks the list.
 - `extensionKind` selects the workspace host.
 - The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions.
+- The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`, so the extension needs no activation event. The section [Markdown preview](#markdown-preview) explains it.
 - The untrusted-workspace and virtual-workspace capabilities state that the extension only reads.
 - The runtime dependency is the engine `@plantuml/core`, pinned to one version; the section [Engine](#engine) explains it. The development dependencies are the build, test and packaging tools.
 
@@ -94,6 +98,30 @@ themes (MIT), the Twemoji graphics (CC BY 4.0) and the Open Iconic icons (MIT).
 A test checks that the installed engine is under the MIT License and that the
 notices name every script of the engine. After an update of the engine, check
 the versions in the notices against the headers of `viz-global.js`.
+
+## Markdown preview
+
+The built-in Markdown preview renders a document with markdown-it. The
+plugin `src/markdown/markdownIt.ts` writes a fenced code block with the info
+string `plantuml` as a `div` with the class `nimblescape-plantuml`, the
+attribute `data-plantuml-source` with the diagram text, and the text of the
+block as its content. The `div` keeps the attributes that the preview gives to
+every block, `data-line` and the class `code-line`, which the preview uses to
+synchronize the scrolling and to mark the changed blocks of a rendered diff.
+Every other token keeps the output of the preview.
+
+The preview loads `dist/markdownPreview.js` as a module. Its security policy
+allows only scripts with the nonce of the page, no WebAssembly, no network
+requests and no frames. The script therefore:
+
+- loads the engine with a dynamic import, which keeps the nonce, and only when the page has a PlantUML block;
+- sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) through script elements with the nonce; a library of the PlantUML standard library, which the package does not contain, fails with a message;
+- loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly;
+- renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme and text;
+- renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once.
+
+The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
+or high contrast dark.
 
 ## Naming
 

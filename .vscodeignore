@@ -2,11 +2,14 @@
 # © 2026 Hannes Stauss (scalarion@nimblescape.com)
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
-# The package holds the bundle, the engine, the language configuration and the
-# documents only: ignore everything, then keep the listed files.
+# The package holds the bundles, the engine, the styles of the Markdown
+# preview, the language configuration and the documents only: ignore
+# everything, then keep the listed files.
 **
 !dist/extension.js
+!dist/markdownPreview.js
 !dist/engine/**
+!media/markdownPreview.css
 !language-configuration.json
 !package.json
 !README.md

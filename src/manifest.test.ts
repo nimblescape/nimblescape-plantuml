@@ -105,14 +105,16 @@ test('the file table of the README names every file extension of the language', 
   expect([...row!.split('|')[1].matchAll(/`([^`]+)`/g)].map((match) => match[1])).toEqual(fileExtensions);
 });
 
-test('the package holds the bundle, the engine, the language configuration and the documents only', () => {
+test('the package holds the bundles, the engine, the preview styles, the language configuration and the documents only', () => {
   const patterns = read('.vscodeignore')
     .split('\n')
     .filter((line) => line && !line.startsWith('#'));
   expect(patterns).toEqual([
     '**',
     '!dist/extension.js',
+    '!dist/markdownPreview.js',
     '!dist/engine/**',
+    '!media/markdownPreview.css',
     '!language-configuration.json',
     '!package.json',
     '!README.md',

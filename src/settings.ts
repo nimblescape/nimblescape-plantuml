@@ -14,15 +14,15 @@ export const settingsSection = 'nimblescape.plantuml';
 /** Settings are the values of the settings of the extension. */
 export interface Settings {
   /**
-   * classIcons shows the colored icons of PlantUML in class diagrams: the circled letter of the kind of a class
-   * and the icons of the visibility of its members. The value `false` shows the UML notation instead
-   * ([R-GEN-007](../docs/requirements.md#r-gen-007)).
+   * umlNotation renders the UML diagrams in the notation of the UML standard, as far as PlantUML allows
+   * ([R-GEN-007](../docs/requirements.md#r-gen-007)). The value `false` shows the own notation of PlantUML, for
+   * example the colored circles with a letter of the class kinds.
    */
-  classIcons: boolean;
+  umlNotation: boolean;
 }
 
 /** defaultSettings are the values of the settings that the user did not set. */
-export const defaultSettings: Readonly<Settings> = { classIcons: true };
+export const defaultSettings: Readonly<Settings> = { umlNotation: true };
 
 /**
  * isDefault tells whether settings have the default value of every setting.
@@ -44,5 +44,5 @@ export function parseSettings(text: string | null): Settings {
     value = undefined;
   }
   const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-  return { classIcons: typeof values.classIcons === 'boolean' ? values.classIcons : defaultSettings.classIcons };
+  return { umlNotation: typeof values.umlNotation === 'boolean' ? values.umlNotation : defaultSettings.umlNotation };
 }

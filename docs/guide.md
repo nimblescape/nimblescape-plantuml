@@ -19,14 +19,14 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | Feature | Markdown files | PlantUML files | State | Requirements |
 | --- | --- | --- | --- | --- |
 | [Language PlantUML](#plantuml-files) | | yes | available | [R-PUML-001](requirements.md#r-puml-001) |
-| [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
-| [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
-| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | Markdown: in development; PlantUML files: planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
+| [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | in development | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
+| [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | in development | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
+| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | in development | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | in development | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | in development | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
-| [UML notation in class diagrams](#uml-notation-in-class-diagrams) | yes | yes | Markdown: in development; PlantUML files: planned | [R-GEN-007](requirements.md#r-gen-007) |
+| [UML notation](#uml-notation) | yes | yes | in development | [R-GEN-007](requirements.md#r-gen-007) |
 
 ## How the extension renders
 
@@ -280,20 +280,21 @@ With…" selects a formatter for one run.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `nimblescape.plantuml.classIcons` | `true` | `true` shows the colored icons of PlantUML in class diagrams. `false` shows the UML notation. |
+| `nimblescape.plantuml.umlNotation` | `true` | `true` renders UML diagrams in the notation of the UML standard, as far as PlantUML allows. `false` shows the own notation of PlantUML. |
 
 The settings apply to the PlantUML blocks of Markdown files and to PlantUML
 files. You can set them for the user, for a workspace or for a folder of a
 workspace. An open preview renders again when a setting changes.
 
-### UML notation in class diagrams
+### UML notation
 
-PlantUML draws the kind of a class as a colored circle with a letter, and the
-visibility of an attribute or a method as a colored icon. With
-`nimblescape.plantuml.classIcons` set to `false`, class diagrams show the
-notation of the UML standard instead.
+With `nimblescape.plantuml.umlNotation` set to `true`, which is the default,
+UML diagrams show the notation of the UML standard, as far as PlantUML allows.
+With `false`, they show the own notation of PlantUML, for example a colored
+circle with a letter for the kind of a class and a colored icon for the
+visibility of a member.
 
-The visibility shows as a character:
+The visibility of an attribute or a method shows as a character:
 
 | Visibility | Character |
 | --- | --- |
@@ -302,31 +303,61 @@ The visibility shows as a character:
 | package private | `~` |
 | public | `+` |
 
-The kind of a class shows as a keyword above its name:
+The kind of a class shows as a keyword above its name, and no colored circle
+shows:
 
 | Declaration | Display |
 | --- | --- |
 | `class` | the name only |
 | `abstract class` | the name in italics |
-| `interface` | «interface» |
+| `interface` | «interface», and the name in italics |
 | `enum` | «enumeration» |
 | `annotation` | «annotation» |
 | `protocol`, `struct`, `exception`, `record`, `dataclass` | «protocol», «struct», «exception», «record», «dataclass» |
 | `metaclass`, `stereotype` | «metaclass», «stereotype» |
 
-An abstract attribute or method (`{abstract}`) shows in italics, and a static
-one (`{static}` or `{classifier}`) is underlined, as the UML standard
-defines. PlantUML draws them so with and without the setting.
+A static attribute or method is underlined, and an abstract one shows in
+italics, as the UML standard defines:
+
+| Member in the body of a class | Display |
+| --- | --- |
+| `{static} count() : int`, `{classifier} count() : int` or `static count() : int` | count() : int, underlined |
+| `{abstract} draw()` or `abstract draw()` | draw(), in italics |
+
+Other diagram types:
+
+| Diagram | Display |
+| --- | --- |
+| Sequence diagram | A synchronous message has a filled arrowhead. The participants show above the lifelines only, not again below them. |
+| Object diagram | The names of the objects are underlined. |
+| Use case, component, deployment, state and activity diagram | PlantUML draws them in UML notation already. |
 
 How the extension does this, and the limits:
 
-- It adds the lines `skinparam classAttributeIconSize 0` and `hide circle`
-  after the `@startuml` line of each diagram. A diagram that sets
-  `skinparam classAttributeIconSize`, `hide circle` or `show circle` itself
-  keeps its own value, because its own line comes later.
-- It adds the keyword as a stereotype to the declaration of the class, for
-  example `interface Shape <<interface>>`. A declaration that has this
-  stereotype already stays as it is.
+- The extension draws no diagram itself. It first uses what PlantUML offers:
+  it adds the lines `skinparam style strictuml` (the UML style of PlantUML)
+  and `skinparam classAttributeIconSize 0` after the `@startuml` line of each
+  diagram. When a diagram has an error, the error picture of PlantUML shows
+  these lines, and its line numbers count them.
+- Where PlantUML has no command for a part of the UML notation, the extension
+  changes the copy of the text that PlantUML renders, with the means of
+  PlantUML. Your file stays as it is. The extension adds the keyword as a
+  stereotype to the declaration of the class, for example
+  `interface Shape <<interface>>`. It writes the modifiers `static` and
+  `abstract` at the start of a member in the body `{ }` of a class as
+  `{static}` and `{abstract}`, for example `+ static count() : int` becomes
+  `+ {static} count() : int`.
+- The extension adds nothing twice. A diagram that sets
+  `skinparam style strictuml` or the size of the visibility icons
+  (`skinparam classAttributeIconSize`, or `AttributeIconSize` in a block
+  `skinparam class { }`) itself gets no second line, and its own value
+  applies. A declaration that has the keyword or the kind as a stereotype
+  already, for example `interface Shape <<interface>>` or `enum Color <<enum>>`,
+  gets no second one. A member that has `{static}`, `{classifier}` or
+  `{abstract}` already stays as it is.
+- The UML style of PlantUML hides the colored circles and the participants
+  below the lifelines also in a diagram with `show circle` or `show footbox`.
+  To see them, set `nimblescape.plantuml.umlNotation` to `false`.
 - It adds no keyword in a component, deployment or use case diagram. There,
   `interface` declares the circle of a provided interface, which is UML
   notation already.
@@ -334,10 +365,11 @@ How the extension does this, and the limits:
   `interface Map<K, List<V>>`, gets no keyword, because PlantUML does not
   accept a stereotype after them. An `entity` gets no keyword, because the
   same declaration is a participant in a sequence diagram.
-- Diagrams of other types, for example `@startmindmap` or `@startgantt`, stay
-  as they are.
-- When a diagram has an error, the error picture of PlantUML can show the
-  added lines.
+- A member in the form `Class : static count() : int`, outside the body of
+  the class, keeps its modifier as text.
+- Nothing changes in comments, and in notes, titles, legends, headers and
+  footers of several lines. Diagrams of other types, for example
+  `@startmindmap` or `@startgantt`, stay as they are.
 
 ---
 

@@ -35,7 +35,7 @@ export interface Api {
  */
 export function readSettings(document: vscode.Uri | undefined): Settings {
   const configuration = vscode.workspace.getConfiguration(settingsSection, document);
-  return { classIcons: configuration.get<boolean>('classIcons', defaultSettings.classIcons) };
+  return { umlNotation: configuration.get<boolean>('umlNotation', defaultSettings.umlNotation) };
 }
 
 /**

@@ -208,8 +208,8 @@ test('the export reads the settings of the rendered document and adds them to th
   const { api } = await activate();
   const md = api.extendMarkdownIt(new MarkdownIt());
   const document: FakeUri = { scheme: 'file', path: '/folder/a.md' };
-  settingsOf.set(document.path, { classIcons: false });
-  expect(md.render(block, { currentDocument: document })).toContain(`${settingsAttribute}="{&quot;classIcons&quot;:false}"`);
+  settingsOf.set(document.path, { umlNotation: false });
+  expect(md.render(block, { currentDocument: document })).toContain(`${settingsAttribute}="{&quot;umlNotation&quot;:false}"`);
   expect(requests).toEqual([[settingsSection, document.path]]);
 
   // A text without a document gets the settings of the window, which keep the icons here.

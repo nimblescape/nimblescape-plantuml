@@ -12,12 +12,13 @@ import { defaultSettings, isDefault, parseSettings } from './settings';
 
 test('isDefault tells whether every setting has its default value', () => {
   expect(isDefault(defaultSettings)).toBe(true);
-  expect(isDefault({ ...defaultSettings, classIcons: false })).toBe(false);
+  expect(defaultSettings).toEqual({ umlNotation: true });
+  expect(isDefault({ ...defaultSettings, umlNotation: false })).toBe(false);
 });
 
 test('parseSettings reads the JSON text of settings, and a missing or invalid value gets its default', () => {
-  expect(parseSettings('{"classIcons":false}')).toEqual({ classIcons: false });
-  for (const text of [null, '', '{', '[]', 'null', '{"classIcons":"no"}', '{"other":1}']) {
+  expect(parseSettings('{"umlNotation":false}')).toEqual({ umlNotation: false });
+  for (const text of [null, '', '{', '[]', 'null', '{"umlNotation":"no"}', '{"classIcons":false}', '{"other":1}']) {
     expect(parseSettings(text), String(text)).toEqual(defaultSettings);
   }
 });

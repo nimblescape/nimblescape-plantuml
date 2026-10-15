@@ -220,11 +220,11 @@
     "configuration": {
       "title": "nimblescape PlantUML",
       "properties": {
-        "nimblescape.plantuml.classIcons": {
+        "nimblescape.plantuml.umlNotation": {
           "type": "boolean",
           "default": true,
           "scope": "resource",
-          "markdownDescription": "Show the colored icons of PlantUML in class diagrams: the circled letter of the kind of a class (C, I, E, A …) and the icons of the visibility of attributes and methods. The value `false` shows the UML notation instead: a keyword such as «interface» or «enumeration» above the name, and the characters `-` private, `#` protected, `~` package private and `+` public. A diagram that sets `hide circle`, `show circle` or `skinparam classAttributeIconSize` itself keeps its own value."
+          "markdownDescription": "Render UML diagrams in the notation of the UML standard, as far as PlantUML allows. The extension sets the UML style of PlantUML (`skinparam style strictuml`) and writes the visibility of members as the characters `-` private, `#` protected, `~` package private and `+` public (`skinparam classAttributeIconSize 0`). It adds the keyword of a class kind as a stereotype, for example «interface» or «enumeration», and writes the modifiers `static` and `abstract` of members as `{static}` and `{abstract}`. It changes only the copy of the text that PlantUML renders, never the file, and adds nothing that the diagram has already. The value `false` shows the own notation of PlantUML, for example the colored circles with a letter (C, I, E, A …)."
         }
       }
     }

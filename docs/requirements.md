@@ -65,20 +65,43 @@ for it.
 
 ### R-GEN-007
 
-**UML notation in class diagrams.** A setting replaces the colored icons of
-PlantUML in class diagrams with the notation of the UML standard:
+**UML notation.** A setting renders UML diagrams in the notation of the UML
+standard, as far as PlantUML allows. The setting is on by default. When it is
+off, the diagrams show the own notation of PlantUML.
 
+The extension has no rendering logic of its own. It reaches the UML notation
+with the means of PlantUML only, in this order:
+
+1. It uses what PlantUML supports out of the box, for example the UML style
+   (`skinparam style strictuml`) and the visibility as characters
+   (`skinparam classAttributeIconSize 0`).
+2. Where the result is not UML notation yet and standard PlantUML text can
+   change it, the extension changes the copy of the diagram text that
+   PlantUML renders, for example with a stereotype such as `<<interface>>`.
+   The file stays as it is.
+
+The result:
+
+- The kind of a class shows no colored circle with a letter (C, I, E, A …).
+  A kind with a UML keyword shows the keyword above its name, for example
+  «interface» or «enumeration». An abstract class shows its name in italics.
 - The visibility of attributes and methods shows as the characters `-`
   (private), `#` (protected), `~` (package private) and `+` (public).
-- The kind of a class shows as a keyword above its name, for example
-  «interface» or «enumeration», instead of the circled letter (C, I, E, A …).
-  A class shows no keyword, and an abstract class shows its name in italics.
-- An abstract attribute or method (`{abstract}`) shows in italics, and a
-  static one (`{static}` or `{classifier}`) is underlined.
+- A static attribute or method is underlined, and an abstract one shows in
+  italics. This applies to the modifiers `{static}`, `{classifier}` and
+  `{abstract}` of PlantUML, and to the modifiers `static` and `abstract` at
+  the start of a member in the body of a class.
+- In a sequence diagram, a synchronous message has a filled arrowhead, and
+  the participants show above the lifelines only.
+- In an object diagram, the names of the objects are underlined.
+
+The extension recognizes what the diagram has already and adds nothing twice:
+no command that the diagram sets itself, for example
+`skinparam style strictuml`; no stereotype that a declaration has already; and
+no modifier for a member that has a modifier of PlantUML already.
 
 The setting applies to the PlantUML blocks of Markdown files and to PlantUML
-files. By default, the icons of PlantUML show. A diagram that sets these
-displays itself keeps its own values.
+files.
 
 ## Markdown
 

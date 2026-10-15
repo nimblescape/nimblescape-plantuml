@@ -90,12 +90,12 @@ describe('PreviewRenderer', () => {
     renderer.update();
     await renderer.whenIdle();
     expect(engine.calls.map((call) => call.lines)).toEqual([
-      ['@startuml', 'A -> B', '@enduml'],
-      ['@startuml', 'C -> D', '@enduml'],
+      ['@startuml', ...umlCommands, 'A -> B', '@enduml'],
+      ['@startuml', ...umlCommands, 'C -> D', '@enduml'],
     ]);
     expect(engine.maxRunning).toBe(1);
     const diagrams = [...root.querySelectorAll(`.${contentClass} > svg`)].map((svg) => svg.getAttribute('data-text'));
-    expect(diagrams).toEqual(['@startuml|A -> B|@enduml', '@startuml|C -> D|@enduml']);
+    expect(diagrams).toEqual([['@startuml', ...umlCommands, 'A -> B', '@enduml'].join('|'), ['@startuml', ...umlCommands, 'C -> D', '@enduml'].join('|')]);
     expect(root.querySelector(':scope > pre')?.textContent).toBe('other');
   });
 
@@ -126,8 +126,8 @@ describe('PreviewRenderer', () => {
     renderer.update();
     await renderer.whenIdle();
     await renderer.whenIdle();
-    expect(engine.calls.map((call) => call.lines)).toEqual([['@startuml', 'AB', '@enduml']]);
-    expect(root.querySelector('svg')?.getAttribute('data-text')).toBe('@startuml|AB|@enduml');
+    expect(engine.calls.map((call) => call.lines)).toEqual([['@startuml', ...umlCommands, 'AB', '@enduml']]);
+    expect(root.querySelector('svg')?.getAttribute('data-text')).toBe(['@startuml', ...umlCommands, 'AB', '@enduml'].join('|'));
   });
 
   test('renders again for a dark background after a change of the theme', async () => {
@@ -147,7 +147,7 @@ describe('PreviewRenderer', () => {
 
   test('renders with the settings of the block, and again when they change', async () => {
     const root = document.createElement('div');
-    root.innerHTML = block('A', '{"classIcons":false}');
+    root.innerHTML = block('A', '{"umlNotation":false}');
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(root, async () => engine, () => false);
     renderer.update();
@@ -156,8 +156,8 @@ describe('PreviewRenderer', () => {
     renderer.update();
     await renderer.whenIdle();
     expect(engine.calls.map((call) => call.lines)).toEqual([
-      ['@startuml', ...umlCommands, 'A', '@enduml'],
       ['@startuml', 'A', '@enduml'],
+      ['@startuml', ...umlCommands, 'A', '@enduml'],
     ]);
   });
 

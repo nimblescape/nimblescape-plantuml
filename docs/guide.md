@@ -19,7 +19,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | Feature | Markdown files | PlantUML files | State | Requirements |
 | --- | --- | --- | --- | --- |
 | [Language PlantUML](#plantuml-files) | | yes | available | [R-PUML-001](requirements.md#r-puml-001) |
-| [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
+| [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
 | [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
 | [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | planned | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
@@ -70,9 +70,21 @@ the preview with one of these commands:
 | Markdown: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview. |
 
 The extension adds the diagrams to the preview of VS Code; it does not
-replace the preview. Outside the PlantUML blocks, the Markdown editor and the
+replace the preview. The diagrams follow the color theme: with a dark theme,
+PlantUML draws them for a dark background. Outside the PlantUML blocks, the Markdown editor and the
 Markdown preview work as without the extension, and all settings of the
 Markdown preview stay valid.
+
+#### Layout of diagrams in the Markdown preview
+
+The security policy of the Markdown preview does not allow WebAssembly. The
+Graphviz layout of the engine needs WebAssembly, so in the preview PlantUML
+arranges the diagrams with its own layout engine, Smetana. Most diagrams look
+the same; the arrangement of class, component and state diagrams can differ a
+little from the arrangement of Graphviz. When you set the preview security to
+"Disable" ("Markdown: Change Preview Security Settings"), the preview allows
+WebAssembly and the extension uses Graphviz. Only do this for documents that
+you trust.
 
 ### Switch between text and preview
 

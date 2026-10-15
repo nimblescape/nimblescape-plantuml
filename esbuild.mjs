@@ -2,10 +2,13 @@
 // © 2026 Hannes Stauss (scalarion@nimblescape.com)
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-// Bundle the extension into dist/extension.js and copy the PlantUML engine into
+// Bundle the extension into dist/extension.js and the script of the Markdown
+// preview into dist/markdownPreview.js, and copy the PlantUML engine into
 // dist/engine/. VS Code provides the module `vscode` at run time, so the bundle
-// leaves it out. A production build (--production, which vscode:prepublish
-// passes) is minified and has no source map.
+// of the extension leaves it out. The preview loads its script as a module in
+// the browser of the webview; that script imports the engine from
+// ./engine/plantuml.js at run time. A production build (--production, which
+// vscode:prepublish passes) is minified and has no source maps.
 //
 // The engine is the package @plantuml/core: PlantUML compiled to JavaScript
 // with TeaVM, with the Graphviz layout engine of Viz.js. Its files are browser
@@ -22,12 +25,15 @@ import * as esbuild from 'esbuild';
 
 const production = process.argv.includes('--production');
 const outfile = 'dist/extension.js';
+const previewOutfile = 'dist/markdownPreview.js';
 const engineDir = 'dist/engine';
 
-// A production build writes no source map: remove the map of an earlier
-// development build, so that no map that does not match the minified bundle
+// A production build writes no source maps: remove the maps of an earlier
+// development build, so that no map that does not match a minified bundle
 // stays in dist/.
-if (production) fs.rmSync(`${outfile}.map`, { force: true });
+if (production) {
+  for (const file of [outfile, previewOutfile]) fs.rmSync(`${file}.map`, { force: true });
+}
 
 await esbuild.build({
   entryPoints: ['src/extension.ts'],
@@ -37,6 +43,20 @@ await esbuild.build({
   format: 'cjs',
   target: 'node24',
   external: ['vscode'],
+  sourcemap: !production,
+  minify: production,
+  logLevel: 'info',
+});
+
+// The webview of VS Code runs the Chromium of its Electron release, which
+// supports the ES2022 target of the TypeScript settings.
+await esbuild.build({
+  entryPoints: ['src/preview/markdownPreview.ts'],
+  outfile: previewOutfile,
+  bundle: true,
+  platform: 'browser',
+  format: 'esm',
+  target: 'es2022',
   sourcemap: !production,
   minify: production,
   logLevel: 'info',

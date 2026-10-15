@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
+// @vitest-environment happy-dom
+
+/**
+ * These tests run the renderer of the preview script on a page of happy-dom
+ * with a fake engine. They check the lines that the engine receives, the
+ * detection of a dark theme, the rendering of one diagram at a time, the
+ * reuse of a result after the preview replaced its content, the new
+ * rendering after a change of the theme, and the display of errors. The real
+ * engine runs in the preview of VS Code only.
+ */
+
+import { describe, expect, test } from 'vitest';
+import { blockClass, sourceAttribute } from '../markdown/markdownIt';
+import { diagramLines, Engine, isDarkTheme, PreviewRenderer } from './markdownPreview';
+
+/** FakeEngine records its calls and answers each call after a turn of the event loop. */
+class FakeEngine implements Engine {
+  readonly calls: { lines: string[]; dark: boolean }[] = [];
+  running = 0;
+  maxRunning = 0;
+
+  renderToString(lines: string[], onSuccess: (svg: string) => void, onError: (message: string) => void, options?: { dark?: boolean }): void {
+    this.calls.push({ lines, dark: options?.dark === true });
+    this.running++;
+    this.maxRunning = Math.max(this.maxRunning, this.running);
+    setTimeout(() => {
+      this.running--;
+      if (lines.includes('fail')) {
+        onError('Syntax error');
+      } else {
+        onSuccess(`<svg data-text="${lines.join('|')}" data-dark="${options?.dark === true}"></svg>`);
+      }
+    }, 0);
+  }
+}
+
+/**
+ * block returns the HTML of a PlantUML block as the markdown-it plugin writes it.
+ * @param source - The text of the block.
+ */
+const block = (source: string): string =>
+  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}"><pre class="${blockClass}-source"><code>${source}</code></pre></div>`;
+
+describe('diagramLines', () => {
+  test('keeps a diagram with its @start line and drops the final line break of the block', () => {
+    expect(diagramLines('@startuml\nA -> B\n@enduml\n')).toEqual(['@startuml', 'A -> B', '@enduml']);
+    expect(diagramLines('  @startmindmap\r\n* a\r\n@endmindmap')).toEqual(['  @startmindmap', '* a', '@endmindmap']);
+  });
+
+  test('puts @startuml and @enduml around the body of a diagram', () => {
+    expect(diagramLines('A -> B\n')).toEqual(['@startuml', 'A -> B', '@enduml']);
+  });
+});
+
+describe('isDarkTheme', () => {
+  test('follows the class of the theme kind on the body', () => {
+    const body = document.createElement('body');
+    const cases: [string, boolean][] = [
+      ['vscode-light', false],
+      ['vscode-dark', true],
+      ['vscode-high-contrast', true],
+      ['vscode-high-contrast vscode-high-contrast-light', false],
+    ];
+    for (const [classes, dark] of cases) {
+      body.className = classes;
+      expect(isDarkTheme(body), classes).toBe(dark);
+    }
+  });
+});
+
+describe('PreviewRenderer', () => {
+  test('renders every block, one at a time, and shows the diagram', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A -&gt; B') + block('C -&gt; D') + '<pre>other</pre>';
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls.map((call) => call.lines)).toEqual([
+      ['@startuml', 'A -> B', '@enduml'],
+      ['@startuml', 'C -> D', '@enduml'],
+    ]);
+    expect(engine.maxRunning).toBe(1);
+    const diagrams = [...root.querySelectorAll(`.${blockClass} > svg`)].map((svg) => svg.getAttribute('data-text'));
+    expect(diagrams).toEqual(['@startuml|A -> B|@enduml', '@startuml|C -> D|@enduml']);
+    expect(root.querySelector(':scope > pre')?.textContent).toBe('other');
+  });
+
+  test('renders the same text once and shows the kept result after the preview replaced its content', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A') + block('A');
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls).toHaveLength(1);
+    expect(root.querySelectorAll('svg')).toHaveLength(2);
+
+    // The preview writes the blocks again on every change of the document.
+    root.innerHTML = block('A');
+    renderer.update();
+    expect(root.querySelectorAll('svg')).toHaveLength(1);
+    expect(engine.calls).toHaveLength(1);
+  });
+
+  test('renders again for a dark background after a change of the theme', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A');
+    const engine = new FakeEngine();
+    let dark = false;
+    const renderer = new PreviewRenderer(root, async () => engine, () => dark);
+    renderer.update();
+    await renderer.whenIdle();
+    dark = true;
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls.map((call) => call.dark)).toEqual([false, true]);
+    expect(root.querySelector('svg')?.getAttribute('data-dark')).toBe('true');
+  });
+
+  test('shows the message of an error above the text of the block', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('fail');
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    const children = [...root.querySelector(`.${blockClass}`)!.children];
+    expect(children.map((child) => child.className)).toEqual([`${blockClass}-error`, `${blockClass}-source`]);
+    expect(children.map((child) => child.textContent)).toEqual(['Syntax error', 'fail']);
+  });
+
+  test('shows the error when the engine does not load', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A');
+    const renderer = new PreviewRenderer(root, () => Promise.reject(new Error('The engine did not load.')), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(root.querySelector(`.${blockClass}-error`)?.textContent).toBe('The engine did not load.');
+  });
+});

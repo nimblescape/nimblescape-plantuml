@@ -15,6 +15,15 @@
  * block, among them `data-line` and the class `code-line`. The preview needs
  * them to synchronize the scrolling with the editor and to mark the block in a
  * rendered diff ([R-MD-002](../../docs/requirements.md#r-md-002)).
+ *
+ * The rendered diff of VS Code changes the page in two ways that matter here.
+ * First, it inserts empty `span` elements with the attribute `data-diff-start`
+ * or `data-diff-end` into the Markdown text around each changed part of a
+ * line, before markdown-it renders the text. In a code block these elements
+ * are plain text, so the plugin removes them from the diagram text. Second, it
+ * adds a bar for a changed block as a child of the element of the block. For
+ * this reason, the diagram goes into an inner content element, and the preview
+ * script changes only that content element.
  */
 
 import type MarkdownIt from 'markdown-it';
@@ -22,8 +31,26 @@ import type MarkdownIt from 'markdown-it';
 /** blockClass is the class of the element of a PlantUML block, which the preview script looks for. */
 export const blockClass = 'nimblescape-plantuml';
 
+/** contentClass is the class of the inner element of a PlantUML block that shows the text or the diagram. */
+export const contentClass = `${blockClass}-content`;
+
 /** sourceAttribute is the attribute that carries the text of a PlantUML block to the preview script. */
 export const sourceAttribute = 'data-plantuml-source';
+
+/**
+ * diffMarker matches an empty element that the rendered diff of VS Code inserts into the Markdown text at the
+ * start or at the end of a changed part of a line
+ * (extensions/markdown-language-features/src/preview/documentRenderer.ts).
+ */
+const diffMarker = /<span data-diff-(?:start|end)="\d+"><\/span>/g;
+
+/**
+ * withoutDiffMarkers removes the elements that the rendered diff of VS Code inserts into the Markdown text.
+ * @param text - A text of the Markdown document.
+ */
+export function withoutDiffMarkers(text: string): string {
+  return text.replace(diffMarker, '');
+}
 
 /**
  * isPlantUmlInfo tells whether the info string of a fenced code block names PlantUML: its first word is
@@ -44,14 +71,18 @@ export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
   const fence = md.renderer.rules.fence;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
-    if (!isPlantUmlInfo(token.info)) {
+    if (!isPlantUmlInfo(withoutDiffMarkers(token.info))) {
       return fence ? fence(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
     }
+    const source = withoutDiffMarkers(token.content);
     // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute.
     token.attrJoin('class', blockClass);
-    token.attrSet(sourceAttribute, token.content);
+    token.attrSet(sourceAttribute, source);
     // The text of the block shows until the diagram replaces it, and stays when the preview runs no scripts.
-    return `<div${self.renderAttrs(token)}><pre class="${blockClass}-source"><code>${md.utils.escapeHtml(token.content)}</code></pre></div>\n`;
+    return (
+      `<div${self.renderAttrs(token)}><div class="${contentClass}">` +
+      `<pre class="${blockClass}-source"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`
+    );
   };
   return md;
 }

@@ -104,11 +104,18 @@ the versions in the notices against the headers of `viz-global.js`.
 The built-in Markdown preview renders a document with markdown-it. The
 plugin `src/markdown/markdownIt.ts` writes a fenced code block with the info
 string `plantuml` as a `div` with the class `nimblescape-plantuml`, the
-attribute `data-plantuml-source` with the diagram text, and the text of the
-block as its content. The `div` keeps the attributes that the preview gives to
-every block, `data-line` and the class `code-line`, which the preview uses to
-synchronize the scrolling and to mark the changed blocks of a rendered diff.
-Every other token keeps the output of the preview.
+attribute `data-plantuml-source` with the diagram text, and an inner `div`
+with the class `nimblescape-plantuml-content`, which holds the text of the
+block until the diagram replaces it. The outer `div` keeps the attributes that
+the preview gives to every block, `data-line` and the class `code-line`, which
+the preview uses to synchronize the scrolling and to mark the changed blocks
+of a rendered diff. Every other token keeps the output of the preview.
+
+The rendered diff of VS Code (`documentRenderer.ts` and `preview-src/index.ts`
+of the Markdown extension) affects the blocks in two ways:
+
+- Before it renders, it inserts empty elements `<span data-diff-start="N"></span>` and `<span data-diff-end="N"></span>` into the Markdown text around each changed part of a line. In a code block, they are text, so the plugin removes them from the diagram text and from the info string.
+- It marks a changed block with classes on the outer `div` and adds a bar to it as a child (`diff-modification-gutter`) left of the block. The script therefore changes only the inner `div`, and only the inner `div` scrolls, so that the bar is not cut off.
 
 The preview loads `dist/markdownPreview.js` as a module. Its security policy
 allows only scripts with the nonce of the page, no WebAssembly, no network

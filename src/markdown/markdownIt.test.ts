@@ -6,13 +6,14 @@
  * These tests render Markdown with markdown-it, the renderer of the built-in
  * Markdown preview, with and without the plugin. They check the element of a
  * PlantUML block, the attributes that the preview needs for scrolling and for
- * the rendered diff, the escaping of the diagram text, and that the plugin
- * changes nothing outside PlantUML blocks (R-MD-006).
+ * the rendered diff, the escaping of the diagram text, the removal of the
+ * marks of the rendered diff, and that the plugin changes nothing outside
+ * PlantUML blocks (R-MD-006).
  */
 
 import MarkdownIt from 'markdown-it';
 import { describe, expect, test } from 'vitest';
-import { blockClass, extendMarkdownIt, isPlantUmlInfo, sourceAttribute } from './markdownIt';
+import { blockClass, contentClass, extendMarkdownIt, isPlantUmlInfo, sourceAttribute, withoutDiffMarkers } from './markdownIt';
 
 /**
  * sourceMap is the rule of the Markdown preview of VS Code that adds the first source line and the class
@@ -84,7 +85,7 @@ describe('extendMarkdownIt', () => {
     const html = preview(true).render('Text\n\n```plantuml\n@startuml\nA -> B\n@enduml\n```\n');
     expect(html).toContain(
       `<div data-line="2" class="code-line ${blockClass}" dir="auto" ${sourceAttribute}="@startuml\nA -&gt; B\n@enduml\n">` +
-        `<pre class="${blockClass}-source"><code>@startuml\nA -&gt; B\n@enduml\n</code></pre></div>`,
+        `<div class="${contentClass}"><pre class="${blockClass}-source"><code>@startuml\nA -&gt; B\n@enduml\n</code></pre></div></div>`,
     );
   });
 
@@ -93,6 +94,17 @@ describe('extendMarkdownIt', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain(`${sourceAttribute}="&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; '\n"`);
     expect(html).toContain('<code>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; \'\n</code>');
+  });
+
+  test('removes the marks that the rendered diff of VS Code inserts into a changed line', () => {
+    // The rendered diff inserts these elements into the Markdown text before markdown-it renders it.
+    const start = '<span data-diff-start="0"></span>';
+    const end = '<span data-diff-end="0"></span>';
+    expect(withoutDiffMarkers(`A -> ${start}Carol${end}`)).toBe('A -> Carol');
+    const html = preview(true).render(`\`\`\`plant${start}uml${end}\nA -> ${start}Carol${end}\n\`\`\`\n`);
+    expect(html).toContain(`${sourceAttribute}="A -&gt; Carol\n"`);
+    expect(html).toContain('<code>A -&gt; Carol\n</code>');
+    expect(html).not.toContain('data-diff');
   });
 
   test('changes nothing outside PlantUML blocks (R-MD-006)', () => {

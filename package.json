@@ -64,7 +64,8 @@
     "workspace"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onWebviewPanel:nimblescape.plantuml.sidePreview"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -118,6 +119,102 @@
         "embeddedLanguages": {
           "meta.embedded.block.plantuml": "plantuml"
         }
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "nimblescape.plantuml.preview",
+        "displayName": "PlantUML Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.puml"
+          },
+          {
+            "filenamePattern": "*.plantuml"
+          },
+          {
+            "filenamePattern": "*.pu"
+          },
+          {
+            "filenamePattern": "*.iuml"
+          },
+          {
+            "filenamePattern": "*.wsd"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "nimblescape.plantuml.togglePreview",
+        "title": "Toggle Preview",
+        "category": "PlantUML"
+      },
+      {
+        "command": "nimblescape.plantuml.reopenAsPreview",
+        "title": "Open as Preview",
+        "category": "PlantUML",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "nimblescape.plantuml.reopenAsSource",
+        "title": "Reopen as Source",
+        "category": "PlantUML",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "nimblescape.plantuml.showPreviewToSide",
+        "title": "Open Preview to the Side",
+        "category": "PlantUML",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "nimblescape.plantuml.reopenAsPreview",
+          "alt": "nimblescape.plantuml.showPreviewToSide",
+          "when": "resourceLangId == plantuml && !activeCustomEditorId",
+          "group": "navigation"
+        },
+        {
+          "command": "nimblescape.plantuml.reopenAsSource",
+          "when": "activeCustomEditorId == 'nimblescape.plantuml.preview'",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "nimblescape.plantuml.togglePreview",
+          "when": "resourceLangId == plantuml || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+        },
+        {
+          "command": "nimblescape.plantuml.reopenAsPreview",
+          "when": "resourceLangId == plantuml && !activeCustomEditorId"
+        },
+        {
+          "command": "nimblescape.plantuml.reopenAsSource",
+          "when": "activeCustomEditorId == 'nimblescape.plantuml.preview'"
+        },
+        {
+          "command": "nimblescape.plantuml.showPreviewToSide",
+          "when": "resourceLangId == plantuml || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "nimblescape.plantuml.togglePreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "(editorLangId == plantuml && !notebookEditorFocused) || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+      },
+      {
+        "command": "nimblescape.plantuml.showPreviewToSide",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "(editorLangId == plantuml && !notebookEditorFocused) || activeCustomEditorId == 'nimblescape.plantuml.preview'"
       }
     ],
     "configuration": {

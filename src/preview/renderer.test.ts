@@ -5,10 +5,10 @@
 // @vitest-environment happy-dom
 
 /**
- * These tests run the renderer of the preview script on a page of happy-dom
+ * These tests run the renderer of the previews on a page of happy-dom
  * with a fake engine. They check the detection of a dark theme, the
  * rendering of one diagram at a time, the reuse of a result after the
- * preview replaced its content, the new rendering after a change of the
+ * preview replaced its content, the skip of a text that changed again, the new rendering after a change of the
  * theme or of the settings, the display of errors, and that the bar of the
  * rendered diff stays in a block. The real engine runs in the preview of
  * VS Code only.
@@ -17,7 +17,7 @@
 import { describe, expect, test } from 'vitest';
 import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { umlCommands } from '../diagram/umlNotation';
-import { Engine, isDarkTheme, policiesAllowWebAssembly, PreviewRenderer } from './markdownPreview';
+import { Engine, isDarkTheme, policiesAllowWebAssembly, PreviewRenderer } from './renderer';
 
 /** FakeEngine records its calls and answers each call after a turn of the event loop. */
 class FakeEngine implements Engine {
@@ -114,6 +114,20 @@ describe('PreviewRenderer', () => {
     renderer.update();
     expect(root.querySelectorAll('svg')).toHaveLength(1);
     expect(engine.calls).toHaveLength(1);
+  });
+
+  test('does not render a text that changed again before its turn, as while the user types', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A');
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    root.innerHTML = block('AB');
+    renderer.update();
+    await renderer.whenIdle();
+    await renderer.whenIdle();
+    expect(engine.calls.map((call) => call.lines)).toEqual([['@startuml', 'AB', '@enduml']]);
+    expect(root.querySelector('svg')?.getAttribute('data-text')).toBe('@startuml|AB|@enduml');
   });
 
   test('renders again for a dark background after a change of the theme', async () => {

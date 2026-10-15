@@ -8,9 +8,10 @@
  * and the styles of the Markdown preview without code. Activation returns the
  * markdown-it plugin, which the Markdown extension of VS Code reads from the
  * export `extendMarkdownIt` when it builds its preview, refreshes the Markdown
- * previews when a setting of the extension changes, and registers the code
- * completion and the formatting for `.puml` files and for the PlantUML blocks
- * of Markdown files.
+ * previews when a setting of the extension changes, registers the previews
+ * of PlantUML files (`src/pumlPreviews.ts`), and registers the code completion
+ * and the formatting for `.puml` files and for the PlantUML blocks of
+ * Markdown files.
  */
 
 import type MarkdownIt from 'markdown-it';
@@ -19,6 +20,7 @@ import { Completion, complete } from './language/completion';
 import { formatLines } from './language/formatting';
 import { Block, plantUmlBlocks } from './markdown/blocks';
 import { extendMarkdownIt } from './markdown/markdownIt';
+import { PumlPreviews } from './pumlPreviews';
 import { defaultSettings, Settings, settingsSection } from './settings';
 
 /** Api is the export of the extension. */
@@ -255,13 +257,16 @@ const markdownFormatting: vscode.DocumentFormattingEditProvider & vscode.Documen
  * @returns The export of the extension, which the Markdown extension of VS Code reads.
  */
 export function activate(context: vscode.ExtensionContext): Api {
+  const previews = new PumlPreviews(context.extensionUri, readSettings);
   context.subscriptions.push(
     // The Markdown preview renders again only when its document or its own settings change.
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration(settingsSection)) {
         void vscode.commands.executeCommand('markdown.preview.refresh');
+        previews.refreshAll();
       }
     }),
+    ...previews.register(),
     vscode.languages.registerCompletionItemProvider('plantuml', pumlCompletion, ...triggerCharacters),
     vscode.languages.registerCompletionItemProvider('markdown', markdownCompletion, ...triggerCharacters),
     vscode.workspace.onDidChangeTextDocument(suggestWhileTyping),

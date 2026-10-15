@@ -43,7 +43,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "vscode:prepublish": "node esbuild.mjs --production",
-    "package": "vsce package --no-dependencies --no-rewrite-relative-links"
+    "package": "vsce package --no-dependencies --no-rewrite-relative-links",
+    "install-local": "node scripts/install-local.mjs"
   },
   "dependencies": {
     "@plantuml/core": "1.2026.8"

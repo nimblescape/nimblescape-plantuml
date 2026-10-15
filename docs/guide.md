@@ -23,7 +23,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | Markdown: in development; PlantUML files: planned | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
 | [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side | Markdown: in development; PlantUML files: planned | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
-| [Code completion](#code-completion) | yes | yes | planned | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
+| [Code completion](#code-completion) | yes | yes | in development | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
 | [UML notation in class diagrams](#uml-notation-in-class-diagrams) | yes | yes | Markdown: in development; PlantUML files: planned | [R-GEN-007](requirements.md#r-gen-007) |
@@ -174,12 +174,49 @@ of PlantUML (`'`).
 
 ### Code completion
 
-While you type, the editor proposes PlantUML keywords, for example diagram
-types after `@start`, and keywords such as `participant`, `class` or
-`skinparam`. It also proposes the names that the diagram declares, for example
-participants, classes and aliases. These names come from the same PlantUML
-file, or in a Markdown file from the same PlantUML block. Ctrl+Space shows the
-proposals at any time.
+While you type, the editor proposes PlantUML keywords and the names that the
+diagram declares. Ctrl+Space shows the proposals at any time. The proposals
+depend on the place of the cursor:
+
+| Place | Proposals |
+| --- | --- |
+| Start of a line, after `@` | The `@start…` and `@end…` lines of the diagram types, for example `@startuml` or `@endmindmap`. |
+| Start of a line, after `!` | The directives of the preprocessor, for example `!include`, `!theme` or `!procedure`. |
+| Start of a line | The keywords that start a statement, for example `participant`, `class`, `if`, `note` or `skinparam`, and the declared names. |
+| After `abstract` | The keyword `class`. |
+| Later in a line | The declared names, and the keywords that connect the parts of a statement, for example `as`, `extends` or `of`. |
+
+The declared names come from the same PlantUML file, or in a Markdown file
+from the same PlantUML block; other blocks of the file do not count. A name is
+declared:
+
+- by a keyword, for example `class Car`, `participant Alice` or
+  `component [Web server] as Web`. With an alias, the proposal is the alias,
+  because the other lines of the diagram use it;
+- by a link, for example both names in `Alice -> Bob` or in
+  `[Web] ..> [Database]`;
+- by a component, a use case, an actor or a task at the start of a line, for
+  example `[Web server]`, `(Log in)`, `:User:` or `[Design] lasts 5 days`;
+- by the preprocessor, for example `!procedure $box($name)`,
+  `!$color = "red"` or `!define LIGHT`.
+
+A quoted name, a component or a use case can be completed from its opening
+character: after `"Lo`, `[We` or `(Lo`, the proposals replace the text from
+the `"`, `[` or `(` on.
+
+The editor proposes nothing in places where you write free text or a new
+name: in comments, in the text of a note, a legend or a title of several
+lines, in the label after the `:` of a link, in an action of an activity
+diagram (`:text;`), in a `skinparam` line, in the path of an `!include`, and
+after a keyword that declares a new element, for example after `class `.
+
+In a Markdown file, the editor of VS Code does not show proposals while you
+type. Inside a PlantUML block, the extension shows them while you type, as in
+a PlantUML file. The setting `editor.quickSuggestions` of the language
+`plantuml` controls this in both places, for example
+`"[plantuml]": { "editor.quickSuggestions": { "other": "off" } }` turns it
+off. Outside the PlantUML blocks, the Markdown editor works as without the
+extension.
 
 ### Formatting
 

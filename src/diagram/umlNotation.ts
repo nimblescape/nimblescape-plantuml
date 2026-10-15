@@ -28,6 +28,8 @@
  * in italics, as UML does.
  */
 
+import { lineKinds } from './lineKinds';
+
 /** keywords maps a PlantUML class kind to its UML keyword. */
 export const keywords: Readonly<Record<string, string>> = {
   interface: 'interface',
@@ -64,12 +66,6 @@ const declaration = new RegExp(
  */
 const descriptionLine =
   /^\s*(?:\[|\((?!\))|:[^:]+:|(?:component|usecase|actor|agent|artifact|boundary|card|collections|control|file|hexagon|person|port|portin|portout|queue|stack|storage|action|process)(?:\/)?(?:\s|$))/;
-
-/** blockStart matches the first line of a note, title, legend, header or footer of several lines. */
-const blockStart = /^\s*(?:(?:[rh]?note)\b(?!.*:)(?!\s+")|legend\b|(?:(?:left|right|center)\s+)?(?:header|footer)\s*$|title\s*$|caption\s*$)/i;
-
-/** blockEnd matches the last line of a note, title, legend, header or footer of several lines. */
-const blockEnd = /^\s*end\s*(?:[rh]?note|legend|header|footer|title|caption)\b/i;
 
 /**
  * withKeyword adds the UML keyword to a line that declares a class kind with a keyword, and returns every other
@@ -120,26 +116,6 @@ export function umlNotation(lines: readonly string[]): string[] {
  * @param body - The lines between the `@startuml` and the `@enduml` line.
  */
 function withKeywords(body: readonly string[]): string[] {
-  let inComment = false;
-  let inBlock = false;
-  return body.map((line) => {
-    if (inComment) {
-      inComment = !line.includes(`'/`);
-      return line;
-    }
-    if (inBlock) {
-      inBlock = !blockEnd.test(line);
-      return line;
-    }
-    const commentStart = line.indexOf(`/'`);
-    if (commentStart >= 0 && !line.includes(`'/`, commentStart + 2)) {
-      inComment = true;
-      return line;
-    }
-    if (blockStart.test(line)) {
-      inBlock = true;
-      return line;
-    }
-    return withKeyword(line);
-  });
+  const kinds = lineKinds(body);
+  return body.map((line, index) => (kinds[index] === 'statement' ? withKeyword(line) : line));
 }

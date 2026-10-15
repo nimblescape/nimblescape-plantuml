@@ -5,8 +5,10 @@
 /**
  * These tests run the activation of the extension with a fake of the API of
  * VS Code. They check that the export renders PlantUML blocks with the lines
- * of the settings of the document, and that a change of a setting of the
- * extension refreshes the Markdown previews (R-GEN-007).
+ * of the settings of the document, that a change of a setting of the
+ * extension refreshes the Markdown previews (R-GEN-007), and that the code
+ * completion works in `.puml` files (R-PUML-006) and in the PlantUML blocks of
+ * Markdown files only (R-MD-004, R-MD-006).
  */
 
 import MarkdownIt from 'markdown-it';
@@ -26,14 +28,69 @@ let settingsOf: Map<string, Record<string, unknown>>;
 let requests: [string, string][];
 /** commands records the executed commands. */
 let commands: string[];
+/** commandArguments records the arguments of the executed commands. */
+let commandArguments: unknown[][];
 /** configurationListeners are the listeners for a change of the settings. */
 let configurationListeners: ((event: { affectsConfiguration(section: string): boolean }) => void)[];
+
+/** FakeRange stands for a vscode.Range. */
+class FakeRange {
+  constructor(
+    readonly startLine: number,
+    readonly startCharacter: number,
+    readonly endLine: number,
+    readonly endCharacter: number,
+  ) {}
+}
+
+/** FakeCompletionItem stands for a vscode.CompletionItem. */
+class FakeCompletionItem {
+  range?: { inserting: FakeRange; replacing: FakeRange };
+  detail?: string;
+  constructor(
+    readonly label: string,
+    readonly kind: string,
+  ) {}
+}
+
+/** FakeProvider stands for a vscode.CompletionItemProvider with a fake document. */
+interface FakeProvider {
+  provideCompletionItems(document: { version: number; getText(): string }, position: { line: number; character: number }): FakeCompletionItem[] | undefined;
+}
+
+/** providers records the registered completion providers by their language, with their trigger characters. */
+let providers: Map<string, { provider: FakeProvider; triggerCharacters: string[] }>;
+
+/** FakeChangeEvent stands for a vscode.TextDocumentChangeEvent. */
+interface FakeChangeEvent {
+  document: FakeDocument;
+  reason: number | undefined;
+  contentChanges: { range: { start: { line: number; character: number } }; rangeLength: number; text: string }[];
+}
+
+/** FakeDocument stands for a vscode.TextDocument. */
+interface FakeDocument {
+  languageId: string;
+  version: number;
+  uri: FakeUri;
+  getText(): string;
+  lineAt(line: number): { text: string };
+}
+
+/** changeListeners are the listeners for a change of a document. */
+let changeListeners: ((event: FakeChangeEvent) => void)[];
+/** activeEditor is the active text editor of the fake window. */
+let activeEditor: { document: FakeDocument; selections: unknown[] } | undefined;
 
 beforeEach(() => {
   settingsOf = new Map();
   requests = [];
   commands = [];
+  commandArguments = [];
   configurationListeners = [];
+  changeListeners = [];
+  activeEditor = undefined;
+  providers = new Map();
   vi.resetModules();
   vi.doMock('vscode', () => ({
     workspace: {
@@ -46,12 +103,32 @@ beforeEach(() => {
         configurationListeners.push(listener);
         return { dispose() {} };
       },
-    },
-    commands: {
-      executeCommand: async (command: string) => {
-        commands.push(command);
+      onDidChangeTextDocument: (listener: (typeof changeListeners)[number]) => {
+        changeListeners.push(listener);
+        return { dispose() {} };
       },
     },
+    window: {
+      get activeTextEditor() {
+        return activeEditor;
+      },
+    },
+    commands: {
+      executeCommand: async (command: string, ...args: unknown[]) => {
+        commands.push(command);
+        commandArguments.push(args);
+      },
+    },
+    languages: {
+      registerCompletionItemProvider: (language: string, provider: FakeProvider, ...triggerCharacters: string[]) => {
+        providers.set(language, { provider, triggerCharacters });
+        return { dispose() {} };
+      },
+    },
+    Range: FakeRange,
+    CompletionItem: FakeCompletionItem,
+    // The kinds are their names here, so that the tests can read them.
+    CompletionItemKind: new Proxy({}, { get: (_target, name) => name }),
   }));
 });
 
@@ -91,10 +168,102 @@ test('the export reads the settings of the rendered document and adds them to th
 
 test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
   const { context } = await activate();
-  expect(context.subscriptions).toHaveLength(1);
+  expect(context.subscriptions).toHaveLength(4);
   const change = (changed: string) => configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
   change('editor');
   expect(commands).toEqual([]);
   change(settingsSection);
   expect(commands).toEqual(['markdown.preview.refresh']);
+});
+
+/**
+ * completeIn runs the completion provider of a language at the position of `‸` in a text.
+ * @param language - The language of the document.
+ * @param text - The text, with `‸` at the cursor.
+ */
+function completeIn(language: string, text: string) {
+  const before = text.slice(0, text.indexOf('‸')).split('\n');
+  const document = { version: 1, getText: () => text.replace('‸', '') };
+  const position = { line: before.length - 1, character: before.at(-1)!.length };
+  return providers.get(language)!.provider.provideCompletionItems(document, position);
+}
+
+test('the completion of PlantUML files proposes keywords and the names of the file, for the word at the cursor', async () => {
+  await activate();
+  expect(providers.get('plantuml')!.triggerCharacters).toEqual(['@', '!', '$']);
+  const items = completeIn('plantuml', '@startuml\ninterface Shape\nclass Car\nCar ..|> Sh‸ape\n@enduml\n')!;
+  expect(items.map((item) => item.label)).toEqual(expect.arrayContaining(['Shape', 'Car', 'as']));
+  const shape = items.find((item) => item.label === 'Shape')!;
+  expect(shape).toMatchObject({ kind: 'Interface', detail: 'interface' });
+  expect(shape.range).toEqual({ inserting: new FakeRange(3, 9, 3, 11), replacing: new FakeRange(3, 9, 3, 14) });
+});
+
+test('the completion of Markdown files works in PlantUML blocks only, with the names of the same block', async () => {
+  await activate();
+  expect(providers.get('markdown')!.triggerCharacters).toEqual(['@', '!', '$']);
+  const markdown = ['# Title', '', '```plantuml', 'class Car', '```', '', '```plantuml', 'class Bike', 'B‸', '```', 'Text'];
+  const items = completeIn('markdown', markdown.join('\n'))!;
+  expect(items.map((item) => item.label)).toEqual(expect.arrayContaining(['Bike', 'class']));
+  expect(items.map((item) => item.label)).not.toContain('Car');
+  expect(items[0].range!.inserting).toEqual(new FakeRange(8, 0, 8, 1));
+
+  // Outside the PlantUML blocks, and in another code block, the completion proposes nothing.
+  expect(completeIn('markdown', markdown.join('\n').replace('B‸', 'B').replace('Text', 'Te‸xt'))).toBeUndefined();
+  expect(completeIn('markdown', '```js\ncl‸\n```')).toBeUndefined();
+
+  // The extension reads the blocks again for a new version of the same document.
+  const document = { version: 1, text: '```js\nB\n```', getText: () => document.text };
+  const provider = providers.get('markdown')!.provider;
+  expect(provider.provideCompletionItems(document, { line: 1, character: 1 })).toBeUndefined();
+  Object.assign(document, { version: 2, text: '```plantuml\nB\n```' });
+  expect(provider.provideCompletionItems(document, { line: 1, character: 1 })).toBeDefined();
+});
+
+/**
+ * typeIn opens a Markdown text in the active editor and types a character at the position of `‸`.
+ * @param text - The Markdown text, with `‸` at the cursor.
+ * @param typed - The typed character.
+ * @param reason - The reason of the change: undefined for typing, 1 for undo.
+ */
+function typeIn(text: string, typed: string, reason?: number) {
+  const before = text.slice(0, text.indexOf('‸')).split('\n');
+  const after = text.replace('‸', typed);
+  const document: FakeDocument = {
+    languageId: 'markdown',
+    version: 1,
+    uri: { scheme: 'file', path: '/folder/a.md' },
+    getText: () => after,
+    lineAt: (line) => ({ text: after.split('\n')[line] }),
+  };
+  activeEditor = { document, selections: [{}] };
+  const change = { range: { start: { line: before.length - 1, character: before.at(-1)!.length } }, rangeLength: 0, text: typed };
+  changeListeners.forEach((listener) => listener({ document, reason, contentChanges: [change] }));
+}
+
+test('typing a word in a PlantUML block of a Markdown file shows the proposals, as in a PlantUML file', async () => {
+  await activate();
+  settingsOf.set('', { quickSuggestions: { other: 'offWhenInlineCompletions', comments: 'off', strings: 'off' } });
+  const block = '```plantuml\nclass Car\n‸\n```\n';
+  typeIn(block, 'C');
+  expect(commands).toEqual(['editor.action.triggerSuggest']);
+  expect(commandArguments).toEqual([[{ auto: true }]]);
+  expect(requests).toContainEqual(['editor', '']);
+
+  // Typing in the middle of a word, typing another character, an undo, and typing outside the block do nothing.
+  commands = [];
+  typeIn('```plantuml\n‸ar\n```\n', 'C');
+  typeIn(block, ' ');
+  typeIn(block, 'C', 1);
+  typeIn('Text ‸\n' + block.replace('‸', ''), 'C');
+  expect(commands).toEqual([]);
+
+  // The setting editor.quickSuggestions of the language plantuml decides, as in a PlantUML file.
+  settingsOf.set('', { quickSuggestions: { other: 'off' } });
+  typeIn(block, 'C');
+  settingsOf.set('', { quickSuggestions: 'inline' });
+  typeIn(block, 'C');
+  expect(commands).toEqual([]);
+  settingsOf.set('', { quickSuggestions: true });
+  typeIn(block, 'C');
+  expect(commands).toEqual(['editor.action.triggerSuggest']);
 });

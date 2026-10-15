@@ -167,4 +167,20 @@ test('every requirement has a unique ID, and every link to a requirement names a
   for (const target of markdownLinks(requirements).filter((target) => target.startsWith('#r-'))) {
     expect(anchors.has(target), target).toBe(true);
   }
+  for (const target of markdownLinks(read('docs/guide.md')).filter((target) => target.startsWith('requirements.md#'))) {
+    expect(anchors.has(target.slice('requirements.md'.length)), target).toBe(true);
+  }
+});
+
+test('every link of the user guide to one of its sections names an existing heading', () => {
+  const guide = read('docs/guide.md');
+  // The anchor of a heading as GitHub writes it: lower case, without punctuation, with hyphens for spaces.
+  const anchors = new Set(
+    [...guide.matchAll(/^#{2,4} (.+)$/gm)].map(
+      (match) => `#${match[1].toLowerCase().replace(/[^\p{L}\p{N} -]/gu, '').replace(/ /g, '-')}`,
+    ),
+  );
+  for (const target of markdownLinks(guide).filter((target) => target.startsWith('#'))) {
+    expect(anchors.has(target), target).toBe(true);
+  }
 });

@@ -1,7 +1,8 @@
 # Contributing
 
 This guide explains the files, the development, the tests and the release of
-the extension. The [README](README.md) describes the use in short, and
+the extension. The [README](README.md) describes the use in short, the
+[user guide](docs/guide.md) describes every feature, and
 [docs/requirements.md](docs/requirements.md) lists what the extension must do,
 each requirement with an ID.
 
@@ -13,6 +14,7 @@ each requirement with an ID.
 | `src/manifest.test.ts` | The tests of the manifest, the package contents, the bundled engine and the documents, with vitest. |
 | `dist/` | The bundle `dist/extension.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
+| `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine, their licenses and the places of their source code. |
 | `esbuild.mjs` | Bundles `src/extension.ts` and the modules that it imports into `dist/extension.js`, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source map. |

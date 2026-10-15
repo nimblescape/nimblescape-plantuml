@@ -9,8 +9,10 @@ installation and no server, and it works offline.
 > for the files below. The rendering in the Markdown preview, the preview of
 > PlantUML files, the highlighting, the code completion and the formatting
 > follow. The
+> [user guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md)
+> describes every feature and its state, and the
 > [requirements](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/requirements.md)
-> list the planned features.
+> define each feature exactly.
 
 ## Files
 

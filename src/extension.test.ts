@@ -11,7 +11,7 @@
 
 import MarkdownIt from 'markdown-it';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { preambleAttribute } from './markdown/markdownIt';
+import { settingsAttribute } from './markdown/markdownIt';
 import { settingsSection } from './settings';
 
 /** FakeUri stands for a vscode.Uri; the extension only passes it on. */
@@ -70,22 +70,22 @@ test('the module exports activate and deactivate', async () => {
   expect(typeof extension.deactivate).toBe('function');
 });
 
-test('the export renders PlantUML blocks without lines of the settings by default', async () => {
+test('the export renders PlantUML blocks without settings by default', async () => {
   const { api } = await activate();
   const md = api.extendMarkdownIt(new MarkdownIt());
-  expect(md.render(block)).not.toContain(preambleAttribute);
+  expect(md.render(block)).not.toContain(settingsAttribute);
 });
 
-test('the export reads the settings of the rendered document and adds their lines to the block', async () => {
+test('the export reads the settings of the rendered document and adds them to the block', async () => {
   const { api } = await activate();
   const md = api.extendMarkdownIt(new MarkdownIt());
   const document: FakeUri = { scheme: 'file', path: '/folder/a.md' };
-  settingsOf.set(document.path, { visibilityIcons: false });
-  expect(md.render(block, { currentDocument: document })).toContain(`${preambleAttribute}="skinparam classAttributeIconSize 0"`);
+  settingsOf.set(document.path, { classIcons: false });
+  expect(md.render(block, { currentDocument: document })).toContain(`${settingsAttribute}="{&quot;classIcons&quot;:false}"`);
   expect(requests).toEqual([[settingsSection, document.path]]);
 
   // A text without a document gets the settings of the window, which keep the icons here.
-  expect(md.render(block)).not.toContain(preambleAttribute);
+  expect(md.render(block)).not.toContain(settingsAttribute);
   expect(requests.at(-1)).toEqual([settingsSection, '']);
 });
 

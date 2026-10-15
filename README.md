@@ -24,7 +24,7 @@ installation and no server, and it works offline.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `nimblescape.plantuml.visibilityIcons` | `true` | Shows the visibility of the attributes and methods of classes as the colored icons of PlantUML. The value `false` shows the UML characters `-`, `#`, `~` and `+` instead. |
+| `nimblescape.plantuml.classIcons` | `true` | Shows the colored icons of PlantUML in class diagrams. The value `false` shows the UML notation instead: a keyword such as «interface» above the name of a class, and the characters `-`, `#`, `~` and `+` for the visibility of its attributes and methods. |
 
 ## About PlantUML
 

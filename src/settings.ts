@@ -3,9 +3,9 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 /**
- * The settings of the extension and the PlantUML lines that apply them to a
- * diagram ([R-GEN-007](../docs/requirements.md#r-gen-007)). The module uses
- * no API of VS Code, so its tests need no fake of the editor API.
+ * The settings of the extension that change the diagrams. The module uses no
+ * API of VS Code, so the scripts of the previews can use it, and its tests
+ * need no fake of the editor API.
  */
 
 /** settingsSection is the section of the settings of the extension. */
@@ -14,21 +14,35 @@ export const settingsSection = 'nimblescape.plantuml';
 /** Settings are the values of the settings of the extension. */
 export interface Settings {
   /**
-   * visibilityIcons shows the visibility of class members as the colored icons of PlantUML. The value `false`
-   * shows the UML characters `-`, `#`, `~` and `+` instead.
+   * classIcons shows the colored icons of PlantUML in class diagrams: the circled letter of the kind of a class
+   * and the icons of the visibility of its members. The value `false` shows the UML notation instead
+   * ([R-GEN-007](../docs/requirements.md#r-gen-007)).
    */
-  visibilityIcons: boolean;
+  classIcons: boolean;
 }
 
 /** defaultSettings are the values of the settings that the user did not set. */
-export const defaultSettings: Readonly<Settings> = { visibilityIcons: true };
+export const defaultSettings: Readonly<Settings> = { classIcons: true };
 
 /**
- * preambleLines returns the PlantUML lines that apply the settings to a diagram. The renderer puts them directly
- * after the `@start` line, so a line of the diagram itself overrides them.
+ * isDefault tells whether settings have the default value of every setting.
  * @param settings - The values of the settings.
  */
-export function preambleLines(settings: Readonly<Settings>): string[] {
-  // An icon size of 0 makes PlantUML write the visibility as a UML character.
-  return settings.visibilityIcons ? [] : ['skinparam classAttributeIconSize 0'];
+export function isDefault(settings: Readonly<Settings>): boolean {
+  return (Object.keys(defaultSettings) as (keyof Settings)[]).every((key) => settings[key] === defaultSettings[key]);
+}
+
+/**
+ * parseSettings reads settings from their JSON text. A missing or invalid value gets its default.
+ * @param text - The JSON text, or null for the default settings.
+ */
+export function parseSettings(text: string | null): Settings {
+  let value: unknown;
+  try {
+    value = text ? JSON.parse(text) : undefined;
+  } catch {
+    value = undefined;
+  }
+  const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  return { classIcons: typeof values.classIcons === 'boolean' ? values.classIcons : defaultSettings.classIcons };
 }

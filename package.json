@@ -102,11 +102,11 @@
     "configuration": {
       "title": "nimblescape PlantUML",
       "properties": {
-        "nimblescape.plantuml.visibilityIcons": {
+        "nimblescape.plantuml.classIcons": {
           "type": "boolean",
           "default": true,
           "scope": "resource",
-          "markdownDescription": "Show the visibility of the attributes and methods of classes as the colored icons of PlantUML. The value `false` shows the UML characters instead: `-` private, `#` protected, `~` package private, `+` public. A diagram that sets `skinparam classAttributeIconSize` itself keeps its own value."
+          "markdownDescription": "Show the colored icons of PlantUML in class diagrams: the circled letter of the kind of a class (C, I, E, A …) and the icons of the visibility of attributes and methods. The value `false` shows the UML notation instead: a keyword such as «interface» or «enumeration» above the name, and the characters `-` private, `#` protected, `~` package private and `+` public. A diagram that sets `hide circle`, `show circle` or `skinparam classAttributeIconSize` itself keeps its own value."
         }
       }
     }

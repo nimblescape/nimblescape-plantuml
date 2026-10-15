@@ -11,11 +11,13 @@ each requirement with an ID.
 | File | Purpose |
 | --- | --- |
 | `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, and refreshes the previews when a setting changes. |
-| `src/settings.ts` | The settings of the extension, their defaults, and the PlantUML lines that apply them to a diagram. It uses no API of VS Code, so its tests need no fake of the editor API. |
+| `src/settings.ts` | The settings of the extension that change the diagrams, their defaults, and their JSON form for the preview. It uses no API of VS Code, so the preview script can use it. |
+| `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
+| `src/diagram/umlNotation.ts` | The UML notation for class diagrams of the setting `classIcons`: the commands `hide circle` and `skinparam classAttributeIconSize 0`, and the UML keyword as a stereotype in each declaration of a class kind. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: loads the engine and renders the PlantUML blocks of the page, one at a time, and keeps the results. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
-| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
 | `dist/` | The bundles `dist/extension.js` and `dist/markdownPreview.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
@@ -126,8 +128,8 @@ requests and no frames. The script therefore:
 - loads the engine with a dynamic import, which keeps the nonce, and only when the page has a PlantUML block;
 - sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) through script elements with the nonce; a library of the PlantUML standard library, which the package does not contain, fails with a message;
 - loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly;
-- puts the lines of the settings, which the plugin writes into the attribute `data-plantuml-preamble`, after each `@start` line of the diagram;
-- renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, lines of the settings and text;
+- applies the settings, which the plugin writes as JSON into the attribute `data-plantuml-settings` when they differ from the defaults (`src/diagram/diagramLines.ts`);
+- renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, settings and text;
 - renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once.
 
 The diagrams use the dark mode of PlantUML when the theme of VS Code is dark

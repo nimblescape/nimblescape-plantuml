@@ -26,7 +26,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Code completion](#code-completion) | yes | yes | planned | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
-| [UML characters for visibility](#uml-characters-for-visibility) | yes | yes | Markdown: in development; PlantUML files: planned | [R-GEN-007](requirements.md#r-gen-007) |
+| [UML notation in class diagrams](#uml-notation-in-class-diagrams) | yes | yes | Markdown: in development; PlantUML files: planned | [R-GEN-007](requirements.md#r-gen-007) |
 
 ## How the extension renders
 
@@ -173,17 +173,20 @@ PlantUML blocks and no other text of the file.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `nimblescape.plantuml.visibilityIcons` | `true` | `true` shows the visibility of the attributes and methods of classes as the colored icons of PlantUML. `false` shows the UML characters. |
+| `nimblescape.plantuml.classIcons` | `true` | `true` shows the colored icons of PlantUML in class diagrams. `false` shows the UML notation. |
 
 The settings apply to the PlantUML blocks of Markdown files and to PlantUML
 files. You can set them for the user, for a workspace or for a folder of a
 workspace. An open preview renders again when a setting changes.
 
-### UML characters for visibility
+### UML notation in class diagrams
 
-PlantUML shows the visibility of the attributes and methods of a class as
-colored icons. With `nimblescape.plantuml.visibilityIcons` set to `false`, the
-diagrams show the characters of the UML standard instead:
+PlantUML draws the kind of a class as a colored circle with a letter, and the
+visibility of an attribute or a method as a colored icon. With
+`nimblescape.plantuml.classIcons` set to `false`, class diagrams show the
+notation of the UML standard instead.
+
+The visibility shows as a character:
 
 | Visibility | Character |
 | --- | --- |
@@ -192,11 +195,38 @@ diagrams show the characters of the UML standard instead:
 | package private | `~` |
 | public | `+` |
 
-The extension does this with the line `skinparam classAttributeIconSize 0`,
-which it adds after the `@start` line of each diagram. A diagram that sets
-`skinparam classAttributeIconSize` itself keeps its own value, because its own
-line comes later. When a diagram has an error, the error picture of PlantUML
-can show the added line.
+The kind of a class shows as a keyword above its name:
+
+| Declaration | Display |
+| --- | --- |
+| `class` | the name only |
+| `abstract class` | the name in italics |
+| `interface` | «interface» |
+| `enum` | «enumeration» |
+| `annotation` | «annotation» |
+| `protocol`, `struct`, `exception`, `record`, `dataclass` | «protocol», «struct», «exception», «record», «dataclass» |
+| `metaclass`, `stereotype` | «metaclass», «stereotype» |
+
+How the extension does this, and the limits:
+
+- It adds the lines `skinparam classAttributeIconSize 0` and `hide circle`
+  after the `@startuml` line of each diagram. A diagram that sets
+  `skinparam classAttributeIconSize`, `hide circle` or `show circle` itself
+  keeps its own value, because its own line comes later.
+- It adds the keyword as a stereotype to the declaration of the class, for
+  example `interface Shape <<interface>>`. A declaration that has this
+  stereotype already stays as it is.
+- It adds no keyword in a component, deployment or use case diagram. There,
+  `interface` declares the circle of a provided interface, which is UML
+  notation already.
+- A declaration with nested generic parameters, for example
+  `interface Map<K, List<V>>`, gets no keyword, because PlantUML does not
+  accept a stereotype after them. An `entity` gets no keyword, because the
+  same declaration is a participant in a sequence diagram.
+- Diagrams of other types, for example `@startmindmap` or `@startgantt`, stay
+  as they are.
+- When a diagram has an error, the error picture of PlantUML can show the
+  added lines.
 
 ---
 

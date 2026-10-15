@@ -13,7 +13,8 @@
 
 import MarkdownIt from 'markdown-it';
 import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, extendMarkdownIt, isPlantUmlInfo, preambleAttribute, sourceAttribute, withoutDiffMarkers } from './markdownIt';
+import { defaultSettings } from '../settings';
+import { blockClass, contentClass, extendMarkdownIt, isPlantUmlInfo, settingsAttribute, sourceAttribute, withoutDiffMarkers } from './markdownIt';
 
 /**
  * sourceMap is the rule of the Markdown preview of VS Code that adds the first source line and the class
@@ -89,18 +90,19 @@ describe('extendMarkdownIt', () => {
     );
   });
 
-  test('adds the lines of the settings to a PlantUML block only, and only when there are lines', () => {
+  test('adds the settings to a PlantUML block only, and only when they differ from the defaults', () => {
     const envs: unknown[] = [];
     const md = extendMarkdownIt(new MarkdownIt(), (env) => {
       envs.push(env);
-      return ['skinparam a 1', 'skinparam b 2'];
+      return { ...defaultSettings, classIcons: false };
     });
     const env = { currentDocument: 'a.md' };
     const html = md.render('```plantuml\nA\n```\n\n```js\nx\n```\n', env);
-    expect(html).toContain(`${preambleAttribute}="skinparam a 1\nskinparam b 2"`);
-    expect(html.match(new RegExp(preambleAttribute, 'g'))).toHaveLength(1);
+    expect(html).toContain(`${settingsAttribute}="{&quot;classIcons&quot;:false}"`);
+    expect(html.match(new RegExp(settingsAttribute, 'g'))).toHaveLength(1);
     expect(envs).toEqual([env]);
-    expect(preview(true).render('```plantuml\nA\n```\n')).not.toContain(preambleAttribute);
+    expect(extendMarkdownIt(new MarkdownIt(), () => defaultSettings).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);
+    expect(preview(true).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);
   });
 
   test('escapes the diagram text in the attribute and in the text', () => {

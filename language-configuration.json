@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
+// The editing rules of the language `plantuml`: the comment toggles of VS Code
+// use the line comment `'` and the block comment `/' '/` of PlantUML, and the
+// editor matches, closes and surrounds the bracket pairs of the diagram text.
+{
+  "comments": {
+    "lineComment": "'",
+    "blockComment": ["/'", "'/"]
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "\"", "close": "\"", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""]
+  ]
+}

@@ -16,7 +16,7 @@ comes first, the support of PlantUML files second.
 | Step | Content | Requirements |
 | --- | --- | --- |
 | 1 | Setup: manifest, build, the bundled engine, CI, release workflows, license notices | [R-GEN-001](#r-gen-001), [R-GEN-004](#r-gen-004), [R-GEN-005](#r-gen-005), [R-GEN-006](#r-gen-006), [R-PUML-001](#r-puml-001) |
-| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-005](#r-md-005) |
+| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006) |
 | 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-007](#r-puml-007) |
 | 4 | Tests, README, icon, and a release workflow that is ready but not run | all |
 
@@ -86,12 +86,22 @@ has syntax highlighting.
 ### R-MD-004
 
 **Code completion in Markdown.** The text editor offers code completion inside
-a PlantUML block of a Markdown file.
+a PlantUML block of a Markdown file. This requirement is a wish: it comes
+after the rendering, the highlighting and the formatting.
 
 ### R-MD-005
 
 **Formatting in Markdown.** The extension formats the text of the PlantUML
 blocks of a Markdown file and changes no other text of the file.
+
+### R-MD-006
+
+**No change outside PlantUML blocks.** The extension does not change the
+behavior of the Markdown editor and of the Markdown preview outside the
+PlantUML blocks. Inside a PlantUML block, it adds the rendering in the preview
+([R-MD-001](#r-md-001), [R-MD-002](#r-md-002)), the syntax highlighting
+([R-MD-003](#r-md-003)), the code completion ([R-MD-004](#r-md-004)) and the
+formatting ([R-MD-005](#r-md-005)).
 
 ## PlantUML files
 

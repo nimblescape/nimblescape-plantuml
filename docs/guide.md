@@ -25,6 +25,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | planned | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | planned | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | planned | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
+| [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | planned | [R-MD-006](requirements.md#r-md-006) |
 
 ## How the extension renders
 
@@ -69,7 +70,9 @@ the preview with one of these commands:
 | Markdown: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview. |
 
 The extension adds the diagrams to the preview of VS Code; it does not
-replace the preview. All other settings of the Markdown preview stay valid.
+replace the preview. Outside the PlantUML blocks, the Markdown editor and the
+Markdown preview work as without the extension, and all settings of the
+Markdown preview stay valid.
 
 ### Switch between text and preview
 

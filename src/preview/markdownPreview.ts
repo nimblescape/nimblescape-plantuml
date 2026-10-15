@@ -211,14 +211,31 @@ function loadScript(url: string): Promise<void> {
   });
 }
 
-/** webAssemblyAllowed tells whether the security policy of the page allows WebAssembly. */
+/**
+ * policiesAllowWebAssembly tells whether security policies allow WebAssembly. A policy allows it when it limits no
+ * scripts, or when its script sources contain `'wasm-unsafe-eval'` or `'unsafe-eval'`. The script reads the
+ * policies of the page instead of compiling a test module, because a blocked compilation is a violation of the
+ * policy, and the preview then shows the warning "Some content has been disabled in this document".
+ * @param policies - The texts of the security policies of the page.
+ */
+export function policiesAllowWebAssembly(policies: readonly string[]): boolean {
+  return policies.every((policy) => {
+    const directives = new Map(
+      policy
+        .split(';')
+        .map((directive) => directive.trim().split(/\s+/))
+        .filter((parts) => parts[0])
+        .map((parts) => [parts[0].toLowerCase(), parts.slice(1)] as const),
+    );
+    const sources = directives.get('script-src') ?? directives.get('default-src');
+    return !sources || sources.includes(`'wasm-unsafe-eval'`) || sources.includes(`'unsafe-eval'`);
+  });
+}
+
+/** webAssemblyAllowed tells whether the security policies of the page allow WebAssembly. */
 function webAssemblyAllowed(): boolean {
-  try {
-    new WebAssembly.Module(new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]));
-    return true;
-  } catch {
-    return false;
-  }
+  const policies = [...document.querySelectorAll<HTMLMetaElement>('meta[http-equiv="Content-Security-Policy" i]')];
+  return typeof WebAssembly === 'object' && policiesAllowWebAssembly(policies.map((meta) => meta.content));
 }
 
 /**

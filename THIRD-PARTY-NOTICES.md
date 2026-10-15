@@ -25,6 +25,13 @@ project does not endorse it.
 | `openiconic.js` | The icons of [Open Iconic](https://github.com/iconic/open-iconic) by Waybury | MIT |
 | `LICENSE` | The license of `@plantuml/core` | |
 
+The grammar `dist/syntaxes/markdown-plantuml.tmLanguage.json`, which marks
+the PlantUML blocks of Markdown files, uses the regular expressions of the
+fences of a fenced code block of the Markdown grammar of VS Code, from
+[vscode-markdown-tm-grammar](https://github.com/microsoft/vscode-markdown-tm-grammar)
+by Microsoft, under the MIT License. The section
+[vscode-markdown-tm-grammar](#vscode-markdown-tm-grammar) holds its license.
+
 ## PlantUML
 
 Source code: <https://github.com/plantuml/plantuml/tree/v1.2026.8>. The
@@ -436,4 +443,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+## vscode-markdown-tm-grammar
+
+Source code: <https://github.com/microsoft/vscode-markdown-tm-grammar>. Its
+license:
+
+```text
+The MIT License (MIT)
+
+Copyright (c) Microsoft 2018
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

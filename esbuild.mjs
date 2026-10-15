@@ -3,8 +3,8 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 // Bundle the extension into dist/extension.js and the script of the Markdown
-// preview into dist/markdownPreview.js, and copy the PlantUML engine into
-// dist/engine/. VS Code provides the module `vscode` at run time, so the bundle
+// preview into dist/markdownPreview.js, write the TextMate grammars into
+// dist/syntaxes/, and copy the PlantUML engine into dist/engine/. VS Code provides the module `vscode` at run time, so the bundle
 // of the extension leaves it out. The preview loads its script as a module in
 // the browser of the webview; that script imports the engine from
 // ./engine/plantuml.js at run time. A production build (--production, which
@@ -61,6 +61,27 @@ await esbuild.build({
   minify: production,
   logLevel: 'info',
 });
+
+// The grammars are TypeScript objects in src/language/grammars.ts, so that
+// the highlighting and the code completion share one list of keywords. The
+// build bundles that module in memory, imports it, and writes each grammar as
+// a JSON file.
+const syntaxesDir = 'dist/syntaxes';
+const grammarModule = await esbuild.build({
+  entryPoints: ['src/language/grammars.ts'],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  write: false,
+  logLevel: 'warning',
+});
+const { grammarFiles } = await import(`data:text/javascript;base64,${Buffer.from(grammarModule.outputFiles[0].text).toString('base64')}`);
+fs.rmSync(syntaxesDir, { recursive: true, force: true });
+fs.mkdirSync(syntaxesDir, { recursive: true });
+for (const [file, grammar] of Object.entries(grammarFiles)) {
+  fs.writeFileSync(path.join(syntaxesDir, file), `${JSON.stringify(grammar, null, 2)}\n`);
+}
+console.log(`Wrote ${Object.keys(grammarFiles).length} grammars to ${syntaxesDir}/`);
 
 // The engine folder holds exactly the files of the installed engine version,
 // so a file that a newer version dropped does not stay in it.

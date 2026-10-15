@@ -12,18 +12,20 @@ each requirement with an ID.
 | --- | --- |
 | `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, and refreshes the previews when a setting changes. |
 | `src/settings.ts` | The settings of the extension that change the diagrams, their defaults, and their JSON form for the preview. It uses no API of VS Code, so the preview script can use it. |
+| `src/language/keywords.ts` | The keywords of PlantUML that the highlighting and the code completion share. |
+| `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
 | `src/diagram/umlNotation.ts` | The UML notation for class diagrams of the setting `classIcons`: the commands `hide circle` and `skinparam classAttributeIconSize 0`, and the UML keyword as a stereotype in each declaration of a class kind. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: loads the engine and renders the PlantUML blocks of the page, one at a time, and keeps the results. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
-| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, and the preview script on a page of happy-dom with a fake engine. |
 | `dist/` | The bundles `dist/extension.js` and `dist/markdownPreview.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine, their licenses and the places of their source code. |
-| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js and `src/preview/markdownPreview.ts` into `dist/markdownPreview.js` for the browser of the preview, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
+| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js and `src/preview/markdownPreview.ts` into `dist/markdownPreview.js` for the browser of the preview, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
 | `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node; a test file of the preview script selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
@@ -69,6 +71,7 @@ change can be tried without a package.
 - `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundles, the engine, the styles of the preview, the language configuration and the documents. A test checks the list.
 - `extensionKind` selects the workspace host.
 - The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions.
+- The grammar contribution points to the grammars in `dist/syntaxes/`. The injection into `text.html.markdown` maps the scope `meta.embedded.block.plantuml` to the language `plantuml`, so that the editing rules of PlantUML, for example its comments, apply inside a PlantUML block of a Markdown file. A test checks the contribution against `src/language/grammars.ts`.
 - The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`, so the extension needs no activation event. The section [Markdown preview](#markdown-preview) explains it.
 - The configuration contribution declares the settings of `src/settings.ts` in the section `nimblescape.plantuml`, with the scope `resource`, so that a folder of a workspace can have its own value. A test keeps the defaults equal to `src/settings.ts`, and a test checks that the README and the guide name every setting.
 - The untrusted-workspace and virtual-workspace capabilities state that the extension only reads.
@@ -127,7 +130,7 @@ requests and no frames. The script therefore:
 
 - loads the engine with a dynamic import, which keeps the nonce, and only when the page has a PlantUML block;
 - sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) through script elements with the nonce; a library of the PlantUML standard library, which the package does not contain, fails with a message;
-- loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly;
+- loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly. The script reads the security policy of the page and does not compile a test module, because a blocked compilation counts as a violation, and the preview then shows the warning "Some content has been disabled in this document";
 - applies the settings, which the plugin writes as JSON into the attribute `data-plantuml-settings` when they differ from the defaults (`src/diagram/diagramLines.ts`);
 - renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, settings and text;
 - renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once.

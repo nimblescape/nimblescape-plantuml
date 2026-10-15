@@ -63,7 +63,9 @@
   "extensionKind": [
     "workspace"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": true,

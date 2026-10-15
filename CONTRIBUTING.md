@@ -15,7 +15,7 @@ each requirement with an ID.
 | `src/language/keywords.ts` | The keywords of PlantUML that the highlighting and the code completion share. |
 | `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
 | `src/language/completion.ts` | The code completion: the declared names of a PlantUML text, and the proposals for a position. It uses no API of VS Code. |
-| `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks. It uses no API of VS Code. |
+| `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks, and one space for each run of spaces inside a statement. It uses no API of VS Code. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
 | `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
 | `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
@@ -203,7 +203,9 @@ block comments keep their text (`src/diagram/lineKinds.ts`). The further lines
 of an action of several lines move with its first line: a test in Chromium
 showed that PlantUML shows the indentation of a further line beyond the
 indentation of the first line as spaces, and ignores the indentation of notes
-and legends.
+and legends. Inside a statement, each run of spaces and tabs becomes one space;
+quoted text, monospaced text of Creole (`""…""`) and the rest of a line after
+a quote without end keep their spaces, because these spaces belong to a name or a text that the diagram shows.
 
 `src/extension.ts` registers a document formatter and a range formatter for
 the languages `plantuml` and `markdown`. Each changed line gets one edit of

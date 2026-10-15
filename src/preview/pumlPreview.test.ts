@@ -6,13 +6,14 @@
 
 /**
  * These tests check the page of the preview of PlantUML files (R-PUML-002,
- * R-PUML-003): the split of a file into its diagrams, the blocks that the
- * page writes and reuses, and the security policy of the page.
+ * R-PUML-003) and of their rendered diff (R-PUML-004): the split of a file
+ * into its diagrams, the pairs of diagrams of two versions, the blocks and
+ * rows that the page writes and reuses, and the security policy of the page.
  */
 
 import { describe, expect, test } from 'vitest';
 import { blockClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
-import { diagramSources, emptyClass, showDiagrams } from './pumlPreview';
+import { diagramSources, diffRows, emptyClass, rowClass, showDiagrams, showDiff, sideClass } from './pumlPreview';
 import { previewHtml } from './previewHtml';
 
 describe('diagramSources', () => {
@@ -51,6 +52,61 @@ describe('showDiagrams', () => {
     expect(container.querySelector(`.${emptyClass}`)?.textContent).toBe('The file has no diagram.');
     showDiagrams(container, { type: 'update', text: 'A -> B', settings: { umlNotation: true } });
     expect(container.querySelector(`.${emptyClass}`)).toBeNull();
+  });
+});
+
+describe('diffRows', () => {
+  test('pairs equal diagrams as unchanged and the others in their order as modified, removed or added', () => {
+    expect(diffRows(['A', 'B', 'C', 'D'], ['A', 'B2', 'C', 'E', 'F'])).toEqual([
+      { original: 'A', modified: 'A', change: 'unchanged' },
+      { original: 'B', modified: 'B2', change: 'modified' },
+      { original: 'C', modified: 'C', change: 'unchanged' },
+      { original: 'D', modified: 'E', change: 'modified' },
+      { modified: 'F', change: 'added' },
+    ]);
+    expect(diffRows(['A', 'B', 'C'], ['C'])).toEqual([
+      { original: 'A', change: 'removed' },
+      { original: 'B', change: 'removed' },
+      { original: 'C', modified: 'C', change: 'unchanged' },
+    ]);
+    expect(diffRows(['A'], ['X', 'A'])).toEqual([
+      { modified: 'X', change: 'added' },
+      { original: 'A', modified: 'A', change: 'unchanged' },
+    ]);
+    expect(diffRows([], [])).toEqual([]);
+  });
+});
+
+describe('showDiff', () => {
+  /** sides returns the change and the texts of the two sides of each row; '-' marks an empty side. */
+  const sides = (container: HTMLElement) =>
+    [...container.querySelectorAll(`.${rowClass}`)].map((row) => [
+      row.className,
+      ...[...row.querySelectorAll(`:scope > .${sideClass}`)].map((side) => side.querySelector(`.${blockClass}`)?.getAttribute(sourceAttribute) ?? '-'),
+    ]);
+
+  test('writes one row for each pair of diagrams, with the change in its class, and reuses the rows', () => {
+    const container = document.createElement('main');
+    const message = (original: string, text: string) => ({ type: 'update' as const, original, text, settings: { umlNotation: true } });
+    const [a, b, b2, c] = ['A', 'B', 'B2', 'C'].map((name) => `@startuml\n${name}\n@enduml`);
+    showDiff(container, message([a, b].join('\n'), [a, b2, c].join('\n')));
+    expect(sides(container)).toEqual([
+      [`${rowClass} ${rowClass}-unchanged`, a, a],
+      [`${rowClass} ${rowClass}-modified`, b, b2],
+      [`${rowClass} ${rowClass}-added`, '-', c],
+    ]);
+    const firstBlock = container.querySelector(`.${blockClass}`);
+
+    showDiff(container, message([a, b].join('\n'), a));
+    expect(sides(container)).toEqual([
+      [`${rowClass} ${rowClass}-unchanged`, a, a],
+      [`${rowClass} ${rowClass}-removed`, b, '-'],
+    ]);
+    expect(container.querySelector(`.${blockClass}`)).toBe(firstBlock);
+
+    showDiff(container, message('', ''));
+    expect(container.querySelector(`.${rowClass}`)).toBeNull();
+    expect(container.querySelector(`.${emptyClass}`)).not.toBeNull();
   });
 });
 

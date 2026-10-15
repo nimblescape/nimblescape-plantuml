@@ -168,9 +168,13 @@ types.
 ### R-PUML-004
 
 **Rendered Git diff of PlantUML files.** In the diff of a PlantUML file, the
-user can show the old and the new diagram side by side. The changes get marks
-as soon as VS Code makes the API `customEditorDiffs` stable; until then, the
-proposed API stays unused ([R-GEN-005](#r-gen-005)).
+same keys and buttons as for the preview switch the tab to a rendered diff
+and back. The rendered diff shows the old diagrams on the left and the new
+diagrams on the right, puts each changed diagram next to its old version, and
+marks the changed, added and removed diagrams. Marks on single lines inside a
+diagram need the API `customEditorDiffs`, which is not stable yet; until
+VS Code makes it stable, the proposed API stays unused
+([R-GEN-005](#r-gen-005)).
 
 ### R-PUML-005
 

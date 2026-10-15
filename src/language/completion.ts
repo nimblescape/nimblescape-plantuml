@@ -234,13 +234,26 @@ function wordRange(text: string, character: number): { start: number; end: numbe
 }
 
 /**
+ * completeWord tells whether a typed word is complete: one proposal is the word itself, ignoring case, and no other
+ * proposal continues it. VS Code would else show the word as the only proposal, and Enter would accept the
+ * proposal instead of starting a new line, for example after `@startuml`.
+ * @param word - The typed part of the word at the cursor.
+ * @param proposals - The proposals for the word.
+ */
+function completeWord(word: string, proposals: readonly Proposal[]): boolean {
+  const typed = word.toLowerCase();
+  const labels = proposals.map((proposal) => proposal.label.toLowerCase());
+  return typed !== '' && labels.includes(typed) && !labels.some((label) => label !== typed && label.startsWith(typed));
+}
+
+/**
  * complete returns the proposals at a position of a PlantUML text.
  *
  * At the start of a line, it proposes `@start…` and `@end…` after `@`, the directives of the preprocessor after
  * `!`, and else the keywords that start a statement and the declared names. Later in a line, it proposes the
  * declared names and the keywords that connect the parts of a statement. It proposes nothing in a comment, in
  * free text, in the label of a link, in an action of an activity diagram, in a `skinparam` line, in the path of
- * an `!include`, and for the name of a new declaration.
+ * an `!include`, and for the name of a new declaration. It proposes nothing for a complete word.
  * @param lines - The lines of the text: a `.puml` file, or the lines of a PlantUML block of a Markdown file.
  * @param line - The index of the line of the cursor.
  * @param character - The column of the cursor.
@@ -250,7 +263,7 @@ export function complete(lines: readonly string[], line: number, character: numb
   const { start, end } = wordRange(text, character);
   const word = text.slice(start, character);
   const lead = text.slice(0, start);
-  const result = (proposals: Proposal[]): Completion => ({ start, end, proposals });
+  const result = (proposals: Proposal[]): Completion => ({ start, end, proposals: completeWord(word, proposals) ? [] : proposals });
   if (lineKinds(lines)[line] !== 'statement') {
     return result([]);
   }

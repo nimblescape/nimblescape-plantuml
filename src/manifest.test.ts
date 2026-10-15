@@ -12,9 +12,13 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { grammarFiles } from './language/grammars';
+import { commands, diffPreviewViewType, previewViewType, sidePreviewViewType } from './pumlPreviews';
 import { defaultSettings, settingsSection } from './settings';
+
+// The previews module imports the editor API; these tests read only its constants.
+vi.mock('vscode', () => ({}));
 
 /** repository is the root folder of this repository, which holds the manifest and the documents. */
 const repository = path.resolve(__dirname, '..');
@@ -90,6 +94,17 @@ test('the manifest contributes the grammars that the build writes, with PlantUML
   expect(grammars[0].language).toBe('plantuml');
   expect(grammars[1].injectTo).toEqual(['text.html.markdown']);
   expect(grammars[1].embeddedLanguages).toEqual({ 'meta.embedded.block.plantuml': 'plantuml' });
+});
+
+test('the manifest contributes the custom editor, the commands and the activation events of the previews', () => {
+  expect(manifest.contributes.customEditors.map((editor: { viewType: string }) => editor.viewType)).toEqual([previewViewType]);
+  expect(manifest.contributes.commands.map((command: { command: string }) => command.command).sort()).toEqual(Object.values(commands).sort());
+  expect(manifest.activationEvents).toEqual(
+    expect.arrayContaining([`onWebviewPanel:${sidePreviewViewType}`, `onWebviewPanel:${diffPreviewViewType}`]),
+  );
+  const whens = JSON.stringify([manifest.contributes.menus, manifest.contributes.keybindings]);
+  expect(whens).toContain(`activeCustomEditorId == '${previewViewType}'`);
+  expect(whens).toContain(`activeWebviewPanelId == '${diffPreviewViewType}'`);
 });
 
 test('the manifest contributes the settings of src/settings.ts with their defaults', () => {

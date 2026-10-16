@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { umlCommands, umlNotation, withKeyword, withModifiers } from './umlNotation';
+import { umlCommands, umlNotation, umlNotationWithOrigins, withKeyword, withModifiers } from './umlNotation';
 
 describe('withKeyword', () => {
   test('adds the UML keyword of each class kind after the name', () => {
@@ -107,6 +107,17 @@ describe('umlNotation', () => {
       '@startuml', ...umlCommands, 'interface I <<interface>>', '@enduml',
       '@startuml', ...umlCommands, 'enum E <<enumeration>>', '@enduml',
     ]);
+  });
+
+  test('names for each line the line of the text that it comes from, and no line for an added command', () => {
+    const lines = ['text', '@startuml', 'interface I', '@enduml', '@startuml', 'skinparam style strictuml', 'class C', '@enduml'];
+    expect(umlNotationWithOrigins(lines)).toEqual({
+      lines: [
+        'text', '@startuml', ...umlCommands, 'interface I <<interface>>', '@enduml',
+        '@startuml', 'skinparam classAttributeIconSize 0', 'skinparam style strictuml', 'class C', '@enduml',
+      ],
+      origins: [0, 1, undefined, undefined, 2, 3, 4, undefined, 5, 6, 7],
+    });
   });
 
   test('changes a diagram without an @enduml line up to the end of the text', () => {

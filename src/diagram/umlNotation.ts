@@ -161,27 +161,49 @@ export function withModifiers(line: string): string {
 }
 
 /**
- * umlNotation returns the lines of a PlantUML text with the UML notation in its UML diagrams.
+ * LinesWithOrigins are lines made from the lines of a text: each line with the index of the line of the text that it
+ * comes from, or undefined for a line that was added.
+ */
+export interface LinesWithOrigins {
+  lines: string[];
+  origins: (number | undefined)[];
+}
+
+/**
+ * umlNotationWithOrigins returns the lines of a PlantUML text with the UML notation in its UML diagrams, each with
+ * the index of the line of the text that it comes from. The commands of the notation come from no line; every other
+ * line comes from the line at its place, also when the notation changed it.
  * @param lines - The lines of the text, with `@start` and `@end` lines.
  */
-export function umlNotation(lines: readonly string[]): string[] {
-  const result: string[] = [];
+export function umlNotationWithOrigins(lines: readonly string[]): LinesWithOrigins {
+  const result: LinesWithOrigins = { lines: [], origins: [] };
+  const add = (texts: readonly string[], first?: number) =>
+    texts.forEach((text, index) => {
+      result.lines.push(text);
+      result.origins.push(first === undefined ? undefined : first + index);
+    });
   let next = 0;
   for (const { type, start, end } of diagramRanges(lines)) {
     if (type !== 'uml') {
       continue;
     }
-    result.push(...lines.slice(next, start + 1));
+    add(lines.slice(next, start + 1), next);
     const body = lines.slice(start + 1, end);
     const kinds = lineKinds(body);
     const statements = body.filter((_, index) => kinds[index] === 'statement');
-    result.push(...commands.filter(({ setBy }) => !statements.some((statement) => setBy.test(statement))).map(({ command }) => command));
-    result.push(...(isDescriptionDiagram(body, kinds) ? body : withClassNotation(body, kinds)));
+    add(commands.filter(({ setBy }) => !statements.some((statement) => setBy.test(statement))).map(({ command }) => command));
+    add(isDescriptionDiagram(body, kinds) ? body : withClassNotation(body, kinds), start + 1);
     next = end;
   }
-  result.push(...lines.slice(next));
+  add(lines.slice(next), next);
   return result;
 }
+
+/**
+ * umlNotation returns the lines of a PlantUML text with the UML notation in its UML diagrams.
+ * @param lines - The lines of the text, with `@start` and `@end` lines.
+ */
+export const umlNotation = (lines: readonly string[]): string[] => umlNotationWithOrigins(lines).lines;
 
 /**
  * withClassNotation adds the UML keywords to the declarations of a diagram and writes the modifiers of the members

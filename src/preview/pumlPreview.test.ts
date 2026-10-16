@@ -8,13 +8,16 @@
  * These tests check the page of the preview of PlantUML files (R-PUML-002,
  * R-PUML-003) and of their rendered diff (R-PUML-004): the split of a file
  * into its diagrams, the pairs of diagrams of two versions, the blocks and
- * rows that the page writes and reuses, and the security policy of the page.
+ * rows that the page writes and reuses, the labels of the changes, the text
+ * of a diagram below an error, and the security policy of the page.
  */
 
 import { describe, expect, test } from 'vitest';
-import { blockClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
-import { diagramSources, diffRows, emptyClass, rowClass, showDiagrams, showDiff, sideClass } from './pumlPreview';
+import { blockClass, contentClass, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
+import { FakeEngine } from '../test/fakeEngine';
+import { diagramSources, diffRows, emptyClass, labelClass, rowClass, showDiagrams, showDiff, sideClass } from './pumlPreview';
 import { previewHtml } from './previewHtml';
+import { PreviewRenderer } from './renderer';
 
 describe('diagramSources', () => {
   test('splits a file into its diagrams and ignores the text between them', () => {
@@ -44,6 +47,18 @@ describe('showDiagrams', () => {
     expect(container.firstElementChild).toBe(first);
     expect(first?.getAttribute(sourceAttribute)).toBe('@startuml\nA2\n@enduml');
     expect(first?.getAttribute(settingsAttribute)).toBe('{"umlNotation":false}');
+    expect(first?.querySelector(`:scope > .${contentClass} > .${textClass} > code`)?.textContent).toBe('@startuml\nA2\n@enduml');
+  });
+
+  test('writes the text of each diagram into its block, which the renderer shows below an error', async () => {
+    const container = document.createElement('main');
+    showDiagrams(container, { type: 'update', text: '@startuml\nfail\n@enduml', settings: { umlNotation: true } });
+    const renderer = new PreviewRenderer(container, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    const content = container.querySelector(`.${contentClass}`)!;
+    expect([...content.shadowRoot!.children].map((child) => child.localName)).toEqual(['pre', 'slot']);
+    expect(content.querySelector(`:scope > .${textClass}`)?.textContent).toBe('@startuml\nfail\n@enduml');
   });
 
   test('shows a message for a file without a diagram', () => {
@@ -78,29 +93,33 @@ describe('diffRows', () => {
 });
 
 describe('showDiff', () => {
-  /** sides returns the change and the texts of the two sides of each row; '-' marks an empty side. */
+  /** sides returns the change and the label and the text of the two sides of each row; '-' marks an empty side. */
   const sides = (container: HTMLElement) =>
     [...container.querySelectorAll(`.${rowClass}`)].map((row) => [
       row.className,
-      ...[...row.querySelectorAll(`:scope > .${sideClass}`)].map((side) => side.querySelector(`.${blockClass}`)?.getAttribute(sourceAttribute) ?? '-'),
+      ...[...row.querySelectorAll(`:scope > .${sideClass}`)].map((side) => {
+        const label = side.querySelector(`:scope > .${labelClass}`)?.textContent;
+        const source = side.querySelector(`.${blockClass}`)?.getAttribute(sourceAttribute) ?? '-';
+        return label ? `${label}: ${source}` : source;
+      }),
     ]);
 
-  test('writes one row for each pair of diagrams, with the change in its class, and reuses the rows', () => {
+  test('writes one row for each pair of diagrams, with the change in its class and in labels, and reuses the rows', () => {
     const container = document.createElement('main');
     const message = (original: string, text: string) => ({ type: 'update' as const, original, text, settings: { umlNotation: true } });
     const [a, b, b2, c] = ['A', 'B', 'B2', 'C'].map((name) => `@startuml\n${name}\n@enduml`);
     showDiff(container, message([a, b].join('\n'), [a, b2, c].join('\n')));
     expect(sides(container)).toEqual([
       [`${rowClass} ${rowClass}-unchanged`, a, a],
-      [`${rowClass} ${rowClass}-modified`, b, b2],
-      [`${rowClass} ${rowClass}-added`, '-', c],
+      [`${rowClass} ${rowClass}-modified`, `Changed: ${b}`, `Changed: ${b2}`],
+      [`${rowClass} ${rowClass}-added`, '-', `Added: ${c}`],
     ]);
     const firstBlock = container.querySelector(`.${blockClass}`);
 
     showDiff(container, message([a, b].join('\n'), a));
     expect(sides(container)).toEqual([
       [`${rowClass} ${rowClass}-unchanged`, a, a],
-      [`${rowClass} ${rowClass}-removed`, b, '-'],
+      [`${rowClass} ${rowClass}-removed`, `Removed: ${b}`, '-'],
     ]);
     expect(container.querySelector(`.${blockClass}`)).toBe(firstBlock);
 

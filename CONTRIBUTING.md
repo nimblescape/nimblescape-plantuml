@@ -16,22 +16,23 @@ each requirement with an ID.
 | `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.nimblescape.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
 | `src/language/completion.ts` | The code completion: the declared names of a PlantUML text, and the proposals for a position. It uses no API of VS Code. |
 | `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks, one space for a run of spaces between the parts of a statement, and one space for each run of spaces in a member. It uses no API of VS Code. |
-| `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
-| `src/diagram/diagramRanges.ts` | The diagrams of a PlantUML text, from a `@start` line to the next `@end` line, in small letters as the engine reads them. The previews, the UML notation and the formatting use this one rule. |
+| `src/diagram/diagramLines.ts` | The lines that the engine renders for the text of one diagram: `@startuml` and `@enduml` around a body, the `@end` line of a diagram without one, and the settings applied, each line with the line of the text that it comes from. |
+| `src/diagram/diagramRanges.ts` | The diagrams of a PlantUML text, from a `@start` line to the next `@end` line, in small letters as the engine reads them, and the split of a text into the texts of its diagrams. The previews, the UML notation and the formatting use this one rule. |
 | `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
 | `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, member of a class, an object, a map or JSON data, rule of a style, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, with the prefix of each line (the markers of a block quote, the indentation of a list item), for the code completion and the formatting. It finds them with markdown-it, as the preview does. |
 | `src/pumlPreviews.ts` | The previews of PlantUML files: the custom editor that shows a file as a preview in its own tab, the preview to the side, the rendered diff, and their commands. |
-| `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the PlantUML blocks of a page one at a time, and keeps the results in memory and in the local storage of the preview. |
-| `src/preview/markdownPreview.ts` | The script of the Markdown preview: starts the renderer for the PlantUML blocks of the page. |
-| `src/preview/pumlPreview.ts` | The script of the preview of PlantUML files: writes a block for each diagram of the file, or a row for each pair of diagrams of a rendered diff, and starts the renderer. |
+| `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the diagrams of the PlantUML blocks of a page one at a time into a shadow root of each block, shows errors with the line of the block text, and keeps the results in memory and in the local storage of the preview. |
+| `src/preview/markdownPreview.ts` | The script of the Markdown preview: starts the renderer for the PlantUML blocks of the page, and again after each change of the page. |
+| `src/preview/pumlPreview.ts` | The script of the preview of PlantUML files: writes a block for each diagram of the file, or a row for each pair of diagrams of a rendered diff with a label (Changed, Added, Removed) on each changed side, and starts the renderer. |
 | `src/preview/previewHtml.ts` | The page of the preview of PlantUML files, with its security policy. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
 | `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
-| `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
+| `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
+| `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
@@ -155,17 +156,19 @@ plugin `src/markdown/markdownIt.ts` writes a fenced code block with the info
 string `plantuml` as a `div` with the class `nimblescape-plantuml`, the
 attribute `data-plantuml-source` with the diagram text, and an inner `div`
 with the class `nimblescape-plantuml-content`, which holds the text of the
-block. The script replaces the text before the page shows it, so the text
-shows only when the script does not run. The outer `div` keeps the attributes that
-the preview gives to every block, `data-line` and the class `code-line`, which
-the preview uses to synchronize the scrolling and to mark the changed blocks
-of a rendered diff. Every other token keeps the output of the preview.
+block in a `pre` with the class `nimblescape-plantuml-source`. The script
+gives the inner `div` a shadow root before the page shows it: the shadow root
+shows the diagrams and hides the text, so the text shows only when the script
+does not run. The outer `div` keeps the attributes that the preview gives to
+every block, `data-line` and the class `code-line`, which the preview uses to
+synchronize the scrolling and to mark the changed blocks of a rendered diff.
+Every other token keeps the output of the preview.
 
 The rendered diff of VS Code (`documentRenderer.ts` and `preview-src/index.ts`
 of the Markdown extension) affects the blocks in two ways:
 
 - Before it renders, it inserts empty elements `<span data-diff-start="N"></span>` and `<span data-diff-end="N"></span>` into the Markdown text around each changed part of a line. In a code block, they are text, so the plugin removes them from the diagram text and from the info string.
-- It marks a changed block with classes on the outer `div` and adds a bar to it as a child (`diff-modification-gutter`) left of the block. The script therefore changes only the inner `div`, and only the inner `div` scrolls, so that the bar is not cut off.
+- It marks a changed block with classes on the outer `div` and adds a bar to it as a child (`diff-modification-gutter`) left of the block. The script therefore changes only the shadow root of the inner `div`, and only the inner `div` scrolls, so that the bar is not cut off.
 
 The preview loads `dist/markdownPreview.js` as a module. Its security policy
 allows only scripts with the nonce of the page, no WebAssembly, no network
@@ -175,10 +178,13 @@ requests and no frames. The script therefore:
 - sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) through script elements with the nonce; a library of the PlantUML standard library, which the package does not contain, fails with a message;
 - loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly. The script reads the security policy of the page and does not compile a test module, because a blocked compilation counts as a violation, and the preview then shows the warning "Some content has been disabled in this document";
 - applies the settings, which the plugin writes as JSON into the attribute `data-plantuml-settings` when they differ from the defaults (`src/diagram/diagramLines.ts`);
-- renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, settings and text;
-- renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once. The observer runs before the page is drawn again, so the text that the preview writes never shows;
-- shows, while a diagram renders, the last diagram of the block, or the note "Rendering the diagram…" (`nimblescape-plantuml-pending`) in a block without one. The preview keeps the element of a block when it writes the block again, and removes the attributes of the extension, so the renderer keeps the last result of each element;
-- keeps the SVG texts of the 50 most recently used diagrams in `localStorage`, by the address of the engine (which contains the version of the extension), the theme and the rendered lines. VS Code gives all Markdown previews one origin and keeps their storage across previews and restarts (checked in VS Code 1.142), so a preview that opens again shows its diagrams without waiting for the engine, which needed about two seconds to start in a test. A full or blocked storage only keeps fewer results. VS Code gives each kind of webview its own origin, so each kind of preview of PlantUML files (the preview in the tab of the file, the preview to the side and the rendered diff) keeps its own storage with the same rules.
+- splits the text of a block into its diagrams (`src/diagram/diagramRanges.ts`), because the engine renders only the first diagram of a text, and only when the text starts with its `@start` line; a diagram without its `@end` line gets one, because the engine fails without it;
+- renders one diagram at a time, because the engine keeps shared state, and keeps up to 200 results by theme, settings and text;
+- draws the diagrams of a block into the shadow root of the inner `div` and leaves the elements of the block as markdown-it wrote them. On a change of the document, the preview renders the document again and changes its page with morphdom, which keeps each element that equals its new version, apart from `data-line`. So an unchanged block keeps its diagrams, which the renderer neither renders nor draws again, and a changed block keeps its last diagrams until the new ones are ready (checked in VS Code 1.142, and in `src/preview/markdownPreview.test.ts` with morphdom). A mutation observer and the event `vscode.markdown.updateContent` of the preview start each update. The styles reach the elements of the shadow root by their part names: `::part(diagram)`, `::part(pending)`, `::part(error)`, and `::part(following)` for each element after the first;
+- shows the note "Rendering the diagram…" in a new block while its diagrams render, never its text. The note is a live region (`role="status"`), which screen readers announce. Each diagram is an image (`role="img"`) with the label "PlantUML diagram" and its title, which the engine writes into the group `g.title` of the SVG image;
+- shows an error with its message, and with the number of the line of the block text when the message names a line, above the text of the block (a `slot` of the shadow root). The engine draws an error in the text as a picture with the line number among the lines that it received, which hold the lines that the extension adds: `@startuml` and `@enduml` around a body, the commands of the UML notation, and a missing `@end` line. `src/diagram/diagramLines.ts` therefore keeps for each line the line of the text that it comes from, and the renderer reads the picture (`errorOf`) and shows its own message instead;
+- fails a rendering after 60 seconds. The engine then keeps working on it, so the next rendering waits until the engine has ended it, for 60 more seconds at most, and the late result is dropped. After a failed load of the engine, the next rendering loads it again. A diagram has no largest size: the renderer passes the option `maxSvgSize: 0`, without which the engine refuses images wider or higher than 8192 pixels;
+- keeps the SVG texts of the 50 most recently used diagrams in `localStorage`, by the address of the engine (which contains the version of the extension), the layout engine (Graphviz or Smetana, which the security setting decides), the theme and the rendered lines. VS Code gives all Markdown previews one origin and keeps their storage across previews and restarts (checked in VS Code 1.142), so a preview that opens again shows its diagrams without waiting for the engine, which needed about two seconds to start in a test. A full or blocked storage only keeps fewer results. VS Code gives each kind of webview its own origin, so each kind of preview of PlantUML files (the preview in the tab of the file, the preview to the side and the rendered diff) keeps its own storage with the same rules.
 
 The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
 or high contrast dark.

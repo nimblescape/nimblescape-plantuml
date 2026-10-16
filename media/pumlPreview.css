@@ -10,7 +10,12 @@
  * never wider than its column, and an error uses the error color of the
  * theme. A rendered diff shows the original diagrams on the left and the
  * modified ones on the right; a bar in the colors of the change marks of the
- * editor marks a changed side.
+ * editor and a label mark a changed side.
+ *
+ * A block shows its diagrams in the shadow root of its content element. The
+ * styles reach the elements of the shadow root by their part names: a
+ * diagram, the note while the diagrams render, the message of an error, and
+ * each element after the first.
  */
 
 body {
@@ -30,27 +35,55 @@ body {
   overflow-x: auto;
 }
 
-.nimblescape-plantuml-content > svg {
+.nimblescape-plantuml-content::part(diagram) {
   display: block;
   max-width: 100%;
   height: auto;
 }
 
 /* The note that a block without a diagram shows while its diagram renders. */
-.nimblescape-plantuml-pending {
+.nimblescape-plantuml-content::part(pending) {
   color: var(--vscode-descriptionForeground);
   font-style: italic;
 }
 
-.nimblescape-plantuml-error {
+.nimblescape-plantuml-content::part(error) {
+  margin: 0 0 8px;
   color: var(--vscode-errorForeground);
-  white-space: pre-wrap;
-}
-
-.nimblescape-plantuml-source {
   font-family: var(--vscode-editor-font-family);
   font-size: var(--vscode-editor-font-size);
   white-space: pre-wrap;
+}
+
+/* The text of a diagram below the message of an error, as a code block. */
+.nimblescape-plantuml-source {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background-color: var(--vscode-textCodeBlock-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  white-space: pre-wrap;
+}
+
+.nimblescape-plantuml-source > code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* An element after the first one: a further diagram or message. */
+.nimblescape-plantuml-content::part(following) {
+  margin-top: 16px;
+}
+
+/* The label that names the change of a side of a row of a rendered diff. */
+.nimblescape-plantuml-change {
+  margin-bottom: 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
 }
 
 .nimblescape-plantuml-empty {

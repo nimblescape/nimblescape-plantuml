@@ -23,7 +23,7 @@
  * are plain text, so the plugin removes them from the diagram text. Second, it
  * adds a bar for a changed block as a child of the element of the block. For
  * this reason, the diagram goes into an inner content element, and the preview
- * script changes only that content element.
+ * script changes only the shadow root of that content element.
  */
 
 import type MarkdownIt from 'markdown-it';
@@ -35,6 +35,12 @@ export const blockClass = 'nimblescape-plantuml';
 
 /** contentClass is the class of the inner element of a PlantUML block that shows the text or the diagram. */
 export const contentClass = `${blockClass}-content`;
+
+/**
+ * textClass is the class of the element in the content element that holds the text of a PlantUML block. The preview
+ * script hides it while the block shows its diagrams, and shows it below the message of an error.
+ */
+export const textClass = `${blockClass}-source`;
 
 /** sourceAttribute is the attribute that carries the text of a PlantUML block to the preview script. */
 export const sourceAttribute = 'data-plantuml-source';
@@ -99,11 +105,11 @@ export function extendMarkdownIt(
       attributes.set(settingsAttribute, JSON.stringify(values));
     }
     // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute. The preview script
-    // replaces the text before the page shows it; the text stays when the preview runs no scripts.
+    // hides the text before the page shows it; the text stays when the preview runs no scripts.
     const element = { attrs: [...attributes] } as Token;
     return (
       `<div${self.renderAttrs(element)}><div class="${contentClass}">` +
-      `<pre class="${blockClass}-source"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`
+      `<pre class="${textClass}"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`
     );
   };
   return md;

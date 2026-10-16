@@ -18,23 +18,25 @@
  * cannot run in the default preview; PlantUML then uses its own layout engine
  * Smetana. When the preview allows WebAssembly (the security setting
  * "Disable"), the script loads Viz.js first.
+ *
+ * On a change of the document, the preview renders the document again and
+ * changes only the elements of its page that differ from the new ones. The
+ * renderer draws the diagrams into shadow roots and leaves the elements of the
+ * blocks as markdown-it wrote them, so an unchanged block keeps its diagrams,
+ * which the renderer neither renders nor draws again.
  */
 
-import { engineLoader, isDarkTheme, pageStorage, PreviewRenderer, StoredResults } from './renderer';
+import { pageRenderer, PreviewRenderer } from './renderer';
 
 /**
- * start renders the blocks of the preview page and renders again when the content or the color theme changes.
- * The preview adds its content after the scripts load and replaces it on every change of the document, so a
- * mutation observer starts each update.
+ * watchMarkdownPreview renders the blocks of a Markdown preview page, and renders again when the content or the
+ * color theme changes. The preview may add its content after the scripts load, and changes it on every change of
+ * the document, after which it sends the event `vscode.markdown.updateContent`. A mutation observer and that event
+ * start each update, at most one in a turn of the event loop.
+ * @param page - The document of the preview.
+ * @param renderer - The renderer of the blocks of the page.
  */
-function start(): void {
-  const engine = new URL('./engine/', import.meta.url).href;
-  const renderer = new PreviewRenderer(
-    document,
-    engineLoader(engine),
-    () => isDarkTheme(document.body),
-    new StoredResults(pageStorage(), engine),
-  );
+export function watchMarkdownPreview(page: Document, renderer: PreviewRenderer): void {
   let scheduled = false;
   const schedule = () => {
     if (!scheduled) {
@@ -45,12 +47,13 @@ function start(): void {
       });
     }
   };
-  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('vscode.markdown.updateContent', schedule);
+  // VS Code changes the class of the body when the color theme changes.
+  new MutationObserver(schedule).observe(page.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  page.defaultView?.addEventListener('vscode.markdown.updateContent', schedule);
   schedule();
 }
 
 // The tests import this module without a preview page.
 if (typeof document !== 'undefined' && document.getElementById('vscode-markdown-preview-data')) {
-  start();
+  watchMarkdownPreview(document, pageRenderer(document, new URL('./engine/', import.meta.url).href));
 }

@@ -13,19 +13,19 @@
  * one block for each diagram of the file and renders the blocks with the
  * renderer of `src/preview/renderer.ts`. For a rendered diff, the message also
  * has the original text, and the script writes one row for each diagram: the
- * original diagram on the left, the modified one on the right, with a mark on
- * the changed side. The page allows WebAssembly, so the diagrams use the
- * Graphviz layout of Viz.js.
+ * original diagram on the left, the modified one on the right, with a colored
+ * mark and a label (Changed, Added, Removed) on the changed side. The page
+ * allows WebAssembly, so the diagrams use the Graphviz layout of Viz.js.
  *
  * The script reuses the blocks from one message to the next, so that the page
  * keeps its scroll position and shows the unchanged diagrams at once while
  * the user types.
  */
 
-import { diagramRanges } from '../diagram/diagramRanges';
-import { blockClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { diagramsOf } from '../diagram/diagramRanges';
+import { blockClass, contentClass, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
 import { isDefault, Settings } from '../settings';
-import { engineLoader, isDarkTheme, pageStorage, PreviewRenderer, StoredResults } from './renderer';
+import { pageRenderer } from './renderer';
 
 /** UpdateMessage is the message of the extension with the text of the file and the settings. */
 export interface UpdateMessage {
@@ -49,6 +49,9 @@ export const rowClass = `${blockClass}-row`;
 /** sideClass is the class of the original (first) and the modified (second) side of a row of a rendered diff. */
 export const sideClass = `${blockClass}-side`;
 
+/** labelClass is the class of the label that names the change of a side of a row of a rendered diff. */
+export const labelClass = `${blockClass}-change`;
+
 /** Change is the change of a diagram from the original to the modified text. */
 export type Change = 'unchanged' | 'modified' | 'added' | 'removed';
 
@@ -66,12 +69,9 @@ export interface DiffRow {
  * @param text - The text of the file.
  */
 export function diagramSources(text: string): string[] {
-  const lines = text.split(/\r\n|\r|\n/);
-  const ranges = diagramRanges(lines);
-  if (ranges.length === 0) {
-    return text.trim() === '' ? [] : [text];
-  }
-  return ranges.map(({ start, end }) => lines.slice(start, end + 1).join('\n'));
+  return diagramsOf(text)
+    .map((diagram) => diagram.text)
+    .filter((source) => source.trim() !== '');
 }
 
 /**
@@ -123,7 +123,19 @@ export function diffRows(original: readonly string[], modified: readonly string[
 }
 
 /**
- * showBlock writes a diagram and the settings into a block.
+ * labels are the labels of the original and the modified side of a row of a rendered diff, by the change of the row.
+ * They name the change that the color of the side shows.
+ */
+const labels: Readonly<Record<Change, readonly (string | undefined)[]>> = {
+  unchanged: [],
+  modified: ['Changed', 'Changed'],
+  removed: ['Removed'],
+  added: [undefined, 'Added'],
+};
+
+/**
+ * showBlock writes a diagram and the settings into a block, and the text of the diagram into the element that the
+ * renderer shows below the message of an error.
  * @param block - The element of the block.
  * @param source - The text of the diagram.
  * @param settings - The settings.
@@ -135,16 +147,47 @@ function showBlock(block: HTMLElement, source: string, settings: Settings): void
   } else {
     block.setAttribute(settingsAttribute, JSON.stringify(settings));
   }
+  const code = block.querySelector(`:scope > .${contentClass} > .${textClass} > code`);
+  if (code && code.textContent !== source) {
+    code.textContent = source;
+  }
 }
 
 /**
- * newBlock returns a new element of a block.
+ * newBlock returns a new element of a block, with a content element that holds the text of the diagram, as the
+ * markdown-it plugin writes a block into a Markdown preview.
  * @param page - The document of the page.
  */
 function newBlock(page: Document): HTMLElement {
   const block = page.createElement('div');
   block.className = blockClass;
+  const content = page.createElement('div');
+  content.className = contentClass;
+  const text = page.createElement('pre');
+  text.className = textClass;
+  text.append(page.createElement('code'));
+  content.append(text);
+  block.append(content);
   return block;
+}
+
+/**
+ * showLabel writes the label of a side of a row of a rendered diff before its block, or removes it.
+ * @param cell - The element of the side.
+ * @param label - The label, or undefined for none.
+ */
+function showLabel(cell: HTMLElement, label: string | undefined): void {
+  let element = cell.querySelector<HTMLElement>(`:scope > .${labelClass}`);
+  if (label === undefined) {
+    element?.remove();
+    return;
+  }
+  if (!element) {
+    element = cell.ownerDocument.createElement('div');
+    element.className = labelClass;
+    cell.prepend(element);
+  }
+  element.textContent = label;
 }
 
 /**
@@ -186,7 +229,8 @@ export function showDiagrams(container: HTMLElement, message: UpdateMessage): vo
 
 /**
  * showDiff writes one row for each diagram of a rendered diff into a container, and reuses the rows that exist.
- * The class of a row names its change, and an empty side has no block.
+ * The class of a row names its change, a label names the change of each changed side in words, and an empty side
+ * has no block.
  * @param container - The element of the rows.
  * @param message - The message with the original and the modified text and the settings.
  */
@@ -208,6 +252,7 @@ export function showDiff(container: HTMLElement, message: UpdateMessage & { orig
     element.className = `${rowClass} ${rowClass}-${row.change}`;
     [row.original, row.modified].forEach((source, side) => {
       const cell = element.children[side] as HTMLElement;
+      showLabel(cell, labels[row.change][side]);
       let block = cell.querySelector<HTMLElement>(`:scope > .${blockClass}`);
       if (source === undefined) {
         block?.remove();
@@ -238,13 +283,7 @@ interface VsCodeApi {
 function start(): void {
   const vscode = (globalThis as unknown as { acquireVsCodeApi(): VsCodeApi }).acquireVsCodeApi();
   const container = document.getElementById('diagrams') ?? document.body;
-  const engine = new URL('./engine/', import.meta.url).href;
-  const renderer = new PreviewRenderer(
-    container,
-    engineLoader(engine),
-    () => isDarkTheme(document.body),
-    new StoredResults(pageStorage(), engine),
-  );
+  const renderer = pageRenderer(container, new URL('./engine/', import.meta.url).href);
   window.addEventListener('message', (event: MessageEvent<UpdateMessage>) => {
     if (event.data?.type === 'update') {
       const { data } = event;

@@ -232,9 +232,15 @@ The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
 or high contrast dark.
 
 The plugin reads the settings of the extension for the document that the
-preview names in `currentDocument` of the render environment; the rendered
-diff renders a text without a document, which gets the settings of the
-window. The preview renders again only when its document or a setting of the
+preview names in `currentDocument` of the render environment; for a text that
+the rendered diff renders without a document, the extension takes the open
+Markdown document with the same text, as for the included files. VS Code finds
+the workspace folder of a document by its whole address, scheme included, so
+a version of a file in Git (`git:`) has no folder and would get the settings
+of the window; the extension reads the settings of the workspace folder of its
+path instead, so that both sides of a diff render with the settings of the
+folder of the file (checked in VS Code 1.142 with a workspace of two folders).
+The preview renders again only when its document or a setting of the
 Markdown extension changes, so the extension runs the command
 `markdown.preview.refresh` when one of its own settings changes. It does so
 only while the Markdown extension is active: no Markdown preview is open

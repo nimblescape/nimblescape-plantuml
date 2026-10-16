@@ -24,7 +24,15 @@ interface FakeUri {
   path: string;
 }
 
-/** settingsOf holds the values of the settings of the fake, by the path of a document; '' is the window. */
+/** FakeFolder stands for a vscode.WorkspaceFolder. */
+interface FakeFolder {
+  uri: FakeUri;
+}
+
+/** workspaceFolders are the workspace folders of the fake. */
+let workspaceFolders: FakeFolder[];
+
+/** settingsOf holds the values of the settings of the fake, by the path of a document or a folder; '' is the window. */
 let settingsOf: Map<string, Record<string, unknown>>;
 /** requests records the reads of the settings: the section and the path of the document. */
 let requests: [string, string][];
@@ -201,16 +209,24 @@ beforeEach(() => {
   refreshFails = false;
   emitters = [];
   openDocuments = [];
+  workspaceFolders = [];
   providers = new Map();
   formatters = new Map();
   vi.resetModules();
   vi.doMock('vscode', () => ({
     workspace: {
-      getConfiguration: (section: string, scope?: FakeUri) => {
-        requests.push([section, scope?.path ?? '']);
-        const values = settingsOf.get(scope?.path ?? '') ?? {};
+      getConfiguration: (section: string, scope?: FakeUri | FakeFolder | { languageId: string; uri: FakeUri }) => {
+        // A workspace folder as the scope reads the settings of the folder; a scope with a language, those of the window.
+        const path = scope === undefined || 'languageId' in scope ? '' : 'uri' in scope ? scope.uri.path : scope.path;
+        requests.push([section, path]);
+        const values = settingsOf.get(path) ?? {};
         return { get: (key: string, fallback?: unknown) => (key in values ? values[key] : fallback) };
       },
+      get workspaceFolders() {
+        return workspaceFolders;
+      },
+      getWorkspaceFolder: (uri: FakeUri) =>
+        workspaceFolders.find((folder) => folder.uri.scheme === uri.scheme && uri.path.startsWith(`${folder.uri.path}/`)),
       onDidChangeConfiguration: (listener: (typeof configurationListeners)[number]) => {
         configurationListeners.push(listener);
         return disposable();
@@ -340,6 +356,25 @@ test('the export finds the document of a text that the rendered diff renders wit
   // A text that no open Markdown document has gets the settings of the window.
   md.render('```plantuml\nclass Car\n```\n');
   expect(requests.at(-1)).toEqual([settingsSection, '']);
+});
+
+test('the export reads the settings of a version of a file in Git from the workspace folder of the file', async () => {
+  const { api } = await activate();
+  const md = api.extendMarkdownIt(new MarkdownIt());
+  workspaceFolders = [{ uri: { scheme: 'file', path: '/other' } }, { uri: { scheme: 'file', path: '/folder' } }];
+  settingsOf.set('/folder', { umlNotation: false });
+  // VS Code finds no workspace folder for an address with the scheme git; the extension finds it by the path.
+  const original: FakeUri = { scheme: 'git', path: '/folder/a.md' };
+  expect(md.render(block, { currentDocument: original })).toContain(`${settingsAttribute}="{&quot;umlNotation&quot;:false}"`);
+  expect(requests).toEqual([[settingsSection, '/folder']]);
+
+  // A file of a workspace folder, and a file outside all workspace folders, are read as they are.
+  md.render(block, { currentDocument: { scheme: 'file', path: '/folder/a.md' } });
+  md.render(block, { currentDocument: { scheme: 'git', path: '/elsewhere/a.md' } });
+  expect(requests.slice(1)).toEqual([
+    [settingsSection, '/folder/a.md'],
+    [settingsSection, '/elsewhere/a.md'],
+  ]);
 });
 
 test('the export adds the included files of a block, and a change of a file that it includes refreshes the Markdown previews', async () => {

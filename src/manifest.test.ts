@@ -343,6 +343,17 @@ test('the documents of the package use full links, so that each link works in th
   }
 });
 
+test('the images of the README are PNG files of the repository, from its branch main, as the Marketplace requires', () => {
+  // The Marketplace shows no SVG image and no image with a relative address.
+  const base = 'https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/';
+  const images = [...read('README.md').matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)].map((match) => match[1]);
+  expect(images.length).toBeGreaterThan(0);
+  for (const image of images) {
+    expect(image.startsWith(base) && image.endsWith('.png'), image).toBe(true);
+    expect(fs.existsSync(path.join(repository, image.slice(base.length))), image).toBe(true);
+  }
+});
+
 test('the package script keeps the checks of vsce for the images of the README and the change log', () => {
   // --no-rewrite-relative-links also switches off the checks for https sources and SVG images.
   expect(manifest.scripts.package).toBe('vsce package --no-dependencies');

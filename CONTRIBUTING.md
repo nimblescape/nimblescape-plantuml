@@ -13,14 +13,15 @@ each requirement with an ID.
 | `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, refreshes the previews when a setting changes, and registers the code completion and the formatting for PlantUML files and for the PlantUML blocks of Markdown files, with the command "Format PlantUML Blocks" and the formatting of the blocks on save. |
 | `src/settings.ts` | The settings of the extension that change the diagrams, their defaults, and their JSON form for the preview. It uses no API of VS Code, so the preview script can use it. |
 | `src/language/keywords.ts` | The keywords of PlantUML that the highlighting and the code completion share. |
-| `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
+| `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.nimblescape.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
 | `src/language/completion.ts` | The code completion: the declared names of a PlantUML text, and the proposals for a position. It uses no API of VS Code. |
 | `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks, one space for a run of spaces between the parts of a statement, and one space for each run of spaces in a member. It uses no API of VS Code. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
+| `src/diagram/diagramRanges.ts` | The diagrams of a PlantUML text, from a `@start` line to the next `@end` line, in small letters as the engine reads them. The previews, the UML notation and the formatting use this one rule. |
 | `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
 | `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, member of a class, an object, a map or JSON data, rule of a style, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
-| `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, for the code completion and the formatting. |
+| `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, with the prefix of each line (the markers of a block quote, the indentation of a list item), for the code completion and the formatting. It finds them with markdown-it, as the preview does. |
 | `src/pumlPreviews.ts` | The previews of PlantUML files: the custom editor that shows a file as a preview in its own tab, the preview to the side, the rendered diff, and their commands. |
 | `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the PlantUML blocks of a page one at a time, and keeps the results in memory and in the local storage of the preview. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: starts the renderer for the PlantUML blocks of the page. |
@@ -88,7 +89,7 @@ change can be tried without a package.
 - The grammar contribution points to the grammars in `dist/syntaxes/`. The injection into `text.html.markdown` maps the scope `meta.embedded.block.plantuml` to the language `plantuml`, so that the editing rules of PlantUML, for example its comments, apply inside a PlantUML block of a Markdown file. A test checks the contribution against `src/language/grammars.ts`.
 - The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`. The section [Markdown preview](#markdown-preview) explains it.
 - The activation event `onLanguage:markdown` starts the extension when a Markdown file opens, for the code completion and the formatting in PlantUML blocks. VS Code adds the event `onLanguage:plantuml` itself, because the extension contributes that language. The section [Code completion](#code-completion) explains it.
-- The custom editor `nimblescape.plantuml.preview` shows a PlantUML file as a preview in its own tab, with the priority `option`, so that the text editor stays the default. The commands, the buttons in the title bar (`menus`) and the keys (`keybindings`) of the previews work as those of the Markdown preview: Ctrl+Shift+V switches a tab between the text and the preview, or between a diff and its rendered diff, and Ctrl+K V opens the preview to the side. The `when` clauses use `activeCustomEditorId` for the preview and `activeWebviewPanelId` for the rendered diff. The activation events `onWebviewPanel:nimblescape.plantuml.sidePreview` and `onWebviewPanel:nimblescape.plantuml.diffPreview` start the extension when VS Code restores these panels after a restart.
+- The custom editor `nimblescape.plantuml.preview` shows a PlantUML file as a preview in its own tab, with the priority `option`, so that the text editor stays the default. The commands, the buttons in the title bar (`menus`) and the keys (`keybindings`) of the previews work as those of the Markdown preview: Ctrl+Shift+V switches a tab between the text and the preview, or between a diff and its rendered diff, and Ctrl+K V opens the preview to the side. A switch that starts while another one runs does nothing, so that a quick second press of Ctrl+Shift+V does not switch the same tab again. The `when` clauses use `activeCustomEditorId` for the preview and `activeWebviewPanelId` for the rendered diff. The activation events `onWebviewPanel:nimblescape.plantuml.sidePreview` and `onWebviewPanel:nimblescape.plantuml.diffPreview` start the extension when VS Code restores these panels after a restart.
 - The command `nimblescape.plantuml.formatBlocks` ("Format PlantUML Blocks") formats the PlantUML blocks of a Markdown file; the command palette shows it in Markdown files only. VS Code runs one formatter for "Format Document", the default formatter of the language, so the command and the formatting of the blocks on save (`editor.formatOnSave`) keep the blocks formatted when another extension, for example Prettier, formats Markdown files.
 - The configuration defaults make the extension the default formatter of PlantUML files (`"[plantuml]": { "editor.defaultFormatter": … }`). A language-specific default of an extension wins over a general `editor.defaultFormatter` of the user, for example Prettier for every file, but not over a formatter that the user sets for the language `plantuml`. A test checks both.
 - The configuration contribution declares the settings of `src/settings.ts` in the section `nimblescape.plantuml`, with the scope `resource`, so that a folder of a workspace can have its own value. A test keeps the defaults equal to `src/settings.ts`, and a test checks that the README and the guide name every setting.
@@ -177,7 +178,7 @@ requests and no frames. The script therefore:
 - renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, settings and text;
 - renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once. The observer runs before the page is drawn again, so the text that the preview writes never shows;
 - shows, while a diagram renders, the last diagram of the block, or the note "Rendering the diagram…" (`nimblescape-plantuml-pending`) in a block without one. The preview keeps the element of a block when it writes the block again, and removes the attributes of the extension, so the renderer keeps the last result of each element;
-- keeps the SVG texts of the 50 most recently used diagrams in `localStorage`, by the address of the engine (which contains the version of the extension), the theme and the rendered lines. VS Code gives all Markdown previews one origin and keeps their storage across previews and restarts (checked in VS Code 1.142), so a preview that opens again shows its diagrams without waiting for the engine, which needed about two seconds to start in a test. A full or blocked storage only keeps fewer results. The preview of PlantUML files uses the same storage for its own origin.
+- keeps the SVG texts of the 50 most recently used diagrams in `localStorage`, by the address of the engine (which contains the version of the extension), the theme and the rendered lines. VS Code gives all Markdown previews one origin and keeps their storage across previews and restarts (checked in VS Code 1.142), so a preview that opens again shows its diagrams without waiting for the engine, which needed about two seconds to start in a test. A full or blocked storage only keeps fewer results. VS Code gives each kind of webview its own origin, so each kind of preview of PlantUML files (the preview in the tab of the file, the preview to the side and the rendered diff) keeps its own storage with the same rules.
 
 The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
 or high contrast dark.
@@ -187,14 +188,26 @@ preview names in `currentDocument` of the render environment; the rendered
 diff renders a text without a document, which gets the settings of the
 window. The preview renders again only when its document or a setting of the
 Markdown extension changes, so the extension runs the command
-`markdown.preview.refresh` when one of its own settings changes.
+`markdown.preview.refresh` when one of its own settings changes. It does so
+only while the Markdown extension is active: no Markdown preview is open
+before, and the command would start that extension.
 
 ## Code completion
 
 `src/language/completion.ts` computes the proposals from the lines of a
 context: a whole PlantUML file, or the lines of one PlantUML block of a
-Markdown file, which `src/markdown/blocks.ts` finds with the fence rules of
-CommonMark and the info-string rule of the preview. It reads the declarations
+Markdown file. `src/markdown/blocks.ts` finds the blocks with markdown-it, the
+parser of the preview, with the options of the preview (`html: true`), its
+rule for the front matter of a document, and the info-string rule of the
+preview, so that the editor and the preview agree: a fence in indented code
+starts no block, and a block in a block quote or in a list item ends with its
+container. It skips the inline rules of markdown-it, and a text without a
+fence `plantuml` needs no parsing; a Markdown file of 50,000 lines with
+PlantUML blocks needed about 50 ms in a test. The grammar of the highlighting
+uses the same info-string rule, and a test runs the same info strings through
+the grammar, the preview and the block search. The lines of a block in a block
+quote or in a list item have a prefix; the completion works after the prefix
+only. It reads the declarations
 from the statements of the context (`src/diagram/lineKinds.ts`), without the
 line of the cursor. `src/extension.ts` registers one completion provider for
 the language `plantuml` and one for `markdown`; the provider for `markdown`
@@ -253,9 +266,13 @@ PlantUML does, so that `end   note` stays free text in both.
 `src/extension.ts` registers a document formatter and a range formatter for
 the languages `plantuml` and `markdown`. Each changed line gets one edit of
 its text, so that the line breaks stay. For Markdown, the edits cover the
-lines of the PlantUML blocks only, each with the indentation of its opening
-fence as the base. A range formatter reads the whole context, so that the
-lines of a selection get their depth.
+lines of the PlantUML blocks only, and each line keeps its prefix: the
+indentation of a list item and of the fence, or the marker of a block quote. A
+block whose prefix markdown-it changed, because a tab in the indentation of a
+list item became spaces, stays as it is. Format on save formats only when
+`editor.formatOnSaveMode` is `file`: with the other values, VS Code formats
+the changed lines only, which the extension does not know. A range formatter
+reads the whole context, so that the lines of a selection get their depth.
 
 ## Naming
 

@@ -9,13 +9,8 @@
  */
 
 import { Settings } from '../settings';
+import { isStartLine } from './diagramRanges';
 import { umlNotation } from './umlNotation';
-
-/**
- * isStartLine tells whether a line starts a diagram.
- * @param line - A line of the diagram text.
- */
-const isStartLine = (line: string): boolean => line.trimStart().startsWith('@start');
 
 /**
  * diagramLines returns the lines that the engine renders for a PlantUML text. A text without a line that starts

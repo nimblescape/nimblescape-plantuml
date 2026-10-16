@@ -54,6 +54,7 @@
  * wireframes and other diagrams of another type inside `@startuml`.
  */
 
+import { diagramRanges } from '../diagram/diagramRanges';
 import { actionStart, actorStart, LineKind, lineKinds, textEnd, textStart } from '../diagram/lineKinds';
 
 /** Block describes a kind of block: its opening, middle and closing lines, which the trimmed line must match. */
@@ -123,59 +124,68 @@ const arrowCharacters = /^[<>|*ox#+^}{/\\()0]*[-.=~][-.=~<>|*ox#+^}{/\\()0]*$/;
 const isArrow = (token: string): boolean =>
   arrowCharacters.test(token.replace(/\[[^\]]*\]/g, '').replace(/(?<=[-.=~])(?:up|down|left|right|le|ri|do|u|d|l|r)(?=[-.=~])/gi, ''));
 
+/** groups maps the opening character of a group to its closing character. */
+const groups: Readonly<Record<string, string>> = { '[': ']', '(': ')', '{': '}', '«': '»', '<': '>' };
+
+/** openings maps the closing character of a group to its opening character. */
+const openings = new Map(Object.entries(groups).map(([open, close]) => [close, open]));
+
 /**
- * closing returns the index after the character that closes a group that opens at an index, with nested groups
- * of the same kind, or -1 when the group does not close on the line.
+ * groupEnds returns for each opening character of a group in a text the index after the character that closes it:
+ * brackets, parentheses, braces, guillemets and angle brackets, each kind with nested groups of the same kind. An
+ * opening character that the line does not close has no entry. The function reads each character once.
  * @param text - The text.
- * @param index - The index of the opening character.
- * @param open - The opening character.
- * @param close - The closing character.
  */
-function closing(text: string, index: number, open: string, close: string): number {
-  let depth = 0;
-  for (let at = index; at < text.length; at++) {
-    if (text[at] === open) {
-      depth++;
-    } else if (text[at] === close && --depth === 0) {
-      return at + 1;
+function groupEnds(text: string): Map<number, number> {
+  const open = new Map(Object.keys(groups).map((char): [string, number[]] => [char, []]));
+  const ends = new Map<number, number>();
+  for (let at = 0; at < text.length; at++) {
+    const opening = openings.get(text[at]);
+    if (open.has(text[at])) {
+      open.get(text[at])!.push(at);
+    } else if (opening !== undefined) {
+      const start = open.get(opening)!.pop();
+      if (start !== undefined) {
+        ends.set(start, at + 1);
+      }
     }
   }
-  return -1;
+  return ends;
 }
 
 /**
- * keptEnd returns the index after a part of a statement that keeps its spaces and starts at an index, or the index
- * itself when no such part starts there. These parts are monospaced text of Creole (`""…""`), quoted text (`"…"`,
- * and the rest of a line after a quote without end), text in brackets, parentheses or braces, a stereotype,
- * generic parameters right after a name, and the strings of the preprocessor (`'…'`).
+ * keptEnds returns a function that returns the index after a part of a statement that keeps its spaces and starts
+ * at an index, or the index itself when no such part starts there. These parts are monospaced text of Creole
+ * (`""…""`), quoted text (`"…"`, and the rest of a line after a quote without end), text in brackets, parentheses or
+ * braces, a stereotype, generic parameters right after a name, and the strings of the preprocessor (`'…'`). The
+ * function reads the groups of the statement in advance, so that a long statement with many opening characters
+ * takes no long time.
  * @param text - The statement.
- * @param index - The index.
  * @param preprocessor - Whether the statement is a line of the preprocessor.
  */
-function keptEnd(text: string, index: number, preprocessor: boolean): number {
-  const rest = text.slice(index);
-  const monospaced = /^""(?:(?!"").)*""/.exec(rest);
-  if (monospaced) {
-    return index + monospaced[0].length;
-  }
-  for (const quote of preprocessor ? ['"', "'"] : ['"']) {
-    if (rest.startsWith(quote)) {
-      const end = text.indexOf(quote, index + 1);
-      return end < 0 ? text.length : end + 1;
+function keptEnds(text: string, preprocessor: boolean): (index: number) => number {
+  const ends = groupEnds(text);
+  const lastStereotypeEnd = text.lastIndexOf('>>');
+  return (index) => {
+    const rest = text.slice(index);
+    const monospaced = /^""(?:(?!"").)*""/.exec(rest);
+    if (monospaced) {
+      return index + monospaced[0].length;
     }
-  }
-  if (rest.startsWith('<<')) {
-    const end = text.indexOf('>>', index + 2);
-    return end < 0 ? index : end + 2;
-  }
-  const groups: Record<string, string> = { '[': ']', '(': ')', '{': '}', '«': '»' };
-  if (rest[0] in groups) {
-    return Math.max(closing(text, index, rest[0], groups[rest[0]]), index);
-  }
-  if (rest[0] === '<' && /[\p{L}\p{N}_$]/u.test(text[index - 1] ?? '') && !/^<[-.=~|]/.test(rest)) {
-    return Math.max(closing(text, index, '<', '>'), index);
-  }
-  return index;
+    for (const quote of preprocessor ? ['"', "'"] : ['"']) {
+      if (rest.startsWith(quote)) {
+        const end = text.indexOf(quote, index + 1);
+        return end < 0 ? text.length : end + 1;
+      }
+    }
+    if (rest.startsWith('<<')) {
+      return lastStereotypeEnd >= index + 2 ? text.indexOf('>>', index + 2) + 2 : index;
+    }
+    if (rest[0] === '<' && !(/[\p{L}\p{N}_$]/u.test(text[index - 1] ?? '') && !/^<[-.=~|]/.test(rest))) {
+      return index;
+    }
+    return ends.get(index) ?? index;
+  };
 }
 
 /**
@@ -210,6 +220,7 @@ export function statementSpaces(statement: string): string {
     return text[0] + statement.slice(text[0].length).replace(/^\s+/, ' ');
   }
   const preprocessor = statement.startsWith('!');
+  const keptEnd = keptEnds(statement, preprocessor);
   // parts holds the words of the statement at even indices and the runs of spaces between them at odd indices.
   const parts: string[] = [''];
   let label: string | undefined;
@@ -230,7 +241,7 @@ export function statementSpaces(statement: string): string {
         label = statement.slice(index + 1);
       }
     } else {
-      const end = Math.max(keptEnd(statement, index, preprocessor), index + 1);
+      const end = Math.max(keptEnd(index), index + 1);
       parts[word] += statement.slice(index, end);
       index = end;
     }
@@ -341,26 +352,20 @@ function formatBody(lines: readonly string[], unit: string, base: string): strin
  * @param base - The text before every formatted line, for example the indentation of a Markdown block.
  */
 export function formatLines(lines: readonly string[], unit: string, base = ''): string[] {
-  if (!lines.some((line) => /^\s*@start/i.test(line))) {
+  const ranges = diagramRanges(lines);
+  if (ranges.length === 0) {
     return formatBody(lines, unit, base);
   }
   const result = [...lines];
-  let index = 0;
-  while (index < lines.length) {
-    if (!/^\s*@startuml\b/i.test(lines[index])) {
-      index++;
+  for (const { type, start, end } of ranges) {
+    if (type !== 'uml') {
       continue;
     }
-    result[index] = base + lines[index].trim();
-    let end = index + 1;
-    while (end < lines.length && !/^\s*@enduml\b/i.test(lines[end])) {
-      end++;
-    }
-    result.splice(index + 1, end - index - 1, ...formatBody(lines.slice(index + 1, end), unit, base));
+    result[start] = base + lines[start].trim();
+    result.splice(start + 1, end - start - 1, ...formatBody(lines.slice(start + 1, end), unit, base));
     if (end < lines.length) {
       result[end] = base + lines[end].trim();
     }
-    index = end + 1;
   }
   return result;
 }

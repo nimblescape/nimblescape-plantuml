@@ -105,6 +105,24 @@ describe('extendMarkdownIt', () => {
     expect(preview(true).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);
   });
 
+  test('renders the same tokens again with the same result, because the preview keeps the tokens of a version', () => {
+    let settings = { ...defaultSettings, umlNotation: false };
+    const md = extendMarkdownIt(new MarkdownIt({ html: true }).use(sourceMap), () => settings);
+    const tokens = md.parse('```plantuml\nA\n```\n', {});
+    const first = md.renderer.render(tokens, md.options, {});
+    expect(md.renderer.render(tokens, md.options, {})).toBe(first);
+    expect(first.match(new RegExp(blockClass, 'g'))).toHaveLength(3);
+
+    // A changed setting reaches the next rendering of the kept tokens.
+    settings = defaultSettings;
+    expect(md.renderer.render(tokens, md.options, {})).not.toContain(settingsAttribute);
+    expect(tokens[0].attrs).toEqual([
+      ['data-line', '0'],
+      ['class', 'code-line'],
+      ['dir', 'auto'],
+    ]);
+  });
+
   test('escapes the diagram text in the attribute and in the text', () => {
     const html = preview(true).render('```plantuml\n<script>alert("x")</script> & \'\n```\n');
     expect(html).not.toContain('<script>');

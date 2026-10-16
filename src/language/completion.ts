@@ -293,7 +293,8 @@ export function complete(lines: readonly string[], line: number, character: numb
     /^\s*skinparam\b/i.test(lead) ||
     /^\s*:[^:]*$/.test(lead) ||
     afterDeclaringKeyword.test(lead) ||
-    labelled.test(lead)
+    // A label needs a colon; the check first keeps a long arrow without a label from a long search.
+    (lead.includes(':') && labelled.test(lead))
   ) {
     return result([]);
   }

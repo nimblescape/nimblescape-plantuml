@@ -311,6 +311,16 @@ describe('formatLines', () => {
     expect(formatLines(['package p {  ', '   ', 'class A', '}'], '  ', '  ')).toEqual(['  package p {', '', '    class A', '  }']);
   });
 
+  test('formats a long line with many opening characters in a short time', () => {
+    // A check that searches the rest of the line for each opening character takes seconds here.
+    for (const char of ['[', '(', '{', '«', '<', '"']) {
+      const line = `class A${char.repeat(50_000)}`;
+      const started = performance.now();
+      expect(formatLines([line], '  ')).toEqual([line]);
+      expect(performance.now() - started, char).toBeLessThan(1000);
+    }
+  });
+
   test('gives the same result when it formats a formatted text again', () => {
     const text = ['@startuml', 'alt x', 'if (a) then', 'A  ->   B : "a  b"', 'endif', 'end', 'package p {', 'note as N', 'x', 'end note', '}', '@enduml'];
     const formatted = formatLines(text, '  ');

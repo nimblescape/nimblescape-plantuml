@@ -15,10 +15,12 @@
 
 /**
  * diagramTypes are the diagram types that follow `@start` and `@end`, for the types that the engine renders. A
- * test in Chromium found that the engine renders these types and reports the others (`salt`, `ditaa`, `dot` …) as
- * not supported.
+ * test with the real engine (`src/engine.test.ts`) renders each of them; the engine reports the other types of
+ * PlantUML (`salt`, `ditaa`, `dot` …) as not supported.
  */
-export const diagramTypes: readonly string[] = ['uml', 'mindmap', 'wbs', 'gantt', 'json', 'yaml', 'ebnf', 'regex', 'creole', 'chart'];
+export const diagramTypes: readonly string[] = [
+  'uml', 'mindmap', 'wbs', 'gantt', 'project', 'json', 'yaml', 'ebnf', 'regex', 'creole', 'chart', 'nwdiag', 'packetdiag',
+];
 
 /** elementKeywords declare an element of a diagram, for example a participant, a class or a component. */
 export const elementKeywords: readonly string[] = [

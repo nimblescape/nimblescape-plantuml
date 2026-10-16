@@ -251,9 +251,10 @@ function completeWord(word: string, proposals: readonly Proposal[]): boolean {
  *
  * At the start of a line, it proposes `@start…` and `@end…` after `@`, the directives of the preprocessor after
  * `!`, and else the keywords that start a statement and the declared names. Later in a line, it proposes the
- * declared names and the keywords that connect the parts of a statement. It proposes nothing in a comment, in
- * free text, in the label of a link, in an action of an activity diagram, in a `skinparam` line, in the path of
- * an `!include`, and for the name of a new declaration. It proposes nothing for a complete word.
+ * declared names and the keywords that connect the parts of a statement. In the member of a class, it proposes
+ * the declared names only, for example as the type of an attribute. It proposes nothing in a comment, in a style,
+ * in free text, in the label of a link, in an action of an activity diagram, in a `skinparam` line, in the path
+ * of an `!include`, and for the name of a new declaration. It proposes nothing for a complete word.
  * @param lines - The lines of the text: a `.puml` file, or the lines of a PlantUML block of a Markdown file.
  * @param line - The index of the line of the cursor.
  * @param character - The column of the cursor.
@@ -264,7 +265,11 @@ export function complete(lines: readonly string[], line: number, character: numb
   const word = text.slice(start, character);
   const lead = text.slice(0, start);
   const result = (proposals: Proposal[]): Completion => ({ start, end, proposals: completeWord(word, proposals) ? [] : proposals });
-  if (lineKinds(lines)[line] !== 'statement') {
+  const kind = lineKinds(lines)[line];
+  if (kind === 'member') {
+    return result(declarations(lines, line));
+  }
+  if (kind !== 'statement') {
     return result([]);
   }
   const names = () => declarations(lines, line);

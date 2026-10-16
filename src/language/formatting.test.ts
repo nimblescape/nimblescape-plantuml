@@ -5,8 +5,9 @@
 /**
  * These tests check the formatting of PlantUML text (R-MD-005, R-PUML-007):
  * the indentation of the blocks of class, activity and sequence diagrams and
- * of the preprocessor, the single spaces inside statements, the lines that
- * keep their text, and the diagrams of other types, which stay as they are.
+ * of the preprocessor, the single spaces between the parts of statements and
+ * in members, the text that the diagram shows, which keeps its spaces, and
+ * the diagrams of other types, which stay as they are.
  */
 
 import { describe, expect, test } from 'vitest';
@@ -219,21 +220,25 @@ describe('formatLines', () => {
     ]);
   });
 
-  test('writes one space for each run of spaces and tabs in a statement, outside quoted and monospaced text', () => {
+  test('writes one space for the runs of spaces between the parts of a statement, and in members', () => {
     expect(
       format(
         '@startuml',
         'class Car {',
         '- type:             string',
         '+ getTank():\tTank',
+        '+ name : "a   b"',
+        '-- a   separator --',
         '}',
         'Car -right->            "1"       Tank     :      tank',
-        'A -> B : ""mono   space""  and "quoted   text"   end',
-        'C -> D : 5"   screen    rest',
-        "'   comment    text",
-        'note left of A',
-        'free   text',
-        'end note',
+        'participant     Bob    as    B   #pink',
+        ':User:   -->   (Log   in)   :   uses',
+        'class   A<K,   V>   <<  Entity   Thing  >>   {',
+        '}',
+        'skinparam     defaultFontSize     20',
+        'hide     empty     members',
+        'note     left     of     Car :   a   note',
+        '!$x    =    "a   b"',
         '@enduml',
       ),
     ).toEqual([
@@ -241,15 +246,64 @@ describe('formatLines', () => {
       'class Car {',
       '  - type: string',
       '  + getTank(): Tank',
+      '  + name : "a   b"',
+      '  -- a   separator --',
       '}',
       'Car -right-> "1" Tank : tank',
-      'A -> B : ""mono   space"" and "quoted   text" end',
+      'participant Bob as B #pink',
+      ':User: --> (Log   in) : uses',
+      'class A<K,   V> <<  Entity   Thing  >> {',
+      '}',
+      'skinparam defaultFontSize 20',
+      'hide empty members',
+      'note left of Car : a   note',
+      '!$x = "a   b"',
+      '@enduml',
+    ]);
+  });
+
+  test('keeps the spaces of the text that the diagram shows (R-MD-005, R-PUML-007)', () => {
+    const kept = [
+      'Alice -> Bob : Total:     5   EUR',
+      'A -> B : ""mono   space""  and "quoted   text"   end',
       'C -> D : 5"   screen    rest',
+      ':Read     the   file;',
+      ':Step 1:   read',
+      'the   file;',
+      'title My     Title',
+      'alt good     case',
+      'end',
+      '==   Init   ==',
+      '...   5   minutes   ...',
+      '|My     Lane|',
+      '-> yes     label;',
+      'rectangle My     Box',
+      'skinparam defaultFontName Courier     New',
+      'W is Wait     Now',
+      "!$x = 'a     b'",
       "'   comment    text",
       'note left of A',
       'free   text',
       'end note',
-      '@enduml',
+      '<style>',
+      '  note {',
+      '    FontName   Courier   New',
+      '  }',
+      '</style>',
+    ];
+    expect(format('@startuml', ...kept, '@enduml')).toEqual(['@startuml', ...kept, '@enduml']);
+  });
+
+  test('keeps ditaa drawings, wireframes and other diagrams inside @startuml as they are', () => {
+    for (const first of ['ditaa', 'salt', '{', 'digraph G {']) {
+      const lines = ['@startuml', first, '  +--------+   +-------+', '|  a   b  |', '}', '@enduml'];
+      expect(formatLines(lines, '  '), first).toEqual(lines);
+    }
+  });
+
+  test('formats the lines after a style with a rule for notes', () => {
+    expect(format('<style>', 'note {', 'FontColor red', '}', '</style>', 'class   A {', '+   x : int', '}')).toEqual([
+      '<style>', '  note {', '    FontColor red', '  }', '</style>', 'class A {', '  + x : int', '}',
     ]);
   });
 

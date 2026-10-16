@@ -201,4 +201,33 @@ describe('umlNotation', () => {
     const result = umlNotation(['@startuml', ...body, '@enduml']);
     expect(result.filter((line) => line.includes('<<interface>>'))).toEqual(['interface K <<interface>>']);
   });
+
+  test('counts only statements as the marks of a component or use case diagram', () => {
+    const body = [
+      'class Worker {',
+      '  port : int',
+      '  queue : Queue<Job>',
+      '}',
+      'note left of Worker',
+      '  (not a use case)',
+      '  [not a component]',
+      'end note',
+      ':Step 1: read;',
+      '[*] --> Idle',
+      'interface Task',
+    ];
+    expect(umlNotation(['@startuml', ...body, '@enduml'])).toContain('interface Task <<interface>>');
+  });
+
+  test('changes the declarations after a style, also after a rule for notes', () => {
+    const body = ['<style>', 'note {', '  BackGroundColor #ffffcc', '}', '</style>', 'interface Task', 'class Worker {', '  static count : int', '}'];
+    expect(umlNotation(['@startuml', ...body, '@enduml']).slice(3)).toEqual([
+      ...body.slice(0, 5),
+      'interface Task <<interface>>',
+      'class Worker {',
+      '  {static} count : int',
+      '}',
+      '@enduml',
+    ]);
+  });
 });

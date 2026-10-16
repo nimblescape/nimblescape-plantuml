@@ -36,6 +36,7 @@ describe('declarations', () => {
         'abstract class Vehicle',
         'interface Shape <<Drawable>>',
         'enum Color {',
+        '}',
         'package shop.model {',
         'participant Alice',
         'actor "Bob the builder" as Bob',
@@ -182,6 +183,12 @@ describe('complete', () => {
     for (const result of empty) {
       expect(result.labels).toEqual([]);
     }
+  });
+
+  test('proposes the declared names in the member of a class, and nothing in a style', () => {
+    expect(at('class Tank', 'class Car {', '  - tank : Ta|', '}').labels).toEqual(['Tank', 'Car']);
+    expect(at('class Car', '<style>', '  no|', '</style>').labels).toEqual([]);
+    expect(labels(['<style>', 'class {', '  FontColor red', '}', '</style>', 'class Car {', '  + Wheel wheel', '}'])).toEqual(['Car']);
   });
 
   test('proposes nothing for a complete word, so that Enter starts a new line', () => {

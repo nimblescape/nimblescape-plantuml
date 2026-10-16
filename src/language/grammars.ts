@@ -78,6 +78,7 @@ export const plantUmlGrammar: Grammar = {
     { include: '#line-comment' },
     { include: '#diagram-delimiter' },
     { include: '#preprocessor' },
+    { include: '#style' },
     { include: '#text-block' },
     { include: '#skinparam' },
     { include: '#declaration' },
@@ -117,26 +118,49 @@ export const plantUmlGrammar: Grammar = {
         },
       },
     },
+    style: {
+      // A style holds rules up to `</style>`, also `note { … }`, which starts no note.
+      begin: String.raw`^\s*(<style>)`,
+      end: String.raw`(</style>)`,
+      beginCaptures: { 1: { name: 'entity.name.tag.style.plantuml' } },
+      endCaptures: { 1: { name: 'entity.name.tag.style.plantuml' } },
+      contentName: 'meta.style.plantuml',
+      patterns: [
+        { include: '#block-comment' },
+        { include: '#line-comment' },
+        {
+          match: String.raw`^\s*([^{}\s][^{}]*?)\s*(\{)`,
+          captures: { 1: { name: 'entity.name.tag.selector.plantuml' } },
+        },
+        {
+          match: String.raw`^\s*([A-Za-z][\w-]*)(?=\s)`,
+          captures: { 1: { name: 'support.type.property-name.plantuml' } },
+        },
+        { include: '#strings' },
+        { include: '#colors' },
+      ],
+    },
     'text-block': {
-      // A note, legend, title, header, footer or caption of several lines holds free text up to its end line.
+      // A note, legend, title, header, footer or caption of several lines holds free text up to its end line. A
+      // line that ends with `{` starts no free text.
       patterns: [
         {
-          begin: String.raw`^\s*([rh]?note)\b(?![^\n]*:)(?!\s+")(.*)$`,
-          end: String.raw`^\s*(end\s*[rh]?note)\b`,
+          begin: String.raw`^\s*([rh]?note)\b(?![^\n]*:)(?![^\n]*\{\s*$)(?!\s+")(.*)$`,
+          end: String.raw`^\s*(end[ \t]?[rh]?note)\b`,
           beginCaptures: { 1: { name: 'keyword.other.note.plantuml' }, 2: { patterns: [{ include: '#inline' }] } },
           endCaptures: { 1: { name: 'keyword.other.note.plantuml' } },
           contentName: 'meta.text.note.plantuml',
         },
         {
-          begin: String.raw`^\s*(legend)\b(.*)$`,
-          end: String.raw`^\s*(end\s*legend)\b`,
+          begin: String.raw`^\s*(legend)\b(?![^\n]*\{\s*$)(.*)$`,
+          end: String.raw`^\s*(end[ \t]?legend)\b`,
           beginCaptures: { 1: { name: 'keyword.other.legend.plantuml' } },
           endCaptures: { 1: { name: 'keyword.other.legend.plantuml' } },
           contentName: 'meta.text.legend.plantuml',
         },
         {
           begin: String.raw`^\s*((?:(?:left|right|center)\s+)?(?:title|header|footer|caption))\s*$`,
-          end: String.raw`^\s*(end\s*(?:title|header|footer|caption))\b`,
+          end: String.raw`^\s*(end[ \t]?(?:title|header|footer|caption))\b`,
           beginCaptures: { 1: { name: 'keyword.other.title.plantuml' } },
           endCaptures: { 1: { name: 'keyword.other.title.plantuml' } },
           contentName: 'meta.text.title.plantuml',

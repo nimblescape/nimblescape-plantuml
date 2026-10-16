@@ -644,8 +644,10 @@ export function pageLayout(): Layout {
  * loaded engine stays; after a failed load, the next call loads the engine again.
  * @param folder - The address of the folder of the engine, with a final slash.
  * @param layout - The layout engine: with Graphviz, the function loads Viz.js first.
+ * @param loadClassicScript - Loads a classic script of the engine; by default with a script element that carries the
+ *   nonce of the page. The tests with the real engine (`src/engine.test.ts`) run the scripts in Node.js instead.
  */
-export function engineLoader(folder: string, layout: Layout): () => Promise<Engine> {
+export function engineLoader(folder: string, layout: Layout, loadClassicScript = loadScript): () => Promise<Engine> {
   let viz: Promise<void> | undefined;
   let engine: Promise<Engine> | undefined;
   const load = async (): Promise<Engine> => {
@@ -657,13 +659,13 @@ export function engineLoader(folder: string, layout: Layout): () => Promise<Engi
       if (!bundledScripts.has(name)) {
         fail(`The extension does not contain the PlantUML library ${name}.`);
       } else {
-        loadScript(folder + name).then(ok, (error: Error) => fail(error.message));
+        loadClassicScript(folder + name).then(ok, (error: Error) => fail(error.message));
       }
       return true;
     };
     if (layout === 'graphviz') {
       // Without Viz.js, PlantUML uses Smetana, so a failed load only changes the layout engine.
-      viz ??= loadScript(`${folder}viz-global.js`).catch(() => undefined);
+      viz ??= loadClassicScript(`${folder}viz-global.js`).catch(() => undefined);
       await viz;
     }
     return (await import(`${folder}plantuml.js`)) as Engine;

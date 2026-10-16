@@ -30,7 +30,7 @@ each requirement with an ID.
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
-| `src/**/*.test.ts` | The tests, with vitest: the manifest, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
 | `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
 | `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
@@ -40,7 +40,7 @@ each requirement with an ID.
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
 | `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
-| `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node; a test file of the preview script selects happy-dom in its first lines. |
+| `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node; a test file that needs a page (the preview scripts and the real engine) selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked engine and development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
@@ -81,7 +81,7 @@ change can be tried without a package.
 - The name and the publisher define the extension ID `nimblescape.nimblescape-plantuml`; the section [Naming](#naming) explains the name.
 - The description, the keywords, the categories, the banner (`galleryBanner`), `preview` and `qna` make the page of the Marketplace. vsce turns some words of the description into search tags, for example "Java" into `java`; a test checks that the description adds no tag. `preview` shows the label "Preview" on the page, and `qna` sends the questions of the page to the GitHub issues.
 - The version is the only source of the package version, and the tag of a release names it.
-- The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range.
+- The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range, so that the code compiles only with the API of that version. The manifest enables no proposed API (`enabledApiProposals`), because the Marketplace does not accept an extension that uses one. A test checks both.
 - `main` selects the bundle `dist/extension.js`. A test checks it.
 - `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundles, the engine, the styles of the previews, the icon, the language configuration and the documents. A test checks the list.
 - `icon` is `resources/icon.png`, a PNG, because the Marketplace takes no SVG icon. `resources/icon.svg` is its source; after a change of the source, render it again as a PNG of 256 × 256 pixels with a transparent background, for example with a screenshot of the SVG in Chromium. A test checks the size.
@@ -90,7 +90,7 @@ change can be tried without a package.
 - The grammar contribution points to the grammars in `dist/syntaxes/`. The injection into `text.html.markdown` maps the scope `meta.embedded.block.plantuml` to the language `plantuml`, so that the editing rules of PlantUML, for example its comments, apply inside a PlantUML block of a Markdown file. A test checks the contribution against `src/language/grammars.ts`.
 - The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`. The section [Markdown preview](#markdown-preview) explains it.
 - The activation event `onLanguage:markdown` starts the extension when a Markdown file opens, for the code completion and the formatting in PlantUML blocks. VS Code adds the event `onLanguage:plantuml` itself, because the extension contributes that language. The section [Code completion](#code-completion) explains it.
-- The custom editor `nimblescape.plantuml.preview` shows a PlantUML file as a preview in its own tab, with the priority `option`, so that the text editor stays the default. The commands, the buttons in the title bar (`menus`) and the keys (`keybindings`) of the previews work as those of the Markdown preview: Ctrl+Shift+V switches a tab between the text and the preview, or between a diff and its rendered diff, and Ctrl+K V opens the preview to the side. A switch that starts while another one runs does nothing, so that a quick second press of Ctrl+Shift+V does not switch the same tab again. The `when` clauses use `activeCustomEditorId` for the preview and `activeWebviewPanelId` for the rendered diff. The activation events `onWebviewPanel:nimblescape.plantuml.sidePreview` and `onWebviewPanel:nimblescape.plantuml.diffPreview` start the extension when VS Code restores these panels after a restart.
+- The custom editor `nimblescape.plantuml.preview` shows a PlantUML file as a preview in its own tab, with the priority `option`, so that the text editor stays the default. The commands, the buttons in the title bar (`menus`) and the keys (`keybindings`) of the previews work as those of the Markdown preview: Ctrl+Shift+V switches a tab between the text and the preview, or between a diff and its rendered diff, and Ctrl+K V opens the preview to the side. A switch that starts while another one runs does nothing, so that a quick second press of Ctrl+Shift+V does not switch the same tab again. The `when` clauses use `activeCustomEditorId` for the preview and `activeWebviewPanelId` for the rendered diff; they leave the same keys to the Markdown preview in Markdown files. A test checks the keys and their clauses. The activation events `onWebviewPanel:nimblescape.plantuml.sidePreview` and `onWebviewPanel:nimblescape.plantuml.diffPreview` start the extension when VS Code restores these panels after a restart.
 - The command `nimblescape.plantuml.formatBlocks` ("Format PlantUML Blocks") formats the PlantUML blocks of a Markdown file; the command palette shows it in Markdown files only. VS Code runs one formatter for "Format Document", the default formatter of the language, so the command and the formatting of the blocks on save (`editor.formatOnSave`) keep the blocks formatted when another extension, for example Prettier, formats Markdown files.
 - The configuration defaults make the extension the default formatter of PlantUML files (`"[plantuml]": { "editor.defaultFormatter": … }`). A language-specific default of an extension wins over a general `editor.defaultFormatter` of the user, for example Prettier for every file, but not over a formatter that the user sets for the language `plantuml`. A test checks both.
 - The configuration contribution declares the settings of `src/settings.ts` in the section `nimblescape.plantuml`, with the scope `resource`, so that a folder of a workspace can have its own value. A test keeps the defaults equal to `src/settings.ts`, and a test checks that the README and the guide name every setting.
@@ -140,7 +140,18 @@ under the Eclipse Public License on request, because that license requires
 this offer for object code. Tests check that the installed engine is under
 the MIT License, that the notices name every script of the engine, and that
 they name every theme with its license; a theme with a new kind of license
-fails the test until the notices cover it. After an update of the engine:
+fails the test until the notices cover it.
+
+`src/engine.test.ts` loads the installed engine with the loader of the
+previews and renders with it in happy-dom. It checks each part of the engine
+that the extension depends on: the further scripts that the loader loads,
+every diagram type of `src/language/keywords.ts`, the options `dark` and
+`maxSvgSize`, the error picture and the title group that the previews read,
+and the Graphviz layout of Viz.js. So an update of the engine that changes one
+of them fails CI. A new version that renders one of the diagram types that the
+highlighting leaves out (`salt`, `ditaa` and others) also fails the test; then
+add the type to `diagramTypes`, with a sample in the test. After an update of
+the engine:
 
 - set the source link of PlantUML to the commit of the new npm package
   (`npm view @plantuml/core@<version> gitHead`), which is not always the

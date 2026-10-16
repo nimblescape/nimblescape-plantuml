@@ -24,6 +24,9 @@
  * Each preview is a webview with the page of `src/preview/previewHtml.ts` and
  * the script `dist/pumlPreview.js`. The page tells the extension when it is
  * ready, and the extension then sends the text of the file and the settings.
+ * A preview keeps the address of its file, not the document: VS Code closes a
+ * document that no editor shows after a few minutes, and a later change of
+ * the file reaches a new document.
  */
 
 import { randomBytes } from 'crypto';
@@ -48,12 +51,13 @@ export const commands = {
   showPreviewToSide: 'nimblescape.plantuml.showPreviewToSide',
 } as const;
 
-/** Preview connects the webview of a preview with the document that it shows. */
+/** Preview connects the webview of a preview with the file that it shows. */
 interface Preview {
   webview: vscode.Webview;
-  document: vscode.TextDocument;
-  /** diff is the original document of a rendered diff, and the title of its diff editor. */
-  diff?: { original: vscode.TextDocument; label: string };
+  /** uri is the address of the file; in a rendered diff, of the modified file. */
+  uri: vscode.Uri;
+  /** diff is the address of the original file of a rendered diff, and the title of its diff editor. */
+  diff?: { original: vscode.Uri; label: string };
   /** ready tells whether the page of the webview can receive the text. */
   ready: boolean;
 }
@@ -66,10 +70,17 @@ interface DiffState {
 }
 
 /**
- * fileName returns the name of the file of a document.
- * @param document - The document.
+ * fileName returns the name of a file.
+ * @param uri - The address of the file.
  */
-const fileName = (document: vscode.TextDocument): string => document.uri.path.slice(document.uri.path.lastIndexOf('/') + 1);
+const fileName = (uri: vscode.Uri): string => uri.path.slice(uri.path.lastIndexOf('/') + 1);
+
+/**
+ * openDocument returns the open document of a file, or undefined when VS Code has no open document for it.
+ * @param uri - The address of the file.
+ */
+const openDocument = (uri: vscode.Uri): vscode.TextDocument | undefined =>
+  vscode.workspace.textDocuments.find((document) => document.uri.toString() === uri.toString());
 
 /** PumlPreviews manages the previews of PlantUML files. */
 export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.WebviewPanelSerializer {
@@ -114,29 +125,36 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
    * @param panel - The panel of the custom editor.
    */
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
-    this.#connect(panel, document);
+    this.#connect(panel, document.uri);
   }
 
   /**
    * deserializeWebviewPanel restores the preview to the side or a rendered diff after a restart of VS Code. The page
-   * keeps the addresses of its documents in its state.
+   * keeps the addresses of its files in its state. A panel whose state is not valid, or whose file VS Code cannot
+   * open any more, for example because it was deleted, closes.
    * @param panel - The restored panel.
    * @param state - The state of the page.
    */
   async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: unknown): Promise<void> {
     const { uri, original, label } = (state ?? {}) as DiffState;
-    if (typeof uri !== 'string' || (panel.viewType === diffPreviewViewType && (typeof original !== 'string' || typeof label !== 'string'))) {
+    const diff = panel.viewType === diffPreviewViewType;
+    if (typeof uri !== 'string' || (diff && (typeof original !== 'string' || typeof label !== 'string'))) {
       panel.dispose();
       return;
     }
-    const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
-    if (panel.viewType === diffPreviewViewType) {
-      const originalDocument = await vscode.workspace.openTextDocument(vscode.Uri.parse(original as string));
-      this.#connectDiff(panel, originalDocument, document, label as string);
+    const uris = [vscode.Uri.parse(uri), ...(diff ? [vscode.Uri.parse(original as string)] : [])];
+    try {
+      await Promise.all(uris.map((address) => vscode.workspace.openTextDocument(address)));
+    } catch {
+      panel.dispose();
+      return;
+    }
+    if (diff) {
+      this.#connectDiff(panel, uris[1], uris[0], label as string);
       return;
     }
     this.#side?.panel.dispose();
-    this.#side = { panel, preview: this.#connect(panel, document) };
+    this.#side = { panel, preview: this.#connect(panel, uris[0]) };
   }
 
   /**
@@ -169,12 +187,9 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
    */
   async showRenderedDiff(tab: vscode.Tab): Promise<void> {
     const { original, modified } = tab.input as vscode.TabInputTextDiff;
-    const [originalDocument, document] = await Promise.all([
-      vscode.workspace.openTextDocument(original),
-      vscode.workspace.openTextDocument(modified),
-    ]);
+    await Promise.all([vscode.workspace.openTextDocument(original), vscode.workspace.openTextDocument(modified)]);
     const panel = vscode.window.createWebviewPanel(diffPreviewViewType, `Preview ${tab.label}`, tab.group.viewColumn);
-    this.#connectDiff(panel, originalDocument, document, tab.label);
+    this.#connectDiff(panel, original, modified, tab.label);
     await vscode.window.tabGroups.close(tab);
   }
 
@@ -191,17 +206,16 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
     if (!target) {
       return;
     }
-    const document = await vscode.workspace.openTextDocument(target);
     if (this.#side) {
-      this.#show(document);
+      this.#show(target);
       this.#side.panel.reveal(vscode.ViewColumn.Beside, true);
       return;
     }
-    const panel = vscode.window.createWebviewPanel(sidePreviewViewType, `Preview ${fileName(document)}`, {
+    const panel = vscode.window.createWebviewPanel(sidePreviewViewType, `Preview ${fileName(target)}`, {
       viewColumn: vscode.ViewColumn.Beside,
       preserveFocus: true,
     });
-    this.#side = { panel, preview: this.#connect(panel, document) };
+    this.#side = { panel, preview: this.#connect(panel, target) };
   }
 
   /** #activeDiff returns the panel and the preview of the active rendered diff. */
@@ -215,30 +229,30 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
    * @param preview - The preview of the rendered diff.
    */
   async #showTextDiff(panel: vscode.WebviewPanel, preview: Preview): Promise<void> {
-    const { document, diff } = preview;
-    await vscode.commands.executeCommand('vscode.diff', diff!.original.uri, document.uri, diff!.label, { viewColumn: panel.viewColumn });
+    const { uri, diff } = preview;
+    await vscode.commands.executeCommand('vscode.diff', diff!.original, uri, diff!.label, { viewColumn: panel.viewColumn });
     panel.dispose();
   }
 
   /**
    * #connectDiff gives a webview panel the page of a rendered diff.
    * @param panel - The panel.
-   * @param original - The original document.
-   * @param document - The modified document.
-   * @param label - The title of the diff editor of the documents.
+   * @param original - The address of the original file.
+   * @param uri - The address of the modified file.
+   * @param label - The title of the diff editor of the files.
    */
-  #connectDiff(panel: vscode.WebviewPanel, original: vscode.TextDocument, document: vscode.TextDocument, label: string): void {
-    const preview = this.#connect(panel, document, { original, label });
+  #connectDiff(panel: vscode.WebviewPanel, original: vscode.Uri, uri: vscode.Uri, label: string): void {
+    const preview = this.#connect(panel, uri, { original, label });
     this.#diffs.set(panel, preview);
   }
 
   /**
-   * #connect gives a webview panel the page of the preview and connects it with a document.
+   * #connect gives a webview panel the page of the preview and connects it with a file.
    * @param panel - The panel.
-   * @param document - The document; in a rendered diff, the modified document.
-   * @param diff - The original document and the title of the diff, for a rendered diff.
+   * @param uri - The address of the file; in a rendered diff, of the modified file.
+   * @param diff - The address of the original file and the title of the diff, for a rendered diff.
    */
-  #connect(panel: vscode.WebviewPanel, document: vscode.TextDocument, diff?: Preview['diff']): Preview {
+  #connect(panel: vscode.WebviewPanel, uri: vscode.Uri, diff?: Preview['diff']): Preview {
     const dist = vscode.Uri.joinPath(this.#extensionUri, 'dist');
     const media = vscode.Uri.joinPath(this.#extensionUri, 'media');
     const webview = panel.webview;
@@ -249,7 +263,7 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
       script: webview.asWebviewUri(vscode.Uri.joinPath(dist, 'pumlPreview.js')).toString(),
       style: webview.asWebviewUri(vscode.Uri.joinPath(media, 'pumlPreview.css')).toString(),
     });
-    const preview: Preview = { webview, document, diff, ready: false };
+    const preview: Preview = { webview, uri, diff, ready: false };
     this.#previews.add(preview);
     const subscriptions = [
       // A hidden webview loses its page; the page then sends `ready` again when it shows.
@@ -272,30 +286,53 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
   }
 
   /**
-   * #send sends the text of the document and its settings to a preview whose page is ready, and for a rendered diff
-   * also the original text.
+   * #send sends the text of the file and its settings to a preview whose page is ready, and for a rendered diff
+   * also the original text. It reads the open documents of the files; when VS Code has closed one, it opens it
+   * again first.
    * @param preview - The preview.
    */
   #send(preview: Preview): void {
-    if (preview.ready) {
-      const { document, diff } = preview;
-      void preview.webview.postMessage({
-        type: 'update',
-        text: document.getText(),
-        settings: this.#settings(document.uri),
-        ...(diff
-          ? { original: diff.original.getText(), state: { uri: document.uri.toString(), original: diff.original.uri.toString(), label: diff.label } }
-          : { state: { uri: document.uri.toString() } }),
-      });
+    if (!preview.ready) {
+      return;
     }
+    const uris = [preview.uri, ...(preview.diff ? [preview.diff.original] : [])];
+    const documents = uris.map(openDocument);
+    if (documents.every((document) => document !== undefined)) {
+      this.#post(preview, documents as vscode.TextDocument[]);
+      return;
+    }
+    Promise.all(uris.map((uri) => vscode.workspace.openTextDocument(uri))).then(
+      (opened) => this.#post(preview, opened),
+      () => undefined,
+    );
   }
 
   /**
-   * #refresh sends the text of a changed document to its previews.
+   * #post posts the text of the documents of a preview and the settings to its page.
+   * @param preview - The preview.
+   * @param documents - The document of the file and, for a rendered diff, the original document.
+   */
+  #post(preview: Preview, [document, original]: readonly vscode.TextDocument[]): void {
+    const { uri, diff } = preview;
+    void preview.webview.postMessage({
+      type: 'update',
+      text: document.getText(),
+      settings: this.#settings(uri),
+      ...(diff
+        ? { original: original.getText(), state: { uri: uri.toString(), original: diff.original.toString(), label: diff.label } }
+        : { state: { uri: uri.toString() } }),
+    });
+  }
+
+  /**
+   * #refresh sends the text of a changed document to the previews of its file.
    * @param document - The changed document.
    */
   #refresh(document: vscode.TextDocument): void {
-    this.#previews.forEach((preview) => (preview.document === document || preview.diff?.original === document) && this.#send(preview));
+    const changed = document.uri.toString();
+    this.#previews.forEach(
+      (preview) => (preview.uri.toString() === changed || preview.diff?.original.toString() === changed) && this.#send(preview),
+    );
   }
 
   /**
@@ -303,19 +340,19 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
    * @param editor - The active text editor.
    */
   #follow(editor: vscode.TextEditor | undefined): void {
-    if (editor?.document.languageId === 'plantuml' && editor.document !== this.#side?.preview.document) {
-      this.#show(editor.document);
+    if (editor?.document.languageId === 'plantuml' && editor.document.uri.toString() !== this.#side?.preview.uri.toString()) {
+      this.#show(editor.document.uri);
     }
   }
 
   /**
-   * #show shows a document in the preview to the side.
-   * @param document - The document.
+   * #show shows a file in the preview to the side.
+   * @param uri - The address of the file.
    */
-  #show(document: vscode.TextDocument): void {
+  #show(uri: vscode.Uri): void {
     if (this.#side) {
-      this.#side.preview.document = document;
-      this.#side.panel.title = `Preview ${fileName(document)}`;
+      this.#side.preview.uri = uri;
+      this.#side.panel.title = `Preview ${fileName(uri)}`;
       this.#send(this.#side.preview);
     }
   }

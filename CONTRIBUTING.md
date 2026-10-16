@@ -15,10 +15,10 @@ each requirement with an ID.
 | `src/language/keywords.ts` | The keywords of PlantUML that the highlighting and the code completion share. |
 | `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
 | `src/language/completion.ts` | The code completion: the declared names of a PlantUML text, and the proposals for a position. It uses no API of VS Code. |
-| `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks, and one space for each run of spaces inside a statement. It uses no API of VS Code. |
+| `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks, one space for a run of spaces between the parts of a statement, and one space for each run of spaces in a member. It uses no API of VS Code. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for a PlantUML text: `@startuml` and `@enduml` around a body, and the settings applied. |
 | `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
-| `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
+| `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, member of a class, an object, a map or JSON data, rule of a style, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, for the code completion and the formatting. |
 | `src/pumlPreviews.ts` | The previews of PlantUML files: the custom editor that shows a file as a preview in its own tab, the preview to the side, the rendered diff, and their commands. |
@@ -231,9 +231,24 @@ block comments keep their text (`src/diagram/lineKinds.ts`). The further lines
 of an action of several lines move with its first line: a test in Chromium
 showed that PlantUML shows the indentation of a further line beyond the
 indentation of the first line as spaces, and ignores the indentation of notes
-and legends. Inside a statement, each run of spaces and tabs becomes one space;
-quoted text, monospaced text of Creole (`""…""`) and the rest of a line after
-a quote without end keep their spaces, because these spaces belong to a name or a text that the diagram shows.
+and legends.
+
+The formatting must not change the text that a diagram shows
+([R-PUML-007](docs/requirements.md#r-puml-007)), and PlantUML shows a run of
+spaces in a label, a name or a value as it is. So a run of spaces in a
+statement becomes one space only next to a part that the diagram does not
+show as text: the first word, an arrow, `as`, quoted text, text in brackets,
+parentheses or braces, a stereotype, a color, or the colon before a label. A
+run between two other words stays. The label after the colon, actions,
+dividers, delays, swimlanes and the text of titles and groups keep their
+spaces. Members are the exception, as decided for the extension: each run of
+spaces in a member becomes one space, outside quoted text. A diagram of another
+type inside `@startuml` (`ditaa`, `salt`, `digraph` …) stays as it is. During
+the development, a script widened the runs of spaces in about 25 diagrams of
+all UML types in many random ways, formatted them, and compared the SVG of
+the real engine before and after; it found no difference outside members.
+The end line of a note accepts at most one space between `end` and `note`, as
+PlantUML does, so that `end   note` stays free text in both.
 
 `src/extension.ts` registers a document formatter and a range formatter for
 the languages `plantuml` and `markdown`. Each changed line gets one edit of

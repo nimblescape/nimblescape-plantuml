@@ -27,14 +27,14 @@
  * Nothing is added twice: a command that the diagram sets itself, a keyword
  * that a declaration has as a stereotype already, and a member that has a
  * modifier of PlantUML already stay as they are. The function changes no line
- * in a comment or in a note, title, legend, header or footer of several lines,
+ * in a comment, a style, or a note, title, legend, header or footer of several lines,
  * and no line of a component, deployment or use case diagram: there,
  * `interface` declares the circle of a provided interface, which is UML
  * notation already. Other diagram types (`@startgantt`, `@startmindmap` …)
  * stay as they are.
  */
 
-import { LineKind, lineKinds } from './lineKinds';
+import { actorStart, LineKind, lineKinds } from './lineKinds';
 
 /** keywords maps a PlantUML class kind to its UML keyword. */
 export const keywords: Readonly<Record<string, string>> = {
@@ -84,14 +84,23 @@ const declaration = new RegExp(
 );
 
 /**
- * descriptionLine matches a line that only a component, deployment or use case diagram accepts: a component
- * `[Name]`, a use case `(Name)`, an actor `:Name:`, or one of their declarations.
+ * descriptionLine matches a statement that only a component, deployment or use case diagram accepts: a component
+ * `[Name]`, a use case `(Name)`, or the declaration of one of their elements with a name, for example
+ * `component Web` or `queue "Jobs"`. The initial state `[*]` of a state diagram and the start `(*)` of an
+ * activity diagram do not match.
  */
 const descriptionLine =
-  /^\s*(?:\[|\((?!\))|:[^:]+:|(?:component|usecase|actor|agent|artifact|boundary|card|collections|control|file|hexagon|person|port|portin|portout|queue|stack|storage|action|process)(?:\/)?(?:\s|$))/;
+  /^\s*(?:\[(?!\*\])|\((?![)*])|(?:component|usecase|actor|agent|artifact|boundary|card|collections|control|file|hexagon|person|port|portin|portout|queue|stack|storage|action|process)\/?\s+(?=["\p{L}\p{N}_$[(]))/u;
 
-/** classBody matches the declaration of a class that opens the body of the class with `{` at the end of the line. */
-const classBody = new RegExp(String.raw`^\s*(?:abstract\s+class|abstract|class|entity|${Object.keys(keywords).join('|')})\s.*\{\s*$`);
+/**
+ * isDescriptionDiagram tells whether a diagram is a component, deployment or use case diagram: one of its
+ * statements has an actor, a component, a use case or the declaration of one of their elements. Members, styles,
+ * comments and free text do not count.
+ * @param body - The lines between the `@startuml` and the `@enduml` line.
+ * @param kinds - The kinds of the lines.
+ */
+const isDescriptionDiagram = (body: readonly string[], kinds: readonly LineKind[]): boolean =>
+  body.some((line, index) => kinds[index] === 'statement' && (descriptionLine.test(line) || actorStart.test(line)));
 
 /**
  * memberModifiers matches the modifiers at the start of a member, after its visibility: one or more of the words
@@ -165,7 +174,7 @@ export function umlNotation(lines: readonly string[]): string[] {
     const kinds = lineKinds(body);
     const statements = body.filter((_, bodyIndex) => kinds[bodyIndex] === 'statement');
     result.push(...commands.filter(({ setBy }) => !statements.some((statement) => setBy.test(statement))).map(({ command }) => command));
-    result.push(...(body.some((bodyLine) => descriptionLine.test(bodyLine)) ? body : withClassNotation(body, kinds)));
+    result.push(...(isDescriptionDiagram(body, kinds) ? body : withClassNotation(body, kinds)));
     index = end;
   }
   return result;
@@ -173,26 +182,19 @@ export function umlNotation(lines: readonly string[]): string[] {
 
 /**
  * withClassNotation adds the UML keywords to the declarations of a diagram and writes the modifiers of the members
- * in the bodies of classes as modifiers of PlantUML, outside comments and outside notes, titles, legends, headers
- * and footers of several lines.
+ * in the bodies of classes as modifiers of PlantUML. It changes no comment, style and free text.
  * @param body - The lines between the `@startuml` and the `@enduml` line.
  * @param kinds - The kinds of the lines.
  */
 function withClassNotation(body: readonly string[], kinds: readonly LineKind[]): string[] {
-  // blocks holds one value for each open block of braces: whether it is the body of a class.
-  const blocks: boolean[] = [];
   return body.map((line, index) => {
-    if (kinds[index] !== 'statement') {
-      return line;
+    switch (kinds[index]) {
+      case 'statement':
+        return withKeyword(line);
+      case 'member':
+        return withModifiers(line);
+      default:
+        return line;
     }
-    if (/^\s*\}/.test(line)) {
-      blocks.pop();
-      return line;
-    }
-    if (/\{\s*$/.test(line)) {
-      blocks.push(classBody.test(line));
-      return withKeyword(line);
-    }
-    return blocks.at(-1) ? withModifiers(line) : withKeyword(line);
   });
 }

@@ -6,8 +6,9 @@
  * These tests check the previews of PlantUML files with a fake of the API of
  * VS Code: the switch between the text and the preview in one tab
  * (R-PUML-002), the messages to the page while the user types (R-PUML-002,
- * R-PUML-003), and the switch between a diff and its rendered diff
- * (R-PUML-004).
+ * R-PUML-003), the switch between a diff and its rendered diff
+ * (R-PUML-004), the restore after a restart, and the documents that VS Code
+ * closes and opens again.
  */
 
 import { beforeEach, expect, test, vi } from 'vitest';
@@ -125,6 +126,8 @@ interface FakeTab {
 }
 
 let documents: Map<string, FakeDocument>;
+/** closed holds the addresses of the documents that VS Code has closed; openTextDocument opens them again. */
+let closed: Set<string>;
 let activeTab: FakeTab | undefined;
 let closedTabs: FakeTab[];
 let panels: FakePanel[];
@@ -134,6 +137,7 @@ let changeListeners: ((event: { document: FakeDocument }) => void)[];
 beforeEach(() => {
   vi.resetModules();
   documents = new Map();
+  closed = new Set();
   activeTab = undefined;
   closedTabs = [];
   panels = [];
@@ -145,7 +149,17 @@ beforeEach(() => {
     TabInputCustom: FakeTabInputCustom,
     TabInputTextDiff: FakeTabInputTextDiff,
     workspace: {
-      openTextDocument: async (uri: FakeUri) => documents.get(uri.toString()),
+      get textDocuments() {
+        return [...documents.values()].filter((document) => !closed.has(document.uri.toString()));
+      },
+      openTextDocument: async (uri: FakeUri) => {
+        const document = documents.get(uri.toString());
+        if (!document) {
+          throw new Error(`cannot open ${uri.toString()}`);
+        }
+        closed.delete(uri.toString());
+        return document;
+      },
       onDidChangeTextDocument: (listener: (typeof changeListeners)[number]) => {
         changeListeners.push(listener);
         return { dispose() {} };
@@ -291,4 +305,29 @@ test('a rendered diff and the preview to the side come back after a restart, and
   const broken = new FakePanel(module.diffPreviewViewType, 'Preview a.puml', 1);
   await instance.deserializeWebviewPanel(broken as never, { uri: 'file:/a.puml' });
   expect(broken.disposed).toBe(true);
+
+  const deleted = new FakePanel(module.sidePreviewViewType, 'Preview gone.puml', 2);
+  await instance.deserializeWebviewPanel(deleted as never, { uri: 'file:/gone.puml' });
+  expect(deleted.disposed).toBe(true);
+});
+
+test('a rendered diff follows its files after VS Code has closed their documents and opened new ones', async () => {
+  const { instance } = await previews();
+  const original = addDocument('git:/a.puml', 'A');
+  addDocument('file:/a.puml', 'A2');
+  activeTab = { input: new FakeTabInputTextDiff(original.uri, FakeUri.parse('file:/a.puml')), label: 'a.puml', group: { viewColumn: 1 } };
+  await instance.togglePreview();
+  const [panel] = panels;
+  panel.webview.ready();
+
+  // VS Code closes a document that no editor shows, and a later change of the file reaches a new document.
+  const reopened = addDocument('file:/a.puml', 'A3');
+  change(reopened, 'A4');
+  expect(panel.webview.posted.at(-1)).toMatchObject({ text: 'A4', original: 'A' });
+
+  // While a document is closed, the preview opens it again to read its text.
+  closed.add('git:/a.puml');
+  instance.refreshAll();
+  await vi.waitFor(() => expect(panel.webview.posted).toHaveLength(3));
+  expect(panel.webview.posted.at(-1)).toMatchObject({ text: 'A4', original: 'A' });
 });

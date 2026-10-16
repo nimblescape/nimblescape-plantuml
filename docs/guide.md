@@ -250,12 +250,35 @@ extension.
 
 The commands "Format Document" (Shift+Alt+F) and "Format Selection" indent
 the lines of a UML diagram by the depth of their blocks, and remove the spaces
-at the end of these lines. Inside a statement, each run of spaces and tabs
-becomes one space, for example `Car -right->     "1"   Tank  :  tank` becomes
-`Car -right-> "1" Tank : tank`. Quoted text (`"…"`) and monospaced text
-(`""…""`) keep their spaces, and so do comments and the free text of notes.
-They change nothing else in a line. The setting
-`editor.formatOnSave` formats on each save. The blocks are:
+at the end of these lines. The setting `editor.formatOnSave` formats on each
+save.
+
+The formatting does not change the text that a diagram shows. It writes one
+space for a run of spaces and tabs only between the parts of a statement:
+
+| Spaces | Example before | Example after |
+| --- | --- | --- |
+| Next to the first word, an arrow, `as`, quoted text, text in brackets, parentheses or braces, a stereotype or a color | `Car -right->     "1"   Tank` | `Car -right-> "1" Tank` |
+| Before and after the colon of a label | `Tank  :   tank` | `Tank : tank` |
+| In a member of a class, an object, a map or JSON data, outside quoted text | `- type:      string` | `- type: string` |
+
+These keep their spaces:
+
+- a run between two other words, because it can be part of a name, for
+  example `rectangle My   Box`, or of a value, for example
+  `skinparam defaultFontName Courier New`;
+- the label after the colon, for example `Alice -> Bob : Total:   5 EUR`;
+- actions (`:Read the file;`), dividers (`== Init ==`), delays (`...`) and
+  swimlanes (`|Lane|`);
+- the text of titles, headers, footers, captions, legends, groups (`alt`,
+  `loop` …) and the arrows of activity diagrams (`-> yes;`);
+- quoted text (`"…"`), monospaced text (`""…""`), strings of the
+  preprocessor (`'…'`), and the separators in the body of a class
+  (`-- Title --`);
+- the rules of a style between `<style>` and `</style>`, comments, and the
+  free text of notes.
+
+The blocks are:
 
 | Block | Opening line | Middle lines | Closing line |
 | --- | --- | --- | --- |
@@ -290,7 +313,10 @@ The formatting keeps these lines as they are:
   several lines, and the lines of a comment between `/'` and `'/`;
 - the lines of the diagram types whose indentation has a meaning or that have
   no blocks, for example mind maps, work breakdown structures, JSON and YAML
-  data, and Gantt charts.
+  data, and Gantt charts;
+- the lines of a diagram of another type inside `@startuml`, for example a
+  ditaa drawing (`ditaa`), a wireframe (`salt`) or a Graphviz graph
+  (`digraph`).
 
 The further lines of an action of several lines in an activity diagram, for
 example `:first line` and `second line;`, move with the first line, because

@@ -139,10 +139,10 @@ and aliases. Names that other blocks of the file declare are not proposed.
 ### R-MD-005
 
 **Formatting in Markdown.** The extension formats the text of the PlantUML
-blocks of a Markdown file and changes no other text of the file. This also
-works when another extension, for example Prettier, is the default formatter
-of Markdown files: with a command, and on each save when
-`editor.formatOnSave` is on.
+blocks of a Markdown file with the rules of [R-PUML-007](#r-puml-007) and
+changes no other text of the file. This also works when another extension,
+for example Prettier, is the default formatter of Markdown files: with a
+command, and on each save when `editor.formatOnSave` is on.
 
 ### R-MD-006
 
@@ -201,6 +201,15 @@ the same file declares, for example participants, classes and aliases.
 **Formatting of PlantUML files.** The extension formats PlantUML files. It
 is the default formatter of PlantUML files, also when the user has set another
 default formatter for all files.
+
+The formatting indents the lines inside the blocks of a UML diagram and writes
+one space for a run of spaces between the parts of a statement, for example
+around an arrow. It does not change the text that the diagram shows: a label,
+an action, a title, the text of a group, a name of several words and quoted
+text keep their spaces. The members of a class, an object or a map are the
+exception: each run of spaces in a member becomes one space, outside quoted
+text, for example `- type:      string` becomes `- type: string`. Diagrams of
+other types than UML stay as they are.
 
 ---
 

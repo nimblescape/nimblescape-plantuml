@@ -131,6 +131,16 @@ describe('source.plantuml', () => {
     expect(scopeOf(lines, '{static}')).toBe('storage.modifier.plantuml');
   });
 
+  test('colors the rules of a style up to its end, where a rule for notes starts no note', async () => {
+    const lines = await tokenize('source.plantuml', ['<style>', 'note {', '  BackGroundColor #ffffcc', '}', '</style>', 'class B'].join('\n'));
+    expect(scopeOf(lines, '<style>')).toBe('entity.name.tag.style.plantuml');
+    expect(scopeOf(lines, 'note')).toBe('entity.name.tag.selector.plantuml');
+    expect(scopeOf(lines, 'BackGroundColor')).toBe('support.type.property-name.plantuml');
+    expect(scopeOf(lines, '#ffffcc')).toBe('constant.other.color.rgb-value.plantuml');
+    expect(scopeOf(lines, '</style>')).toBe('entity.name.tag.style.plantuml');
+    expect(scopeOf(lines, 'class')).toBe('storage.type.plantuml');
+  });
+
   test('keeps the text of a note of several lines free of colors up to its end line', async () => {
     const lines = await tokenize('source.plantuml', ['note left of A', 'if this class is -> here', 'end note', 'class B'].join('\n'));
     expect(lines[1].every((token) => token.scopes.at(-1) === 'meta.text.note.plantuml')).toBe(true);

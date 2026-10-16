@@ -32,11 +32,11 @@ each requirement with an ID.
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
-| `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the expansion of included files, the reading of included files with a fake of the editor API and of the file system, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the expansion of included files, the reading of included files with a fake of the editor API and of the file system, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the indentation rules and the folding markers of the language configuration against the formatting, the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
 | `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
 | `stdlib/` | The libraries of the standard library of PlantUML that the package contains: `c4.min.js`, the library C4, as the PlantUML project builds it for the engine. The section [Engine](#engine) explains it. |
 | `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
-| `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
+| `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets, the pairs that the editor closes, the folding markers of the diagrams and of the preprocessor, and the indentation rules while typing, with the blocks of the formatting. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
@@ -89,7 +89,7 @@ change can be tried without a package.
 - `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the bundles, the engine, the styles of the previews, the icon, the language configuration and the documents. A test checks the list.
 - `icon` is `resources/icon.png`, a PNG, because the Marketplace takes no SVG icon. `resources/icon.svg` is its source; after a change of the source, render it again as a PNG of 256 × 256 pixels with a transparent background, for example with a screenshot of the SVG in Chromium. A test checks the size.
 - `extensionKind` selects the workspace host.
-- The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions.
+- The language contribution registers the language `plantuml` for its file extensions, with the editing rules of `language-configuration.json`. A test keeps the README table equal to the file extensions, and a test checks the indentation rules and the folding markers against the formatting. The section [Formatting](#formatting) explains them.
 - The grammar contribution points to the grammars in `dist/syntaxes/`. The injection into `text.html.markdown` maps the scope `meta.embedded.block.plantuml` to the language `plantuml`, so that the editing rules of PlantUML, for example its comments, apply inside a PlantUML block of a Markdown file. A test checks the contribution against `src/language/grammars.ts`.
 - The contributions `markdown.markdownItPlugins`, `markdown.previewScripts` and `markdown.previewStyles` connect the extension with the built-in Markdown preview. The Markdown extension of VS Code activates the extension and reads its export `extendMarkdownIt`. The section [Markdown preview](#markdown-preview) explains it.
 - The activation event `onLanguage:markdown` starts the extension when a Markdown file opens, for the code completion and the formatting in PlantUML blocks. VS Code adds the event `onLanguage:plantuml` itself, because the extension contributes that language. The section [Code completion](#code-completion) explains it.
@@ -310,6 +310,24 @@ all UML types in many random ways, formatted them, and compared the SVG of
 the real engine before and after; it found no difference outside members.
 The end line of a note accepts at most one space between `end` and `note`, as
 PlantUML does, so that `end   note` stays free text in both.
+
+`language-configuration.json` repeats the blocks of the formatting as
+regular expressions, for the indentation while typing: `increaseIndentPattern`
+matches an opening line or a middle line, and `decreaseIndentPattern` matches
+a middle line or a closing line. These rules see one line at a time, without
+the stack of open blocks, so an `end` inside an activity `if` moves one level
+to the left while typing; the formatting indents it again.
+`src/language/languageConfiguration.test.ts` indents formatted texts as the
+command "Reindent Lines" does and compares the levels with those of the
+formatting, so a change of the blocks in `src/language/formatting.ts` needs
+the same change in both patterns. VS Code takes the indentation rules from the
+language of the file, not from the language at the cursor (as of VS Code
+1.142), so they do not apply inside a PlantUML block of a Markdown file; the
+brackets and the comments of PlantUML do. The folding markers fold the
+diagrams and the procedures, functions, sub parts and long definitions of the
+preprocessor; VS Code folds the other blocks of a PlantUML file by their
+indentation, and the Markdown extension folds each code block of a Markdown
+file as a whole.
 
 `src/extension.ts` registers a document formatter and a range formatter for
 the languages `plantuml` and `markdown`. Each changed line gets one edit of

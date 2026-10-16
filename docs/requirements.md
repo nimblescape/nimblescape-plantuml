@@ -192,6 +192,11 @@ formatting ([R-MD-005](#r-md-005)).
 and `.wsd` have the language PlantUML. The comment commands of VS Code use the
 line comment `'` and the block comment `/' '/`.
 
+The editor folds each diagram from its `@start…` line to its `@end…` line,
+and each procedure, function, sub part and long definition of the
+preprocessor. While the user types, the editor indents the lines of the
+blocks of the formatting ([R-PUML-007](#r-puml-007)) as the formatting does.
+
 ### R-PUML-002
 
 **Switching between text and preview.** A PlantUML file switches between text

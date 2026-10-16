@@ -25,6 +25,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
 | [Code completion](#code-completion) | yes | yes | in development | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
 | [Formatting](#formatting) | yes | yes | in development | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
+| [Folding and indentation while typing](#folding-and-indentation) | no, VS Code uses the rules of Markdown | yes | in development | [R-PUML-001](requirements.md#r-puml-001) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
 | [UML notation](#uml-notation) | yes | yes | in development | [R-GEN-007](requirements.md#r-gen-007) |
 | [Included files](#included-files) | yes | yes | in development | [R-GEN-008](requirements.md#r-gen-008) |
@@ -394,6 +395,44 @@ are. The PlantUML blocks are then formatted in these two ways:
 
 The command "Format Document With…" selects a formatter for one run, for
 example "nimblescape PlantUML" for the PlantUML blocks only.
+
+### Folding and indentation
+
+In a PlantUML file, the editor folds:
+
+- each diagram, from its `@start…` line to its `@end…` line;
+- each procedure, function, sub part (`!startsub`) and long definition
+  (`!definelong`) of the preprocessor, from its first line to its closing
+  line;
+- the other blocks by their indentation, for example the braces of a class or
+  a group of a sequence diagram.
+
+The fold control next to the line number, or the commands "Fold"
+(Ctrl+Shift+[) and "Unfold" (Ctrl+Shift+]) at the cursor, fold and unfold a
+region.
+
+While you type in a PlantUML file, the editor indents the lines of the blocks
+of the table in [Formatting](#formatting):
+
+- Enter after an opening line or a middle line, for example `alt success`,
+  `else` or `class Car {`, indents the new line by one level;
+- a middle line or a closing line, for example `else`, `end` or `}`, moves
+  one level to the left when you type it.
+
+The command "Reindent Lines" indents all lines of the file in the same way.
+The result is the indentation of the formatting, with one exception: an `end`
+inside an `if` of an activity diagram ends the flow and closes no block, so
+the formatting keeps it at the level of the lines of the condition, while the
+editor moves it one level to the left. "Format Document" indents it again.
+The setting `editor.autoIndent` controls the indentation while typing; with a
+value other than `full`, the editor does not use these rules.
+
+In a Markdown file, VS Code folds each code block as a whole, and uses the
+indentation rules of Markdown also inside a PlantUML block: a new line keeps
+the indentation of the line before it, and only the line after an opening
+bracket, for example after `class Car {`, gets one more level. The command
+"PlantUML: Format PlantUML Blocks", or the formatting on save, indents the
+other blocks.
 
 ## Settings
 

@@ -5,6 +5,13 @@
 // The editing rules of the language `plantuml`: the comment toggles of VS Code
 // use the line comment `'` and the block comment `/' '/` of PlantUML, and the
 // editor matches, closes and surrounds the bracket pairs of the diagram text.
+// The editor folds each diagram from its `@start` line to its `@end` line, and
+// each procedure, function, sub part and long definition of the preprocessor;
+// it folds the other blocks by their indentation. While you type, the
+// indentation rules indent the line after the opening line or a middle line
+// of a block and remove one level from a middle line or a closing line, with
+// the blocks of the formatter (src/language/formatting.ts); a test checks
+// them against the formatter.
 {
   "comments": {
     "lineComment": "'",
@@ -26,5 +33,15 @@
     ["[", "]"],
     ["(", ")"],
     ["\"", "\""]
-  ]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*(?:[@\\\\]start[a-z]+\\b|!startsub\\b|!(?:unquoted\\s+)?(?:procedure|function)\\b(?!.*!return\\b)|!definelong\\b)",
+      "end": "^\\s*(?:[@\\\\]end[a-z]+\\b|!endsub\\b|!end(?:procedure|function)\\b|!enddefinelong\\b)"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": { "pattern": "^\\s*(?!')(?:.*\\{\\s*$|(?:alt|opt|loop|par2?|critical|group|box)\\b|break\\s+\\S|else(?:\\s*if)?\\b|if\\b|while\\b|repeat\\b(?!\\s*while\\b)|backward\\b|fork\\b|split\\b|switch\\b|case\\b|<style>\\s*$|!(?:if|ifdef|ifndef|else|elseif|while|foreach|startsub|definelong)\\b|!(?:unquoted\\s+)?(?:procedure|function)\\b(?!.*!return\\b)|[rh]?note\\b(?!.*:)(?!\\s+\")|legend\\b|(?:(?:left|right|center)\\s+)?(?:header|footer)\\s*$|title\\s*$|caption\\s*$|ref\\s+over\\b(?!.*:))", "flags": "i" },
+    "decreaseIndentPattern": { "pattern": "^\\s*(?:\\}|end(?:\\s+(?:box|group|alt|opt|loop|par|break|critical))?\\s*$|else(?:\\s*if)?\\b|end\\s*if\\b|end\\s*while\\b|backward\\b|repeat\\s*while\\b|fork\\s+again\\b|end\\s*(?:fork|merge)\\b|split\\s+again\\b|end\\s*split\\b|case\\b|end\\s*switch\\b|end[ \\t]?(?:[rh]?note|legend|header|footer|title|caption|ref)\\b|</style>|!(?:else|elseif|endif|endwhile|endfor|endprocedure|endfunction|endsub|enddefinelong)\\b)", "flags": "i" }
+  }
 }

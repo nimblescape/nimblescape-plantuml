@@ -35,13 +35,14 @@ each requirement with an ID.
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine, their licenses and the places of their source code. |
+| `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
 | `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
 | `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node; a test file of the preview script selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked engine and development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
-| `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/pumlPreview.js`, `dist/engine/`, `dist/syntaxes/`, `media/markdownPreview.css`, `media/pumlPreview.css`, `resources/icon.png`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
+| `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/pumlPreview.js`, `dist/engine/`, `dist/syntaxes/`, `media/markdownPreview.css`, `media/pumlPreview.css`, `resources/icon.png`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `SUPPORT.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
 | `.github/workflows/ci.yml` | Checks the types, tests and packages every push to `main`, every pull request and the commit of every release. |
 | `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
@@ -76,6 +77,7 @@ change can be tried without a package.
 `package.json` is the extension manifest. It has these parts:
 
 - The name and the publisher define the extension ID `nimblescape.nimblescape-plantuml`; the section [Naming](#naming) explains the name.
+- The description, the keywords, the categories, the banner (`galleryBanner`), `preview` and `qna` make the page of the Marketplace. vsce turns some words of the description into search tags, for example "Java" into `java`; a test checks that the description adds no tag. `preview` shows the label "Preview" on the page, and `qna` sends the questions of the page to the GitHub issues.
 - The version is the only source of the package version, and the tag of a release names it.
 - The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range.
 - `main` selects the bundle `dist/extension.js`. A test checks it.
@@ -94,9 +96,11 @@ change can be tried without a package.
 - The runtime dependency is the engine `@plantuml/core`, pinned to one version; the section [Engine](#engine) explains it. The development dependencies are the build, test and packaging tools.
 
 `README.md` is the page of the Marketplace and `CHANGELOG.md` its tab
-"Changelog". vsce does not rewrite relative links
-(`--no-rewrite-relative-links`), so both use full `https://github.com/…`
-links outside code. A test checks it.
+"Changelog". vsce checks their images: an image must come from an `https`
+address and must not be an SVG. Both files and `SUPPORT.md` use full
+`https://github.com/…` links outside code, so that every link works in the
+repository, in the package and on the Marketplace. A test checks it, and a
+test checks that the package script keeps the checks of vsce.
 
 ## Engine
 

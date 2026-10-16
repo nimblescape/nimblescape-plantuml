@@ -11,6 +11,7 @@
  */
 
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { formatBlocksCommand } from './extension';
@@ -179,6 +180,7 @@ test('the package holds the bundles, the engine, the grammars, the preview style
     '!package.json',
     '!README.md',
     '!CHANGELOG.md',
+    '!SUPPORT.md',
     '!LICENSE',
     '!THIRD-PARTY-NOTICES.md',
   ]);
@@ -246,12 +248,28 @@ test('the third-party notices name every theme of the engine and its license (R-
   expect(new Set(licenses.values())).toEqual(new Set(['', 'MIT', 'Apache License, Version 2.0', 'GPL 3+']));
 });
 
-test('the README and the change log use full links, because vsce does not rewrite relative links', () => {
-  for (const file of ['README.md', 'CHANGELOG.md']) {
+test('the documents of the package use full links, so that each link works in the repository, in the package and on the Marketplace', () => {
+  for (const file of ['README.md', 'CHANGELOG.md', 'SUPPORT.md']) {
     for (const target of markdownLinks(read(file))) {
       expect(target, `${file}: ${target}`).toMatch(/^https:\/\//);
     }
   }
+});
+
+test('the package script keeps the checks of vsce for the images of the README and the change log', () => {
+  // --no-rewrite-relative-links also switches off the checks for https sources and SVG images.
+  expect(manifest.scripts.package).toBe('vsce package --no-dependencies');
+});
+
+test('the description adds no search tag, for example of another programming language (R-GEN-005)', async () => {
+  // vsce adds a tag for each of its keywords that the description contains, for example "java" for "Java".
+  const { TagsProcessor } = createRequire(__filename)('@vscode/vsce/out/package');
+  const tags = async (description: string): Promise<string[]> => {
+    const processor = new TagsProcessor({ ...manifest, description });
+    await processor.onEnd();
+    return processor.tags;
+  };
+  expect(await tags(manifest.description)).toEqual(await tags(''));
 });
 
 test('every requirement has a unique ID, and every link to a requirement names an existing one', () => {

@@ -11,11 +11,13 @@
  * `keywords.ts`, the lists of the code completion.
  *
  * The grammar `source.plantuml` colors PlantUML text. The grammar
- * `markdown.plantuml.codeblock` is an injection into the Markdown grammar of
- * VS Code: it marks the text of a fenced code block with the info string
- * `plantuml` as PlantUML and colors it with `source.plantuml`. It matches no
- * other text of a Markdown file, so the rest of the file keeps its colors
- * ([R-MD-006](../../docs/requirements.md#r-md-006)).
+ * `markdown.nimblescape.plantuml.codeblock` is an injection into the Markdown
+ * grammar of VS Code: it marks the text of a fenced code block with the info
+ * string `plantuml` as PlantUML and colors it with `source.plantuml`. It
+ * matches no other text of a Markdown file, so the rest of the file keeps its
+ * colors ([R-MD-006](../../docs/requirements.md#r-md-006)). The name of the
+ * injection contains the publisher, so that it differs from the injection of
+ * another PlantUML extension.
  *
  * The scopes follow the naming conventions of TextMate, so that every color
  * theme colors them: `comment`, `string`, `keyword.control`, `storage.type`,
@@ -262,17 +264,24 @@ export const plantUmlGrammar: Grammar = {
  * markdownInjectionGrammar marks a fenced code block with the info string `plantuml` in a Markdown file as
  * PlantUML. Its regular expressions for the fences come from the fenced code blocks of the Markdown grammar of
  * VS Code (https://github.com/microsoft/vscode-markdown-tm-grammar, Copyright (c) Microsoft 2018, MIT License;
- * THIRD-PARTY-NOTICES.md holds the license): the fence of three backticks or tildes or more, the info string with
- * optional attributes, and the closing fence of the same kind.
+ * THIRD-PARTY-NOTICES.md holds the license): the fence of three backticks or tildes or more, the info string, and
+ * the closing fence of the same kind. The info string follows the rule of the preview (`isPlantUmlInfo` in
+ * `src/markdown/markdownIt.ts`): its first word is `plantuml` in any letter case, and further words follow after a
+ * space. As in CommonMark, the info string of a fence of backticks has no backtick.
  */
 export const markdownInjectionGrammar: Grammar = {
-  scopeName: 'markdown.plantuml.codeblock',
+  scopeName: 'markdown.nimblescape.plantuml.codeblock',
   injectionSelector: 'L:text.html.markdown',
   patterns: [{ include: '#fenced-code-block' }],
   repository: {
     'fenced-code-block': {
       name: 'markup.fenced_code.block.markdown',
-      begin: String.raw`(^|\G)(\s*)(` + '`{3,}|~{3,})' + String.raw`\s*(?i:(plantuml)((\s+|:|,|\{|\?)[^` + '`' + String.raw`~]*)?$)`,
+      begin:
+        String.raw`(^|\G)(\s*)(` +
+        '`{3,}' +
+        String.raw`(?=\s*(?i:plantuml)(?:\s[^` +
+        '`' +
+        String.raw`]*)?$)|~{3,})\s*(?i:(plantuml))(\s.*)?$`,
       end: String.raw`(^|\G)(\2|\s{0,3})(\3)\s*$`,
       beginCaptures: {
         3: { name: 'punctuation.definition.markdown' },

@@ -219,6 +219,17 @@ describe('umlNotation', () => {
     expect(umlNotation(['@startuml', ...body, '@enduml'])).toContain('interface Task <<interface>>');
   });
 
+  test('checks the stereotypes of a long line in a short time', () => {
+    // A check that searches the rest of the line for each `<` takes seconds here.
+    const line = `interface X ${'<'.repeat(50_000)}`;
+    const started = performance.now();
+    expect(umlNotation(['@startuml', line, '@enduml'])).toContain(`interface X <<interface>> ${'<'.repeat(50_000)}`);
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(withKeyword('interface X <<a>> <<interface>>')).toBe('interface X <<a>> <<interface>>');
+    expect(withKeyword('interface X <<a, interface>>')).toBe('interface X <<a, interface>>');
+    expect(withKeyword('interface X <<a>> interface')).toBe('interface X <<interface>> <<a>> interface');
+  });
+
   test('changes the declarations after a style, also after a rule for notes', () => {
     const body = ['<style>', 'note {', '  BackGroundColor #ffffcc', '}', '</style>', 'interface Task', 'class Worker {', '  static count : int', '}'];
     expect(umlNotation(['@startuml', ...body, '@enduml']).slice(3)).toEqual([

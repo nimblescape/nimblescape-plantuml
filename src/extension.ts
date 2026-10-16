@@ -55,33 +55,30 @@ function documentOf(env: unknown): vscode.Uri | undefined {
  */
 const linesOf = (document: vscode.TextDocument): string[] => document.getText().split(/\r\n|\r|\n/);
 
-/** markdownBlocks holds the lines and the PlantUML blocks of each open Markdown document, for one version. */
-const markdownBlocks = new WeakMap<vscode.TextDocument, { version: number; lines: string[]; blocks: Block[] }>();
+/** markdownBlocks holds the PlantUML blocks of each open Markdown document, for one version. */
+const markdownBlocks = new WeakMap<vscode.TextDocument, { version: number; blocks: Block[] }>();
 
 /**
- * blocksOf returns the lines and the PlantUML blocks of a Markdown document. The extension reads the blocks once
- * for each version of the document, because it looks for them after each typed letter.
+ * blocksOf returns the PlantUML blocks of a Markdown document. The extension reads the blocks once for each version
+ * of the document, because it looks for them after each typed letter.
  * @param document - The Markdown document.
  */
-function blocksOf(document: vscode.TextDocument): { lines: string[]; blocks: Block[] } {
+function blocksOf(document: vscode.TextDocument): Block[] {
   let known = markdownBlocks.get(document);
   if (!known || known.version !== document.version) {
-    const lines = linesOf(document);
-    known = { version: document.version, lines, blocks: plantUmlBlocks(lines) };
+    known = { version: document.version, blocks: plantUmlBlocks(linesOf(document)) };
     markdownBlocks.set(document, known);
   }
-  return known;
+  return known.blocks;
 }
 
 /**
- * blockAt returns the lines of a Markdown document and its PlantUML block that holds a line.
+ * blockAt returns the PlantUML block of a Markdown document that holds a line.
  * @param document - The Markdown document.
  * @param line - The index of the line.
  */
-function blockAt(document: vscode.TextDocument, line: number): { lines: string[]; block: Block | undefined } {
-  const { lines, blocks } = blocksOf(document);
-  return { lines, block: blocks.find(({ start, end }) => start <= line && line < end) };
-}
+const blockAt = (document: vscode.TextDocument, line: number): Block | undefined =>
+  blocksOf(document).find(({ start, end }) => start <= line && line < end);
 
 /**
  * completionItems turns the result of the completion into completion items. Each item replaces the word at the
@@ -117,17 +114,19 @@ const pumlCompletion: vscode.CompletionItemProvider = {
 /**
  * markdownCompletion is the code completion of the PlantUML blocks of Markdown files
  * ([R-MD-004](../docs/requirements.md#r-md-004)). Its context is the block of the cursor. Outside the PlantUML
- * blocks it proposes nothing, so the Markdown editor works there as without the extension
+ * blocks, and in the prefix of a line of a block (the markers of a block quote, the indentation of a list item), it
+ * proposes nothing, so the Markdown editor works there as without the extension
  * ([R-MD-006](../docs/requirements.md#r-md-006)).
  */
 const markdownCompletion: vscode.CompletionItemProvider = {
   provideCompletionItems: (document, position) => {
-    const { lines, block } = blockAt(document, position.line);
-    if (!block) {
+    const block = blockAt(document, position.line);
+    const prefix = block?.prefixes[position.line - block.start];
+    if (!block || prefix === undefined || position.character < prefix.length) {
       return undefined;
     }
-    const completion = complete(lines.slice(block.start, block.end), position.line - block.start, position.character);
-    return completionItems(completion, position);
+    const completion = complete(block.lines, position.line - block.start, position.character - prefix.length);
+    return completionItems({ ...completion, start: completion.start + prefix.length, end: completion.end + prefix.length }, position);
   },
 };
 
@@ -178,7 +177,8 @@ function suggestWhileTyping(event: vscode.TextDocumentChangeEvent): void {
   if (/^[\p{L}\p{N}_$]/u.test(event.document.lineAt(line).text.slice(character + 1))) {
     return;
   }
-  if (blockAt(event.document, line).block && quickSuggestionsOn(event.document)) {
+  // The setting is quicker to read than the blocks of the document.
+  if (quickSuggestionsOn(event.document) && blockAt(event.document, line)) {
     void vscode.commands.executeCommand('editor.action.triggerSuggest', { auto: true });
   }
 }
@@ -229,20 +229,23 @@ const pumlFormatting: vscode.DocumentFormattingEditProvider & vscode.DocumentRan
 };
 
 /**
- * markdownEdits returns the edits that format the PlantUML blocks of a Markdown document. Each block keeps the
- * indentation of its opening fence as its base, for example inside a list. No other line changes
+ * markdownEdits returns the edits that format the PlantUML blocks of a Markdown document. Each line of a block keeps
+ * its prefix, for example the indentation of a list item or the marker of a block quote, and a blank line keeps it
+ * without spaces at its end. A block with a line whose prefix is not known stays as it is. No other line changes
  * ([R-MD-006](../docs/requirements.md#r-md-006)).
  * @param document - The Markdown document.
  * @param options - The formatting options of the editor.
  * @param range - The range to format, or undefined for every block.
  */
 function markdownEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, range?: vscode.Range): vscode.TextEdit[] {
-  const { lines, blocks } = blocksOf(document);
-  return blocks
+  return blocksOf(document)
     .filter(({ start, end }) => !range || (end > range.start.line && start <= lastLine(range)))
-    .flatMap(({ start, end }) => {
-      const base = /^\s*/.exec(lines[start - 1])?.[0] ?? '';
-      return lineEdits(document, start, formatLines(lines.slice(start, end), indentUnit(options), base), range);
+    .filter(({ prefixes }) => prefixes.every((prefix) => prefix !== undefined))
+    .flatMap(({ start, lines, prefixes }) => {
+      const formatted = formatLines(lines, indentUnit(options)).map((line, index) =>
+        line === '' ? prefixes[index]!.trimEnd() : prefixes[index] + line,
+      );
+      return lineEdits(document, start, formatted, range);
     });
 }
 
@@ -293,7 +296,9 @@ async function formatBlocks(): Promise<void> {
  * formatBlocksOnSave formats the PlantUML blocks of a Markdown file on save when the setting `editor.formatOnSave`
  * of the file is on ([R-MD-005](../docs/requirements.md#r-md-005)). VS Code formats on save with the default
  * formatter of Markdown files only, so this keeps the blocks formatted when another extension is that formatter.
- * As VS Code does, it does not format on an automatic save after a delay.
+ * As VS Code does, it does not format on an automatic save after a delay. It formats only when the setting
+ * `editor.formatOnSaveMode` is `file`: with the other values, VS Code formats the changed lines only, and the
+ * extension does not know them.
  * @param event - The event of the save.
  */
 function formatBlocksOnSave(event: vscode.TextDocumentWillSaveEvent): void {
@@ -301,12 +306,27 @@ function formatBlocksOnSave(event: vscode.TextDocumentWillSaveEvent): void {
   if (document.languageId !== 'markdown' || event.reason === vscode.TextDocumentSaveReason.AfterDelay) {
     return;
   }
-  if (!vscode.workspace.getConfiguration('editor', document).get<boolean>('formatOnSave', false)) {
+  const settings = vscode.workspace.getConfiguration('editor', document);
+  if (!settings.get<boolean>('formatOnSave', false) || settings.get<string>('formatOnSaveMode', 'file') !== 'file') {
     return;
   }
   const edits = markdownEdits(document, formattingOptions(document));
   if (edits.length > 0) {
     event.waitUntil(Promise.resolve(edits));
+  }
+}
+
+/** markdownExtension is the identifier of the Markdown extension of VS Code, which owns the Markdown preview. */
+const markdownExtension = 'vscode.markdown-language-features';
+
+/**
+ * refreshMarkdownPreviews renders the Markdown previews again, so that they use a changed setting of the extension.
+ * While the Markdown extension is not active, no Markdown preview is open, and the command would only start that
+ * extension, so nothing happens then.
+ */
+function refreshMarkdownPreviews(): void {
+  if (vscode.extensions.getExtension(markdownExtension)?.isActive) {
+    vscode.commands.executeCommand('markdown.preview.refresh').then(undefined, () => undefined);
   }
 }
 
@@ -321,7 +341,7 @@ export function activate(context: vscode.ExtensionContext): Api {
     // The Markdown preview renders again only when its document or its own settings change.
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration(settingsSection)) {
-        void vscode.commands.executeCommand('markdown.preview.refresh');
+        refreshMarkdownPreviews();
         previews.refreshAll();
       }
     }),

@@ -199,6 +199,14 @@ describe('complete', () => {
     expect(at('@start|').labels).toContain('@startuml');
   });
 
+  test('completes at the end of a long arrow in a short time', () => {
+    // A search for the colon of a label after each length of the arrow takes seconds here.
+    const line = `A ${'-'.repeat(50_000)} `;
+    const started = performance.now();
+    expect(complete([line], 0, line.length).proposals.length).toBeGreaterThan(0);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   test('does not propose the name that the line of the cursor declares', () => {
     expect(at('class Ca|').labels).not.toContain('Ca');
     expect(at('Alice -> Bo|').labels).not.toContain('Alice');

@@ -22,6 +22,7 @@
  * the user types.
  */
 
+import { diagramRanges } from '../diagram/diagramRanges';
 import { blockClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { isDefault, Settings } from '../settings';
 import { engineLoader, isDarkTheme, pageStorage, PreviewRenderer, StoredResults } from './renderer';
@@ -60,29 +61,17 @@ export interface DiffRow {
 
 /**
  * diagramSources returns the texts of the diagrams of a PlantUML file. A diagram runs from a line that starts with
- * `@start` to the next line that starts with `@end`, or to the end of the file. A text without such lines is the
- * body of one diagram. Blank text has no diagram.
+ * `@start` to the next line that starts with `@end`, or to the end of the file (`src/diagram/diagramRanges.ts`). A
+ * text without such lines is the body of one diagram. Blank text has no diagram.
  * @param text - The text of the file.
  */
 export function diagramSources(text: string): string[] {
   const lines = text.split(/\r\n|\r|\n/);
-  if (!lines.some((line) => /^\s*@start/i.test(line))) {
+  const ranges = diagramRanges(lines);
+  if (ranges.length === 0) {
     return text.trim() === '' ? [] : [text];
   }
-  const sources: string[] = [];
-  let start: number | undefined;
-  lines.forEach((line, index) => {
-    if (start === undefined && /^\s*@start/i.test(line)) {
-      start = index;
-    } else if (start !== undefined && /^\s*@end/i.test(line)) {
-      sources.push(lines.slice(start, index + 1).join('\n'));
-      start = undefined;
-    }
-  });
-  if (start !== undefined) {
-    sources.push(lines.slice(start).join('\n'));
-  }
-  return sources;
+  return ranges.map(({ start, end }) => lines.slice(start, end + 1).join('\n'));
 }
 
 /**

@@ -287,6 +287,22 @@ test('in a diff, the toggle replaces the diff with its rendered diff, and the re
   expect(panel.disposed).toBe(true);
 });
 
+test('a second press of the toggle while the first switch runs switches the tab once', async () => {
+  const { instance } = await previews();
+  const original = addDocument('git:/a.puml', 'A');
+  const modified = addDocument('file:/a.puml', 'A2');
+  const diffTab = { input: new FakeTabInputTextDiff(original.uri, modified.uri), label: 'a.puml', group: { viewColumn: 1 } };
+  activeTab = diffTab;
+  await Promise.all([instance.togglePreview(), instance.togglePreview(), instance.reopenAsPreview()]);
+  expect(panels).toHaveLength(1);
+  expect(closedTabs).toEqual([diffTab]);
+
+  // After the switch, the toggle works again.
+  panels[0].active = true;
+  await instance.togglePreview();
+  expect(panels[0].disposed).toBe(true);
+});
+
 test('a rendered diff and the preview to the side come back after a restart, and a panel without a valid state closes', async () => {
   const { module, instance } = await previews();
   addDocument('git:/a.puml', 'A');

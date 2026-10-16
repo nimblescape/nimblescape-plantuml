@@ -116,7 +116,7 @@
         "path": "./dist/syntaxes/plantuml.tmLanguage.json"
       },
       {
-        "scopeName": "markdown.plantuml.codeblock",
+        "scopeName": "markdown.nimblescape.plantuml.codeblock",
         "path": "./dist/syntaxes/markdown-plantuml.tmLanguage.json",
         "injectTo": [
           "text.html.markdown"

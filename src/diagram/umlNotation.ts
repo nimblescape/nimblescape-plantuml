@@ -34,6 +34,7 @@
  * stay as they are.
  */
 
+import { diagramRanges } from './diagramRanges';
 import { actorStart, LineKind, lineKinds } from './lineKinds';
 
 /** keywords maps a PlantUML class kind to its UML keyword. */
@@ -113,12 +114,18 @@ const plantUmlModifier = /\{(?:static|classifier|abstract)\}/i;
 
 /**
  * hasStereotype tells whether a line has one of some words in a stereotype, for example `<<interface>>` or
- * `«interface»`.
+ * `«interface»`: after `<<` or `«` and before the next `>` or `»`. It reads each part of the line between two of
+ * these ends once, so that a long line of `<` characters takes no long time.
  * @param line - The line.
  * @param words - The words.
  */
-const hasStereotype = (line: string, words: readonly string[]): boolean =>
-  new RegExp(String.raw`(?:<<|«)[^>»]*\b(?:${words.join('|')})\b`, 'i').test(line);
+const hasStereotype = (line: string, words: readonly string[]): boolean => {
+  const word = new RegExp(String.raw`\b(?:${words.join('|')})\b`, 'i');
+  return line.split(/[>»]/).some((part) => {
+    const open = /<<|«/.exec(part);
+    return open !== null && word.test(part.slice(open.index + open[0].length));
+  });
+};
 
 /**
  * withKeyword adds the UML keyword to a line that declares a class kind with a keyword, and returns every other
@@ -159,24 +166,20 @@ export function withModifiers(line: string): string {
  */
 export function umlNotation(lines: readonly string[]): string[] {
   const result: string[] = [];
-  let index = 0;
-  while (index < lines.length) {
-    const line = lines[index++];
-    result.push(line);
-    if (!/^\s*@startuml\b/.test(line)) {
+  let next = 0;
+  for (const { type, start, end } of diagramRanges(lines)) {
+    if (type !== 'uml') {
       continue;
     }
-    let end = index;
-    while (end < lines.length && !/^\s*@enduml\b/.test(lines[end])) {
-      end++;
-    }
-    const body = lines.slice(index, end);
+    result.push(...lines.slice(next, start + 1));
+    const body = lines.slice(start + 1, end);
     const kinds = lineKinds(body);
-    const statements = body.filter((_, bodyIndex) => kinds[bodyIndex] === 'statement');
+    const statements = body.filter((_, index) => kinds[index] === 'statement');
     result.push(...commands.filter(({ setBy }) => !statements.some((statement) => setBy.test(statement))).map(({ command }) => command));
     result.push(...(isDescriptionDiagram(body, kinds) ? body : withClassNotation(body, kinds)));
-    index = end;
+    next = end;
   }
+  result.push(...lines.slice(next));
   return result;
 }
 

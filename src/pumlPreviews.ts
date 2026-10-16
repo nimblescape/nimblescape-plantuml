@@ -89,6 +89,8 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
   readonly #previews = new Set<Preview>();
   readonly #diffs = new Map<vscode.WebviewPanel, Preview>();
   #side: { panel: vscode.WebviewPanel; preview: Preview } | undefined;
+  /** #switching is the switch of the active tab that runs, if any. */
+  #switching: Promise<unknown> | undefined;
 
   /**
    * @param extensionUri - The folder of the extension, which holds the scripts and the styles of the page.
@@ -161,31 +163,59 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
    * togglePreview switches the active tab between the text of a PlantUML file and its preview, or between the diff
    * of a PlantUML file and its rendered diff.
    */
-  togglePreview(): Thenable<unknown> {
-    const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-    const inPreview = (input instanceof vscode.TabInputCustom && input.viewType === previewViewType) || this.#activeDiff();
-    return inPreview ? this.reopenAsSource() : this.reopenAsPreview();
+  togglePreview(): Promise<unknown> {
+    return this.#switch(() => {
+      const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      const inPreview = (input instanceof vscode.TabInputCustom && input.viewType === previewViewType) || this.#activeDiff();
+      return inPreview ? this.#toSource() : this.#toPreview();
+    });
   }
 
   /** reopenAsPreview shows the active PlantUML file as a preview, or the active diff as a rendered diff. */
-  reopenAsPreview(): Thenable<unknown> {
-    const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-    return tab?.input instanceof vscode.TabInputTextDiff
-      ? this.showRenderedDiff(tab)
-      : vscode.commands.executeCommand('reopenActiveEditorWith', previewViewType);
+  reopenAsPreview(): Promise<unknown> {
+    return this.#switch(() => this.#toPreview());
   }
 
   /** reopenAsSource shows the active preview as the text of its file, or the active rendered diff as a diff. */
-  reopenAsSource(): Thenable<unknown> {
+  reopenAsSource(): Promise<unknown> {
+    return this.#switch(() => this.#toSource());
+  }
+
+  /**
+   * #switch runs a switch of the active tab. While a switch runs, a further switch does nothing and returns the
+   * running one: a second press of Ctrl+Shift+V comes before the first switch has closed its tab, and would switch
+   * the same tab again.
+   * @param run - Runs the switch.
+   */
+  #switch(run: () => Thenable<unknown>): Promise<unknown> {
+    if (!this.#switching) {
+      const switching = Promise.resolve(run()).finally(() => {
+        this.#switching = undefined;
+      });
+      this.#switching = switching;
+    }
+    return this.#switching;
+  }
+
+  /** #toPreview shows the active PlantUML file as a preview, or the active diff as a rendered diff. */
+  #toPreview(): Thenable<unknown> {
+    const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+    return tab?.input instanceof vscode.TabInputTextDiff
+      ? this.#showRenderedDiff(tab)
+      : vscode.commands.executeCommand('reopenActiveEditorWith', previewViewType);
+  }
+
+  /** #toSource shows the active preview as the text of its file, or the active rendered diff as a diff. */
+  #toSource(): Thenable<unknown> {
     const diff = this.#activeDiff();
     return diff ? this.#showTextDiff(...diff) : vscode.commands.executeCommand('reopenActiveEditorWith', 'default');
   }
 
   /**
-   * showRenderedDiff replaces the tab of a diff with its rendered diff.
+   * #showRenderedDiff replaces the tab of a diff with its rendered diff.
    * @param tab - The tab of the diff.
    */
-  async showRenderedDiff(tab: vscode.Tab): Promise<void> {
+  async #showRenderedDiff(tab: vscode.Tab): Promise<void> {
     const { original, modified } = tab.input as vscode.TabInputTextDiff;
     await Promise.all([vscode.workspace.openTextDocument(original), vscode.workspace.openTextDocument(modified)]);
     const panel = vscode.window.createWebviewPanel(diffPreviewViewType, `Preview ${tab.label}`, tab.group.viewColumn);

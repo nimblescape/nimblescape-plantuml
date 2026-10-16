@@ -7,9 +7,10 @@
  * the extension and the TextMate engine of VS Code (vscode-textmate with
  * vscode-oniguruma). They check the scopes of the parts of PlantUML text, that
  * every keyword of the code completion has a color, and that the injection
- * marks the text of a PlantUML block in Markdown as PlantUML and nothing else
- * (R-MD-003, R-MD-006, R-PUML-005). A minimal Markdown grammar stands in for
- * the Markdown grammar of VS Code; it has the scope of that grammar.
+ * marks the text of a PlantUML block in Markdown as PlantUML and nothing else,
+ * by the same rule as the preview and the editor features (R-MD-003, R-MD-006,
+ * R-PUML-005). A minimal Markdown grammar stands in for the Markdown grammar
+ * of VS Code; it has the scope of that grammar.
  */
 
 import * as fs from 'node:fs';
@@ -17,6 +18,9 @@ import { createRequire } from 'node:module';
 import { beforeAll, describe, expect, test } from 'vitest';
 import * as oniguruma from 'vscode-oniguruma';
 import * as textmate from 'vscode-textmate';
+import MarkdownIt from 'markdown-it';
+import { plantUmlBlocks } from '../markdown/blocks';
+import { blockClass, extendMarkdownIt, isPlantUmlInfo } from '../markdown/markdownIt';
 import { Grammar, markdownInjectionGrammar, plantUmlGrammar } from './grammars';
 import { controlKeywords, documentKeywords, elementKeywords, preprocessorKeywords } from './keywords';
 
@@ -174,7 +178,7 @@ describe('source.plantuml', () => {
   });
 });
 
-describe('markdown.plantuml.codeblock', () => {
+describe('markdown.nimblescape.plantuml.codeblock', () => {
   test('marks the text of a PlantUML block as PlantUML, and nothing before or after it', async () => {
     const lines = await tokenize(
       'text.html.markdown',
@@ -191,6 +195,25 @@ describe('markdown.plantuml.codeblock', () => {
     expect(lines[4][0].scopes.at(-1)).toBe('punctuation.definition.markdown');
     expect(lines[5].every((token) => token.scopes.at(-1) === 'meta.paragraph.markdown')).toBe(true);
     expect(lines[7][0].scopes.at(-1)).toBe('comment.line.single-quote.plantuml');
+  });
+
+  test('marks the same blocks as the preview and the editor features, by one rule for the info string', async () => {
+    const md = extendMarkdownIt(new MarkdownIt({ html: true }));
+    const infos = ['plantuml', 'PlantUML', ' plantuml', 'plantuml title="A"', 'plantuml\tx', 'plantuml {.x}', 'plantuml:a.puml', 'plantuml{.x}'];
+    const others = ['plantuml,x', 'plantuml?x', 'plantumlx', '{.plantuml}', 'puml', 'js plantuml', 'plantuml `x`'];
+    for (const fence of ['```', '~~~']) {
+      for (const info of [...infos, ...others]) {
+        const lines = [`${fence}${info}`, 'class A', fence];
+        const highlighted = (await tokenize('text.html.markdown', lines.join('\n'))).flat().some((token) => token.scopes.includes('meta.embedded.block.plantuml'));
+        const rendered = md.render(lines.join('\n')).includes(`class="${blockClass}"`);
+        const edited = plantUmlBlocks(lines).length > 0;
+        expect([highlighted, edited], `${fence}${info}`).toEqual([rendered, rendered]);
+      }
+    }
+    // The rule takes the first word: a fence of tildes may have a backtick in its info string, a fence of backticks may not.
+    expect(isPlantUmlInfo('plantuml:a.puml')).toBe(false);
+    expect(md.render('~~~plantuml `x`\nclass A\n~~~')).toContain(`class="${blockClass}"`);
+    expect(md.render('```plantuml `x`\nclass A\n```')).not.toContain(`class="${blockClass}"`);
   });
 
   test('leaves fenced code blocks of other languages to the Markdown grammar', async () => {

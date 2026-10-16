@@ -27,6 +27,7 @@
  */
 
 import type MarkdownIt from 'markdown-it';
+import type { Token } from 'markdown-it';
 import { defaultSettings, isDefault, Settings } from '../settings';
 
 /** blockClass is the class of the element of a PlantUML block, which the preview script looks for. */
@@ -88,16 +89,20 @@ export function extendMarkdownIt(
       return fence ? fence(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
     }
     const source = withoutDiffMarkers(token.content);
-    // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute.
-    token.attrJoin('class', blockClass);
-    token.attrSet(sourceAttribute, source);
+    // The Markdown preview keeps the tokens of a version of the document for its next rendering, so the attributes
+    // of the element are a copy: the token stays as it is.
+    const attributes = new Map(token.attrs ?? []);
+    attributes.set('class', [attributes.get('class'), blockClass].filter(Boolean).join(' '));
+    attributes.set(sourceAttribute, source);
     const values = settings(env);
     if (!isDefault(values)) {
-      token.attrSet(settingsAttribute, JSON.stringify(values));
+      attributes.set(settingsAttribute, JSON.stringify(values));
     }
-    // The preview script replaces the text before the page shows it; the text stays when the preview runs no scripts.
+    // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute. The preview script
+    // replaces the text before the page shows it; the text stays when the preview runs no scripts.
+    const element = { attrs: [...attributes] } as Token;
     return (
-      `<div${self.renderAttrs(token)}><div class="${contentClass}">` +
+      `<div${self.renderAttrs(element)}><div class="${contentClass}">` +
       `<pre class="${blockClass}-source"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`
     );
   };

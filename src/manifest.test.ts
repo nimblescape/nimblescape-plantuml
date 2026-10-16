@@ -13,6 +13,7 @@
 import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
 import * as path from 'node:path';
+import * as esbuild from 'esbuild';
 import { expect, test, vi } from 'vitest';
 import { formatBlocksCommand } from './extension';
 import { grammarFiles } from './language/grammars';
@@ -226,6 +227,40 @@ test('the third-party notices name the engine version and every script of the en
     expect(notices, section).toContain(section);
   }
   expect(notices).toContain('This product includes software developed by Alexey Andreev');
+});
+
+test('the third-party notices name every package that the build bundles into a script, with its version and license (R-GEN-004)', async () => {
+  const notices = read('THIRD-PARTY-NOTICES.md');
+  const bundles: [string, esbuild.Platform][] = [
+    ['src/extension.ts', 'node'],
+    ['src/preview/markdownPreview.ts', 'browser'],
+    ['src/preview/pumlPreview.ts', 'browser'],
+  ];
+  const packages = new Set<string>();
+  for (const [entry, platform] of bundles) {
+    const result = await esbuild.build({
+      entryPoints: [path.join(repository, entry)],
+      bundle: true,
+      platform,
+      external: ['vscode'],
+      write: false,
+      metafile: true,
+      logLevel: 'silent',
+    });
+    for (const input of Object.keys(result.metafile.inputs)) {
+      // The folder of the package is the part of the path up to the name after the last node_modules.
+      const folder = /^(.*node_modules\/(?:@[^/]+\/)?[^/]+)\//.exec(input)?.[1];
+      if (folder) {
+        packages.add(folder);
+      }
+    }
+  }
+  expect(packages.size).toBeGreaterThan(0);
+  for (const folder of packages) {
+    const { name, version, license } = JSON.parse(fs.readFileSync(path.join(repository, folder, 'package.json'), 'utf8'));
+    expect(notices, name).toMatch(new RegExp(String.raw`\| \[${name.replace(/\./g, '\\.')}\]\(#[^)]+\) \| ${version.replace(/\./g, '\\.')} \| ${license} \|`));
+    expect(notices, name).toContain(`\n## ${name}\n`);
+  }
 });
 
 test('the third-party notices name every theme of the engine and its license (R-GEN-004)', () => {

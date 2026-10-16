@@ -4,11 +4,12 @@
 
 /**
  * These tests run the activation of the extension with a fake of the API of
- * VS Code. They check that the export renders PlantUML blocks with the lines
- * of the settings of the document, that a change of a setting of the
- * extension refreshes the Markdown previews (R-GEN-007), and that the code
- * completion works in `.puml` files (R-PUML-006) and in the PlantUML blocks of
- * Markdown files only (R-MD-004, R-MD-006).
+ * VS Code. They check that every registration can be removed, that the export
+ * renders PlantUML blocks with the lines of the settings of the document, that
+ * a change of a setting of the extension refreshes the open Markdown previews
+ * (R-GEN-007), that the code completion works in `.puml` files (R-PUML-006)
+ * and in the PlantUML blocks of Markdown files only (R-MD-004, R-MD-006), and
+ * the formatting with its command and on save (R-MD-005, R-PUML-007).
  */
 
 import MarkdownIt from 'markdown-it';
@@ -144,6 +145,19 @@ let saveListeners: ((event: FakeSaveEvent) => void)[];
 let activeEditor: FakeEditor | undefined;
 /** registeredCommands are the handlers of the registered commands, by their names. */
 let registeredCommands: Map<string, () => unknown>;
+/** disposables are the registrations that the fake API returned. */
+let disposables: { dispose(): void }[];
+/** markdownActive tells whether the Markdown extension of VS Code is active. */
+let markdownActive: boolean;
+/** refreshFails makes the command `markdown.preview.refresh` fail. */
+let refreshFails: boolean;
+
+/** disposable returns a new registration of the fake API and records it. */
+const disposable = () => {
+  const registration = { dispose() {} };
+  disposables.push(registration);
+  return registration;
+};
 
 beforeEach(() => {
   settingsOf = new Map();
@@ -155,6 +169,9 @@ beforeEach(() => {
   saveListeners = [];
   activeEditor = undefined;
   registeredCommands = new Map();
+  disposables = [];
+  markdownActive = true;
+  refreshFails = false;
   providers = new Map();
   formatters = new Map();
   vi.resetModules();
@@ -167,15 +184,15 @@ beforeEach(() => {
       },
       onDidChangeConfiguration: (listener: (typeof configurationListeners)[number]) => {
         configurationListeners.push(listener);
-        return { dispose() {} };
+        return disposable();
       },
       onDidChangeTextDocument: (listener: (typeof changeListeners)[number]) => {
         changeListeners.push(listener);
-        return { dispose() {} };
+        return disposable();
       },
       onWillSaveTextDocument: (listener: (typeof saveListeners)[number]) => {
         saveListeners.push(listener);
-        return { dispose() {} };
+        return disposable();
       },
     },
     window: {
@@ -186,32 +203,38 @@ beforeEach(() => {
         return activeEditor ? [activeEditor] : [];
       },
       // These tests do not cover the previews of PlantUML files; the registrations only need to exist.
-      registerCustomEditorProvider: () => ({ dispose() {} }),
-      registerWebviewPanelSerializer: () => ({ dispose() {} }),
-      onDidChangeActiveTextEditor: () => ({ dispose() {} }),
+      registerCustomEditorProvider: disposable,
+      registerWebviewPanelSerializer: disposable,
+      onDidChangeActiveTextEditor: disposable,
+    },
+    extensions: {
+      getExtension: (id: string) => (id === 'vscode.markdown-language-features' ? { isActive: markdownActive } : undefined),
     },
     commands: {
       executeCommand: async (command: string, ...args: unknown[]) => {
         commands.push(command);
         commandArguments.push(args);
+        if (refreshFails && command === 'markdown.preview.refresh') {
+          throw new Error('command not found');
+        }
       },
       registerCommand: (command: string, handler: () => unknown) => {
         registeredCommands.set(command, handler);
-        return { dispose() {} };
+        return disposable();
       },
     },
     languages: {
       registerCompletionItemProvider: (language: string, provider: FakeProvider, ...triggerCharacters: string[]) => {
         providers.set(language, { provider, triggerCharacters });
-        return { dispose() {} };
+        return disposable();
       },
       registerDocumentFormattingEditProvider: (language: string, provider: FakeFormatter) => {
         formatters.set(`${language} document`, provider);
-        return { dispose() {} };
+        return disposable();
       },
       registerDocumentRangeFormattingEditProvider: (language: string, provider: FakeFormatter) => {
         formatters.set(`${language} range`, provider);
-        return { dispose() {} };
+        return disposable();
       },
     },
     TextDocumentSaveReason: { Manual: 1, AfterDelay: 2, FocusOut: 3 },
@@ -258,13 +281,39 @@ test('the export reads the settings of the rendered document and adds them to th
   expect(requests.at(-1)).toEqual([settingsSection, '']);
 });
 
-test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
+test('every registration goes into the subscriptions of the context, so that VS Code removes it on deactivation', async () => {
   const { context } = await activate();
-  expect(context.subscriptions).toHaveLength(19);
-  const change = (changed: string) => configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
-  change('editor');
+  expect(disposables.length).toBeGreaterThan(0);
+  expect(disposables.every((registration) => context.subscriptions.includes(registration))).toBe(true);
+  expect(context.subscriptions).toHaveLength(disposables.length);
+});
+
+/**
+ * changeSetting tells the listeners that the settings of a section changed.
+ * @param changed - The section of the changed settings.
+ */
+const changeSetting = (changed: string) =>
+  configurationListeners.forEach((listener) => listener({ affectsConfiguration: (section) => section === changed }));
+
+test('a change of a setting of the extension refreshes the Markdown previews, a change of another setting does not', async () => {
+  await activate();
+  changeSetting('editor');
   expect(commands).toEqual([]);
-  change(settingsSection);
+  changeSetting(settingsSection);
+  expect(commands).toEqual(['markdown.preview.refresh']);
+});
+
+test('a change of a setting does not start the Markdown extension, and a failed refresh is no error', async () => {
+  await activate();
+  markdownActive = false;
+  changeSetting(settingsSection);
+  expect(commands).toEqual([]);
+
+  // An unhandled rejection would fail the test run.
+  markdownActive = true;
+  refreshFails = true;
+  changeSetting(settingsSection);
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(commands).toEqual(['markdown.preview.refresh']);
 });
 
@@ -415,6 +464,26 @@ test('the formatting of Markdown files changes the lines of the PlantUML blocks 
   expect(formatters.get('markdown range')!.provideDocumentRangeFormattingEdits!(document, new FakeRange(0, 0, 1, 3), spaces)).toEqual([]);
 });
 
+test('the completion and the formatting work in a PlantUML block in a block quote, and keep its markers', async () => {
+  await activate();
+  const quote = ['> ```plantuml', '> package p {', '> class Car', '>', '> }', '> C‸', '> ```'];
+  const items = completeIn('markdown', quote.join('\n'))!;
+  expect(items.map((item) => item.label)).toContain('Car');
+  expect(items[0].range!.replacing).toEqual(new FakeRange(5, 2, 5, 3));
+
+  // In the marker of the block quote, the completion proposes nothing.
+  expect(completeIn('markdown', quote.join('\n').replace('> C‸', '‸> C'))).toBeUndefined();
+
+  const document = textDocument(quote.join('\n').replace('‸', ''));
+  expect(formatters.get('markdown document')!.provideDocumentFormattingEdits!(document, spaces)).toEqual([
+    { range: new FakeRange(2, 0, 2, 11), newText: '>   class Car' },
+  ]);
+
+  // A block whose prefix markdown-it changed, here a tab in a list item, stays as it is.
+  const tab = textDocument(['- item', '', '  ```plantuml', '  package p {', '\tclass A', '  }', '  ```'].join('\n'));
+  expect(formatters.get('markdown document')!.provideDocumentFormattingEdits!(tab, spaces)).toEqual([]);
+});
+
 /** markdownText is a Markdown text with a PlantUML block that the formatting changes, and a JavaScript block. */
 const markdownText = ['# Title   ', '```plantuml', 'package p {', 'class A', '}', '```', '```js', 'if (a) {', 'b', '}', '```'].join('\n');
 
@@ -464,4 +533,12 @@ test('a save formats the PlantUML blocks of a Markdown file when editor.formatOn
   // An automatic save after a delay and a file of another language keep their text, as with VS Code's own formatting.
   expect(await save(document, 2)).toEqual([]);
   expect(await save({ ...document, languageId: 'plantuml' })).toEqual([]);
+
+  // When VS Code formats the changed lines only, the extension, which does not know them, formats nothing.
+  for (const mode of ['modifications', 'modificationsIfAvailable']) {
+    settingsOf.set('', { formatOnSave: true, formatOnSaveMode: mode });
+    expect(await save(document), mode).toEqual([]);
+  }
+  settingsOf.set('', { formatOnSave: true, formatOnSaveMode: 'file' });
+  expect(await save(document)).toHaveLength(1);
 });

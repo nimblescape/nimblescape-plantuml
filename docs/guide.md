@@ -351,10 +351,10 @@ extension.
 
 ### Formatting
 
-The commands "Format Document" (Shift+Alt+F) and "Format Selection" indent
-the lines of a UML diagram by the depth of their blocks, and remove the spaces
-at the end of these lines. The setting `editor.formatOnSave` formats on each
-save.
+The commands "Format Document" (Shift+Alt+F; on Linux Ctrl+Shift+I, on macOS
+Shift+Option+F) and "Format Selection" indent the lines of a UML diagram by
+the depth of their blocks, and remove the spaces at the end of these lines.
+The setting `editor.formatOnSave` formats on each save.
 
 The formatting does not change the text that a diagram shows. It writes one
 space for a run of spaces and tabs only between the parts of a statement:

@@ -39,6 +39,7 @@ each requirement with an ID.
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets, the pairs that the editor closes, the folding markers of the diagrams and of the preprocessor, and the indentation rules while typing, with the blocks of the formatting. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
+| `docs/images/` | The screenshots of the README, as PNG files, because the Marketplace shows no SVG image. The README links them with full addresses on the branch `main`, which the Marketplace requires; they are not part of the package. A test checks that each image of the README is a PNG file here. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
 | `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |

@@ -110,7 +110,8 @@ files.
 **Rendering in the Markdown preview.** A fenced code block with the info
 string `plantuml` in a Markdown file shows as a diagram in the built-in
 Markdown preview of VS Code: in the preview to the side (Ctrl+K V) and in the
-preview in the same tab (Ctrl+Shift+V).
+preview in the same tab (Ctrl+Shift+V). While a diagram renders, the block
+does not show the diagram text: it shows its last diagram or a note.
 
 ### R-MD-002
 

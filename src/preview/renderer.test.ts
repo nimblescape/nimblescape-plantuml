@@ -9,15 +9,16 @@
  * with a fake engine. They check the detection of a dark theme, the
  * rendering of one diagram at a time, the reuse of a result after the
  * preview replaced its content, the skip of a text that changed again, the new rendering after a change of the
- * theme or of the settings, the display of errors, and that the bar of the
- * rendered diff stays in a block. The real engine runs in the preview of
- * VS Code only.
+ * theme or of the settings, the display of errors, that the bar of the
+ * rendered diff stays in a block, that the text of a block never shows while
+ * its diagram renders, and the results in the local storage. The real engine
+ * runs in the preview of VS Code only.
  */
 
 import { describe, expect, test } from 'vitest';
 import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { umlCommands } from '../diagram/umlNotation';
-import { Engine, isDarkTheme, policiesAllowWebAssembly, PreviewRenderer } from './renderer';
+import { Engine, isDarkTheme, pendingClass, policiesAllowWebAssembly, PreviewRenderer, StoredResults } from './renderer';
 
 /** FakeEngine records its calls and answers each call after a turn of the event loop. */
 class FakeEngine implements Engine {
@@ -81,7 +82,135 @@ describe('policiesAllowWebAssembly', () => {
   });
 });
 
+/** FakeStorage stands for the local storage of a page, with a limit of the length of all its keys and values. */
+class FakeStorage implements Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+  readonly items = new Map<string, string>();
+  constructor(readonly capacity = Infinity) {}
+
+  getItem(key: string): string | null {
+    return this.items.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    const used = [...this.items].reduce((sum, [other, text]) => sum + (other === key ? 0 : other.length + text.length), 0);
+    if (used + key.length + value.length > this.capacity) {
+      throw new DOMException('The storage is full.', 'QuotaExceededError');
+    }
+    this.items.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.items.delete(key);
+  }
+}
+
+/**
+ * contentOf returns the classes of the children of the content element of the first block.
+ * @param root - The node of the blocks.
+ */
+const contentOf = (root: ParentNode) => [...root.querySelector(`.${contentClass}`)!.children].map((child) => child.tagName.toLowerCase() === 'svg' ? `svg ${child.getAttribute('data-text')}` : child.className);
+
+/** lines returns the lines that the engine renders for a text with the default settings. */
+const lines = (text: string) => ['@startuml', ...umlCommands, text, '@enduml'].join('|');
+
 describe('PreviewRenderer', () => {
+  test('shows a note, and not the text of the block, while the first diagram of a block renders', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A');
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    expect(contentOf(root)).toEqual([pendingClass]);
+    // A second update, as the change of the page starts it, changes nothing.
+    const note = root.querySelector(`.${pendingClass}`);
+    renderer.update();
+    expect(root.querySelector(`.${pendingClass}`)).toBe(note);
+    await renderer.whenIdle();
+    expect(contentOf(root)).toEqual([`svg ${lines('A')}`]);
+  });
+
+  test('keeps the last diagram of a block while its new text renders, also after the preview wrote the text again', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = block('A');
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+
+    // The Markdown preview keeps the element of the block, sets its attributes and writes its text again.
+    const element = root.querySelector<HTMLElement>(`.${blockClass}`)!;
+    const written = document.createElement('div');
+    written.innerHTML = block('AB');
+    const fresh = written.firstElementChild as HTMLElement;
+    for (const name of element.getAttributeNames()) {
+      element.removeAttribute(name);
+    }
+    for (const name of fresh.getAttributeNames()) {
+      element.setAttribute(name, fresh.getAttribute(name)!);
+    }
+    element.replaceChildren(...fresh.childNodes);
+    renderer.update();
+    expect(contentOf(root)).toEqual([`svg ${lines('A')}`]);
+    await renderer.whenIdle();
+    expect(contentOf(root)).toEqual([`svg ${lines('AB')}`]);
+  });
+
+  test('keeps the results in the local storage, so that another preview shows them at once', async () => {
+    const storage = new FakeStorage();
+    const first = document.createElement('div');
+    first.innerHTML = block('A') + block('fail');
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(first, async () => engine, () => false, new StoredResults(storage as unknown as Storage, 'v1'));
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls).toHaveLength(2);
+
+    // A new preview of the same version shows the stored diagram without the engine; an error is not stored.
+    const second = document.createElement('div');
+    second.innerHTML = block('A') + block('fail');
+    const again = new PreviewRenderer(second, async () => engine, () => false, new StoredResults(storage as unknown as Storage, 'v1'));
+    again.update();
+    expect(contentOf(second)).toEqual([`svg ${lines('A')}`]);
+    expect(second.querySelectorAll(`.${pendingClass}`)).toHaveLength(1);
+    await again.whenIdle();
+    expect(engine.calls).toHaveLength(3);
+
+    // Another version and another theme do not use the stored diagram.
+    expect(new StoredResults(storage as unknown as Storage, 'v2').get(lines('A').split('|'), false)).toBeUndefined();
+    expect(new StoredResults(storage as unknown as Storage, 'v1').get(lines('A').split('|'), true)).toBeUndefined();
+    expect(new StoredResults(storage as unknown as Storage, 'v1').get(lines('A').split('|'), false)).toContain('<svg');
+  });
+
+  test('the local storage keeps the most recently used results up to its limit, and makes room when it is full', () => {
+    const storage = new FakeStorage();
+    const stored = new StoredResults(storage as unknown as Storage, 'v1');
+    for (let index = 0; index < 60; index++) {
+      stored.set([`D${index}`], false, `<svg>${index}</svg>`);
+    }
+    // Using the oldest kept result makes it the most recently used one.
+    expect(stored.get(['D0'], false)).toBeUndefined();
+    expect(stored.get(['D10'], false)).toBe('<svg>10</svg>');
+    stored.set(['D60'], false, '<svg>60</svg>');
+    expect(stored.get(['D10'], false)).toBe('<svg>10</svg>');
+    expect(stored.get(['D11'], false)).toBeUndefined();
+    expect(storage.items.size).toBe(51);
+
+    // A full storage removes the least recently used results until the new one fits.
+    const small = new FakeStorage(1500);
+    const kept = new StoredResults(small as unknown as Storage, 'v1');
+    for (let index = 0; index < 10; index++) {
+      kept.set([`D${index}`], false, `<svg>${'x'.repeat(200)}</svg>`);
+    }
+    expect(kept.get(['D9'], false)).toContain('<svg>');
+    expect(kept.get(['D0'], false)).toBeUndefined();
+
+    // A result larger than the whole storage is not kept, and a page without a storage keeps nothing; neither throws.
+    kept.set(['big'], false, `<svg>${'x'.repeat(2000)}</svg>`);
+    expect(kept.get(['big'], false)).toBeUndefined();
+    const none = new StoredResults(undefined, 'v1');
+    none.set(['A'], false, '<svg></svg>');
+    expect(none.get(['A'], false)).toBeUndefined();
+  });
+
+
   test('renders every block, one at a time, and shows the diagram', async () => {
     const root = document.createElement('div');
     root.innerHTML = block('A -&gt; B') + block('C -&gt; D') + '<pre>other</pre>';

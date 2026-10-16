@@ -95,7 +95,7 @@ export function extendMarkdownIt(
     if (!isDefault(values)) {
       token.attrSet(settingsAttribute, JSON.stringify(values));
     }
-    // The text of the block shows until the diagram replaces it, and stays when the preview runs no scripts.
+    // The preview script replaces the text before the page shows it; the text stays when the preview runs no scripts.
     return (
       `<div${self.renderAttrs(token)}><div class="${contentClass}">` +
       `<pre class="${blockClass}-source"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`

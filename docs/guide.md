@@ -48,6 +48,14 @@ handles these includes is decided in step 2 of the plan.
 The extension only shows diagrams. It does not export a diagram to a file, in
 no format.
 
+The engine needs a moment to start when a preview opens. While a diagram
+renders, the preview shows the note "Rendering the diagram…", or the last
+diagram of the block while you change its text; it never shows the diagram
+text in its place. The previews keep the pictures of the 50 most recently
+rendered diagrams in the storage that VS Code keeps for its previews on your
+computer. A preview that opens again shows these diagrams at once, also after
+a restart of VS Code.
+
 ## Markdown files
 
 ### Diagrams in the Markdown preview

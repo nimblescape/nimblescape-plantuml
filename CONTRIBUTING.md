@@ -22,7 +22,7 @@ each requirement with an ID.
 | `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
 | `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, for the code completion and the formatting. |
 | `src/pumlPreviews.ts` | The previews of PlantUML files: the custom editor that shows a file as a preview in its own tab, the preview to the side, the rendered diff, and their commands. |
-| `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the PlantUML blocks of a page one at a time, and keeps the results. |
+| `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the PlantUML blocks of a page one at a time, and keeps the results in memory and in the local storage of the preview. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: starts the renderer for the PlantUML blocks of the page. |
 | `src/preview/pumlPreview.ts` | The script of the preview of PlantUML files: writes a block for each diagram of the file, or a row for each pair of diagrams of a rendered diff, and starts the renderer. |
 | `src/preview/previewHtml.ts` | The page of the preview of PlantUML files, with its security policy. |
@@ -129,7 +129,8 @@ plugin `src/markdown/markdownIt.ts` writes a fenced code block with the info
 string `plantuml` as a `div` with the class `nimblescape-plantuml`, the
 attribute `data-plantuml-source` with the diagram text, and an inner `div`
 with the class `nimblescape-plantuml-content`, which holds the text of the
-block until the diagram replaces it. The outer `div` keeps the attributes that
+block. The script replaces the text before the page shows it, so the text
+shows only when the script does not run. The outer `div` keeps the attributes that
 the preview gives to every block, `data-line` and the class `code-line`, which
 the preview uses to synchronize the scrolling and to mark the changed blocks
 of a rendered diff. Every other token keeps the output of the preview.
@@ -149,7 +150,9 @@ requests and no frames. The script therefore:
 - loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly. The script reads the security policy of the page and does not compile a test module, because a blocked compilation counts as a violation, and the preview then shows the warning "Some content has been disabled in this document";
 - applies the settings, which the plugin writes as JSON into the attribute `data-plantuml-settings` when they differ from the defaults (`src/diagram/diagramLines.ts`);
 - renders one block at a time, because the engine keeps shared state, and keeps up to 200 results by theme, settings and text;
-- renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once.
+- renders again after each change of the page: the preview replaces its content on every change of the document, and a mutation observer then shows the kept results at once. The observer runs before the page is drawn again, so the text that the preview writes never shows;
+- shows, while a diagram renders, the last diagram of the block, or the note "Rendering the diagram…" (`nimblescape-plantuml-pending`) in a block without one. The preview keeps the element of a block when it writes the block again, and removes the attributes of the extension, so the renderer keeps the last result of each element;
+- keeps the SVG texts of the 50 most recently used diagrams in `localStorage`, by the address of the engine (which contains the version of the extension), the theme and the rendered lines. VS Code gives all Markdown previews one origin and keeps their storage across previews and restarts (checked in VS Code 1.142), so a preview that opens again shows its diagrams without waiting for the engine, which needed about two seconds to start in a test. A full or blocked storage only keeps fewer results. The preview of PlantUML files uses the same storage for its own origin.
 
 The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
 or high contrast dark.

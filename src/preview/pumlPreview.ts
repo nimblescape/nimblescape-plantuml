@@ -24,7 +24,7 @@
 
 import { blockClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { isDefault, Settings } from '../settings';
-import { engineLoader, isDarkTheme, PreviewRenderer } from './renderer';
+import { engineLoader, isDarkTheme, pageStorage, PreviewRenderer, StoredResults } from './renderer';
 
 /** UpdateMessage is the message of the extension with the text of the file and the settings. */
 export interface UpdateMessage {
@@ -249,10 +249,12 @@ interface VsCodeApi {
 function start(): void {
   const vscode = (globalThis as unknown as { acquireVsCodeApi(): VsCodeApi }).acquireVsCodeApi();
   const container = document.getElementById('diagrams') ?? document.body;
+  const engine = new URL('./engine/', import.meta.url).href;
   const renderer = new PreviewRenderer(
     container,
-    engineLoader(new URL('./engine/', import.meta.url).href),
+    engineLoader(engine),
     () => isDarkTheme(document.body),
+    new StoredResults(pageStorage(), engine),
   );
   window.addEventListener('message', (event: MessageEvent<UpdateMessage>) => {
     if (event.data?.type === 'update') {

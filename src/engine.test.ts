@@ -12,9 +12,9 @@
  * further scripts that the loader loads, the function `renderToString` with
  * its options `dark` and `maxSvgSize`, every diagram type of
  * `src/language/keywords.ts`, the picture of an error that `errorOf` reads,
- * the group of the title that the label of an image reads, and the Graphviz
- * layout of Viz.js. One test renders a Markdown page with the renderer of the
- * previews.
+ * the group of the title that the label of an image reads, the library C4 of
+ * the package, and the Graphviz layout of Viz.js. One test renders a Markdown
+ * page with the renderer of the previews.
  *
  * The tests run the engine in happy-dom, which has no fonts: a text measures
  * a fixed width for each character.
@@ -35,6 +35,9 @@ import { fence, renderMarkdown } from './test/markdownPreview';
 /** engineFolder is the folder of the installed engine, whose scripts the build copies into dist/engine/. */
 const engineFolder = path.resolve(__dirname, '../node_modules/@plantuml/core');
 
+/** stdlibFolder is the folder of the libraries of PlantUML that the build also copies into dist/engine/. */
+const stdlibFolder = path.resolve(__dirname, '../stdlib');
+
 /** folder is the address of the folder of the engine, with a final slash, as the previews pass it to the loader. */
 const folder = `${pathToFileURL(engineFolder).href}/`;
 
@@ -46,8 +49,10 @@ const loaded: string[] = [];
  * @param url - The address of the script.
  */
 async function runScript(url: string): Promise<void> {
-  loaded.push(path.basename(fileURLToPath(url)));
-  vm.runInThisContext(fs.readFileSync(fileURLToPath(url), 'utf8'), { filename: url });
+  const name = path.basename(fileURLToPath(url));
+  loaded.push(name);
+  const file = [engineFolder, stdlibFolder].map((folder) => path.join(folder, name)).find((candidate) => fs.existsSync(candidate));
+  vm.runInThisContext(fs.readFileSync(file ?? fileURLToPath(url), 'utf8'), { filename: url });
 }
 
 /** loadEngine loads the engine with the loader of the previews, with Smetana, the layout of the Markdown preview. */
@@ -104,9 +109,11 @@ const samples: Readonly<Record<string, string>> = {
 const unsupportedTypes = ['salt', 'ditaa', 'dot', 'math', 'latex', 'wire', 'files', 'chen', 'board', 'git', 'chronology', 'hcl'];
 
 beforeAll(() => {
-  // happy-dom has no canvas; the engine measures each text with the context of one.
+  // happy-dom has no canvas; the engine measures each text with the context of one, and draws the sprites of C4 on it.
   (HTMLCanvasElement.prototype as unknown as { getContext(): unknown }).getContext = () => ({
     font: '12px sans-serif',
+    createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4) }),
+    putImageData() {},
     measureText(this: { font: string }, text: string) {
       const size = Number(/(\d+(?:\.\d+)?)px/.exec(this.font)?.[1] ?? 12);
       return {
@@ -150,7 +157,7 @@ describe('the engine with the loader of the previews', () => {
     expect(loaded).toEqual(expect.arrayContaining(['themes.js', 'emoji.js', 'openiconic.js']));
     // The build copies the scripts that the package exports into dist/engine/, so the package must export each one.
     const exported = Object.values<string>(JSON.parse(fs.readFileSync(path.join(engineFolder, 'package.json'), 'utf8')).exports);
-    for (const name of loaded) {
+    for (const name of ['themes.js', 'emoji.js', 'openiconic.js']) {
       expect(exported, name).toContain(`./${name}`);
     }
   });
@@ -181,6 +188,18 @@ describe('the engine with the loader of the previews', () => {
   test('writes the title of a diagram into a group with the class title', async () => {
     const svg = await svgOf('@startuml\ntitle Greeting\nAlice -> Bob : hello\n@enduml');
     expect(svg).toMatch(/<g class="title"[^>]*>(?:(?!<\/g>)[\s\S])*>Greeting<\/text>/);
+  });
+
+  test('renders a C4 diagram with the library C4 of the package, and names a library that the package does not contain', async () => {
+    const svg = await svgOf('@startuml\n!include <C4/C4_Container>\nPerson(customer, "Customer")\nSystem(shop, "Shop")\nRel(customer, shop, "Uses")\n@enduml');
+    expect(errorOf(svg, [])).toBeUndefined();
+    expect(textsOf(svg)).toEqual(expect.arrayContaining(['Customer', 'Shop', 'Uses']));
+    expect(loaded).toContain('c4.min.js');
+    const missing = await svgOf('@startuml\n!include <awslib/AWSCommon>\nAlice -> Bob : hello\n@enduml');
+    expect(errorOf(missing, [0, 1, 2, 3])).toEqual({
+      error: 'The extension does not contain the PlantUML library awslib. It contains only the library C4.',
+      line: 1,
+    });
   });
 
   test('shows the diagrams of a Markdown page with the renderer of the previews', async () => {

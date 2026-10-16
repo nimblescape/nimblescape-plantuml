@@ -19,7 +19,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { umlCommands } from '../diagram/umlNotation';
 import { blockClass, contentClass, textClass } from '../markdown/markdownIt';
 import { defaultSettings } from '../settings';
-import { errorPicture, FakeEngine } from '../test/fakeEngine';
+import { errorPicture, escapeXml, FakeEngine } from '../test/fakeEngine';
 import { fence, renderMarkdown } from '../test/markdownPreview';
 import { engineLoader, errorOf, isDarkTheme, pageRenderer, policiesAllowWebAssembly, PreviewRenderer, StoredResults } from './renderer';
 
@@ -403,6 +403,17 @@ describe('errorOf', () => {
     expect(errorOf(picture, [undefined, undefined, undefined, undefined])).toEqual({ error: 'Syntax Error? (Assumed diagram type: class)', line: undefined });
     expect(errorOf('<svg><text>PlantUML version 1</text><text>A &amp; B</text></svg>', [0])).toBeUndefined();
     expect(errorOf('<svg><g class="title"><text>PlantUML version 1</text></g></svg>', [0])).toBeUndefined();
+  });
+
+  test('names a library of PlantUML that the package does not contain, at the line that includes it', () => {
+    const picture = (line: string, message: string) =>
+      `<svg>${['PlantUML version 1', '[From textarea (line 2) ]', ' ', '@startuml', line, message].map((text) => `<text>${escapeXml(text)}</text>`).join('')}</svg>`;
+    const missing = (library: string) => `The extension does not contain the PlantUML library ${library}. It contains only the library C4.`;
+    expect(errorOf(picture('!include <aws/common>', ' Fatal parsing error'), [0, 1, 2])).toEqual({ error: missing('aws'), line: 1 });
+    expect(errorOf(picture('  !include_once <classy-c4/c4>', ' cannot include <classy-c4/c4>'), [0, 1, 2])).toEqual({ error: missing('classy-c4'), line: 1 });
+    // A file that the library C4 does not have, and an include of a local file, keep the message of the engine.
+    expect(errorOf(picture('!include <C4/NoSuchFile>', ' cannot include <C4/NoSuchFile>'), [0, 1, 2])).toEqual({ error: 'cannot include <C4/NoSuchFile>', line: 1 });
+    expect(errorOf(picture('!include styles.puml', ' cannot include styles.puml'), [0, 1, 2])).toEqual({ error: 'cannot include styles.puml', line: 1 });
   });
 
   test('decodes the entities of the message', () => {

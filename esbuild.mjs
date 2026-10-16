@@ -17,7 +17,9 @@
 // does not bundle them. The package declares its scripts in its `exports`;
 // the build copies every exported script and the license of the package. vsce
 // packages without node_modules (--no-dependencies), so dist/engine/ is the
-// only copy of the engine in the package.
+// only copy of the engine in the package. The libraries of the standard
+// library of PlantUML that the package contains (stdlib/) go next to the
+// engine, where its loader finds them.
 
 import * as fs from 'fs';
 import { createRequire } from 'module';
@@ -90,8 +92,8 @@ for (const [file, grammar] of Object.entries(grammarFiles)) {
 }
 console.log(`Wrote ${Object.keys(grammarFiles).length} grammars to ${syntaxesDir}/`);
 
-// The engine folder holds exactly the files of the installed engine version,
-// so a file that a newer version dropped does not stay in it.
+// The engine folder holds exactly the files of the installed engine version
+// and of stdlib/, so a file that a newer version dropped does not stay in it.
 const require = createRequire(import.meta.url);
 const engineRoot = path.dirname(require.resolve('@plantuml/core/package.json'));
 const engine = JSON.parse(fs.readFileSync(path.join(engineRoot, 'package.json'), 'utf8'));
@@ -101,4 +103,8 @@ fs.mkdirSync(engineDir, { recursive: true });
 for (const file of [...scripts, './LICENSE']) {
   fs.copyFileSync(path.join(engineRoot, file), path.join(engineDir, path.basename(file)));
 }
-console.log(`Copied @plantuml/core ${engine.version} (${scripts.length} scripts and LICENSE) to ${engineDir}/`);
+const libraries = fs.readdirSync('stdlib').filter((file) => file.endsWith('.min.js'));
+for (const file of libraries) {
+  fs.copyFileSync(path.join('stdlib', file), path.join(engineDir, file));
+}
+console.log(`Copied @plantuml/core ${engine.version} (${scripts.length} scripts and LICENSE) and ${libraries.join(', ')} to ${engineDir}/`);

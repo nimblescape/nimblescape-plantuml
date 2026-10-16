@@ -32,13 +32,14 @@ each requirement with an ID.
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
 | `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
 | `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
+| `stdlib/` | The libraries of the standard library of PlantUML that the package contains: `c4.min.js`, the library C4, as the PlantUML project builds it for the engine. The section [Engine](#engine) explains it. |
 | `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets and the pairs that the editor closes. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
-| `THIRD-PARTY-NOTICES.md` | The components of the bundled engine, their licenses and the places of their source code. |
+| `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
-| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
+| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
 | `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` on Node; a test file that needs a page (the preview scripts and the real engine) selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
@@ -117,9 +118,23 @@ checks.
 The files of the engine are browser scripts that the preview loads as they
 are. `esbuild.mjs` copies every script that the package exports, and the
 license of the package, into `dist/engine/`; vsce packages without
-`node_modules` (`--no-dependencies`). The package does not bundle the standard
-library of PlantUML (`!include <C4/C4_Context>` and others), which the engine
-loads on demand from a configurable address.
+`node_modules` (`--no-dependencies`).
+
+The engine loads a library of the standard library of PlantUML
+(`!include <C4/C4_Context>` and others) when a diagram includes it: one script
+per library, for example `c4.min.js`, which the PlantUML project builds and
+publishes at <https://plantuml.github.io/plantuml/js-plantuml/>. The package
+contains the library C4 (`stdlib/c4.min.js`, C4-PlantUML 2.14.0 under the MIT
+License, 183 KB), and the build copies it next to the engine. The previews
+load no other library and nothing from the internet: for an include of
+another library, the preview shows the message "The extension does not
+contain the PlantUML library …" at the line of the include, instead of the
+"Fatal parsing error" of the engine. To add or update a library, download its
+file from that address, check its license (the field `license` of
+`PLANTUML_STDLIB_INFO` in the file, and the license of its source), add it to
+`bundledLibraries` in `src/preview/renderer.ts`, and name it with its version,
+license and source in `THIRD-PARTY-NOTICES.md`. A test checks the notices
+against the file, and `src/engine.test.ts` renders a C4 diagram with it.
 
 `THIRD-PARTY-NOTICES.md` names the components of the engine and their
 licenses:
@@ -133,7 +148,8 @@ licenses:
 - in `themes.js`: 44 themes, each with its author and license (MIT, Apache
   License 2.0, one theme under the GPL 3.0 or later, and themes without a
   license statement, which come with PlantUML under its license);
-- the Twemoji graphics (CC BY 4.0) and the Open Iconic icons (MIT).
+- the Twemoji graphics (CC BY 4.0) and the Open Iconic icons (MIT);
+- in `c4.min.js`: C4-PlantUML 2.14.0 (MIT) with its themes and examples.
 
 The section "Source code" of the notices offers the source code of the parts
 under the Eclipse Public License on request, because that license requires
@@ -186,7 +202,7 @@ allows only scripts with the nonce of the page, no WebAssembly, no network
 requests and no frames. The script therefore:
 
 - loads the engine with a dynamic import, which keeps the nonce, and only when the page has a PlantUML block;
-- sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) through script elements with the nonce; a library of the PlantUML standard library, which the package does not contain, fails with a message;
+- sets `PLANTUML_STDLIB_LOADER`, so that the engine loads its further scripts (`themes.js`, `emoji.js`, `openiconic.js`) and the library C4 (`c4.min.js`) through script elements with the nonce. The loader refuses every other library, and the preview then shows a message that names the library at the line of the include;
 - loads Viz.js only when the page allows WebAssembly (the preview security setting "Disable"); otherwise PlantUML uses its own layout engine Smetana, which needs no WebAssembly. The script reads the security policy of the page and does not compile a test module, because a blocked compilation counts as a violation, and the preview then shows the warning "Some content has been disabled in this document";
 - applies the settings, which the plugin writes as JSON into the attribute `data-plantuml-settings` when they differ from the defaults (`src/diagram/diagramLines.ts`);
 - splits the text of a block into its diagrams (`src/diagram/diagramRanges.ts`), because the engine renders only the first diagram of a text, and only when the text starts with its `@start` line; a diagram without its `@end` line gets one, because the engine fails without it;

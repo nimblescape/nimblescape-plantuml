@@ -20,6 +20,10 @@
  * files changed counts as changed. The page allows WebAssembly, so the
  * diagrams use the Graphviz layout of Viz.js.
  *
+ * A diagram is never wider than its column. A click on a diagram that the
+ * column makes smaller shows it in its original size, and the column then
+ * scrolls; a second click fits it to the column again.
+ *
  * The script reuses the blocks from one message to the next, so that the page
  * keeps its scroll position and shows the unchanged diagrams at once while
  * the user types.
@@ -59,6 +63,15 @@ export const sideClass = `${blockClass}-side`;
 
 /** labelClass is the class of the label that names the change of a side of a row of a rendered diff. */
 export const labelClass = `${blockClass}-change`;
+
+/**
+ * wideClass is the class of a block whose diagram is wider than its column, so that the column makes it smaller. The
+ * pointer then shows that a click changes the size.
+ */
+export const wideClass = `${blockClass}-wide`;
+
+/** originalSizeClass is the class of a block that shows its diagram in its original size instead of the width of the column. */
+export const originalSizeClass = `${blockClass}-original-size`;
 
 /** Change is the change of a diagram from the original to the modified text. */
 export type Change = 'unchanged' | 'modified' | 'added' | 'removed';
@@ -314,6 +327,58 @@ export function showDiff(container: HTMLElement, message: UpdateMessage & { orig
   showEmpty(container, rows.length === 0);
 }
 
+/**
+ * diagramOf returns the image of a diagram that an event of the pointer happened on, in the shadow root of a block.
+ * @param event - The event.
+ */
+function diagramOf(event: Event): Element | undefined {
+  return event
+    .composedPath()
+    .find((target): target is Element => target instanceof Element && (target.getAttribute('part') ?? '').split(' ').includes('diagram'));
+}
+
+/**
+ * blockOf returns the block of the image of a diagram: the block of the content element that holds its shadow root.
+ * @param diagram - The image of the diagram.
+ */
+function blockOf(diagram: Element): HTMLElement | null {
+  const root = diagram.getRootNode();
+  return root instanceof ShadowRoot ? root.host.closest<HTMLElement>(`.${blockClass}`) : null;
+}
+
+/**
+ * isWide tells whether the image of a diagram is wider than the column of its block: the engine writes the original
+ * width into the attribute `width`, and the content element is as wide as the column.
+ * @param diagram - The image of the diagram.
+ */
+function isWide(diagram: Element): boolean {
+  const root = diagram.getRootNode();
+  return root instanceof ShadowRoot && Number.parseFloat(diagram.getAttribute('width') ?? '') > root.host.clientWidth;
+}
+
+/**
+ * zoomOnClick lets a click on a diagram that is wider than its column switch its block between the width of the
+ * column and the original size. A block keeps its size while its diagram changes, because the page reuses the
+ * blocks.
+ * @param container - The element of the blocks.
+ */
+export function zoomOnClick(container: HTMLElement): void {
+  // The width of the column changes with the size of the page, so the pointer checks it on each diagram that it enters.
+  container.addEventListener('pointerover', (event) => {
+    const diagram = diagramOf(event);
+    if (diagram) {
+      blockOf(diagram)?.classList.toggle(wideClass, isWide(diagram));
+    }
+  });
+  container.addEventListener('click', (event) => {
+    const diagram = diagramOf(event);
+    const block = diagram && blockOf(diagram);
+    if (block && (block.classList.contains(originalSizeClass) || isWide(diagram))) {
+      block.classList.toggle(originalSizeClass);
+    }
+  });
+}
+
 /** VsCodeApi is the part of the API of the webview of VS Code that the page uses. */
 interface VsCodeApi {
   postMessage(message: unknown): void;
@@ -329,6 +394,7 @@ function start(): void {
   const vscode = (globalThis as unknown as { acquireVsCodeApi(): VsCodeApi }).acquireVsCodeApi();
   const container = document.getElementById('diagrams') ?? document.body;
   const renderer = pageRenderer(container, new URL('./engine/', import.meta.url).href);
+  zoomOnClick(container);
   window.addEventListener('message', (event: MessageEvent<UpdateMessage>) => {
     if (event.data?.type === 'update') {
       const { data } = event;

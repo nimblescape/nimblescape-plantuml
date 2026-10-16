@@ -10,13 +10,26 @@
  * into its diagrams, the pairs of diagrams of two versions, the blocks and
  * rows that the page writes and reuses, the labels of the changes, the
  * included files of the diagrams (R-GEN-008), the text of a diagram below an
- * error, and the security policy of the page.
+ * error, the switch of a wide diagram between the width of the column and
+ * its original size, and the security policy of the page.
  */
 
 import { describe, expect, test } from 'vitest';
 import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
 import { FakeEngine } from '../test/fakeEngine';
-import { diagramSources, diffRows, emptyClass, labelClass, rowClass, showDiagrams, showDiff, sideClass } from './pumlPreview';
+import {
+  diagramSources,
+  diffRows,
+  emptyClass,
+  labelClass,
+  originalSizeClass,
+  rowClass,
+  showDiagrams,
+  showDiff,
+  sideClass,
+  wideClass,
+  zoomOnClick,
+} from './pumlPreview';
 import { previewHtml } from './previewHtml';
 import { PreviewRenderer } from './renderer';
 
@@ -171,6 +184,52 @@ describe('showDiff', () => {
     ]);
     showDiff(container, { type: 'update', original: text, text, originalIncludes: includes, includes, settings: { umlNotation: true } });
     expect(sides(container).map(([row]) => row)).toEqual([`${rowClass} ${rowClass}-unchanged`, `${rowClass} ${rowClass}-unchanged`]);
+  });
+});
+
+describe('zoomOnClick', () => {
+  test('switches a block between the width of the column and the original size of its diagram when it is wider', async () => {
+    const container = document.createElement('main');
+    document.body.append(container);
+    zoomOnClick(container);
+    const message = (text: string) => ({ type: 'update' as const, text, settings: { umlNotation: true } });
+    showDiagrams(container, message('@startuml\nA\n@enduml'));
+    const renderer = new PreviewRenderer(container, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    const block = container.querySelector<HTMLElement>(`.${blockClass}`)!;
+    const content = block.querySelector<HTMLElement>(`.${contentClass}`)!;
+    const diagram = () => content.shadowRoot!.querySelector('svg')!;
+    // The page has no layout here: the content element gets the width of a column.
+    Object.defineProperty(content, 'clientWidth', { value: 500 });
+    const send = (type: string) => diagram().dispatchEvent(new Event(type, { bubbles: true, composed: true }));
+    const classes = () => [wideClass, originalSizeClass].filter((name) => block.classList.contains(name));
+
+    // The engine writes the original width of a diagram into its attribute `width`.
+    diagram().setAttribute('width', '400');
+    send('pointerover');
+    send('click');
+    expect(classes()).toEqual([]);
+
+    diagram().setAttribute('width', '800');
+    send('pointerover');
+    expect(classes()).toEqual([wideClass]);
+    send('click');
+    expect(classes()).toEqual([wideClass, originalSizeClass]);
+
+    // The block keeps its size while its diagram changes.
+    showDiagrams(container, message('@startuml\nA2\n@enduml'));
+    renderer.update();
+    await renderer.whenIdle();
+    expect(classes()).toEqual([wideClass, originalSizeClass]);
+    diagram().setAttribute('width', '800');
+    send('click');
+    expect(classes()).toEqual([wideClass]);
+
+    // A click beside the diagrams changes nothing.
+    content.dispatchEvent(new Event('click', { bubbles: true }));
+    expect(classes()).toEqual([wideClass]);
+    container.remove();
   });
 });
 

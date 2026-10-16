@@ -7,8 +7,8 @@
 /*
  * The styles of the preview of PlantUML files and of their rendered diff. The
  * page uses the colors and the fonts of the theme of VS Code. A diagram is
- * never wider than its column, and an error uses the error color of the
- * theme. A rendered diff shows the original diagrams on the left and the
+ * never wider than its column, unless a click shows it in its original size,
+ * and an error uses the error color of the theme. A rendered diff shows the original diagrams on the left and the
  * modified ones on the right; a bar in the colors of the change marks of the
  * editor and a label mark a changed side.
  *
@@ -39,6 +39,22 @@ body {
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/*
+ * A diagram that the column makes smaller: a click shows it in its original
+ * size, and the column scrolls; a second click fits it to the column again.
+ */
+.nimblescape-plantuml-wide > .nimblescape-plantuml-content::part(diagram) {
+  cursor: zoom-in;
+}
+
+.nimblescape-plantuml-original-size > .nimblescape-plantuml-content::part(diagram) {
+  max-width: none;
+}
+
+.nimblescape-plantuml-wide.nimblescape-plantuml-original-size > .nimblescape-plantuml-content::part(diagram) {
+  cursor: zoom-out;
 }
 
 /* The note that a block without a diagram shows while its diagram renders. */

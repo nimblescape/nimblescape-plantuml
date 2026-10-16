@@ -181,6 +181,11 @@ PlantUML files work like Markdown files:
 | PlantUML: Open as Preview | button in the title bar of the text editor or of the diff | Shows the preview or the rendered diff in the same tab. |
 | PlantUML: Reopen as Source | button in the title bar of the preview or of the rendered diff | Shows the text or the diff in the same tab. |
 
+A diagram is never wider than the preview. When the preview makes a diagram
+smaller, the pointer shows a magnifier over it: a click shows the diagram in
+its original size, and you scroll it sideways. A second click fits it to the
+preview again. This also works in the rendered diff.
+
 ### Rendered Git diff of PlantUML files
 
 1. Open the diff of the file, for example from the view "Source Control".

@@ -205,6 +205,11 @@ preview, and the title bar of the preview has a button that opens the text.
 its text, and the preview follows every change of the text while the user
 types.
 
+In every preview of a PlantUML file, a diagram is never wider than the
+preview. A click on a diagram that the preview makes smaller shows it in its
+original size, with a scroll bar; a second click fits it to the preview
+again.
+
 ### R-PUML-004
 
 **Rendered Git diff of PlantUML files.** In the diff of a PlantUML file, the

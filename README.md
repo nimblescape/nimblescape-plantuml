@@ -79,9 +79,9 @@ describes every feature.
   unless you set the preview security to "Disable". Class, component and
   state diagrams can then look a little different.
 - The engine does not render wireframes (`salt`), `ditaa`, `dot`, `math`,
-  `latex`, `chen`, `board`, `git`, `wire`, `files` and `chronology`. It shows
-  the first page of a diagram with `newpage` only, makes no clickable links
-  and shows no images (`<img:…>`).
+  `latex`, `chen`, `board`, `git`, `wire`, `files`, `hcl` and `chronology`.
+  It shows the first page of a diagram with `newpage` only, makes no
+  clickable links and shows no images (`<img:…>`).
 - Included files must be in a workspace folder or in the folder of the
   document, with up to 1 MB each, and the previews use their saved text. The
   extension reads no file from the internet, and of the standard library of
@@ -91,8 +91,8 @@ describes every feature.
 - The extension
   [PlantUML by jebbs](https://marketplace.visualstudio.com/items?itemName=jebbs.plantuml)
   (vscode-plantuml) also contributes the language PlantUML and a Markdown
-  preview of PlantUML blocks. With both extensions installed, it is not defined which one
-  renders and highlights a diagram. Use one of the two.
+  preview of PlantUML blocks. With both extensions installed, it is not
+  defined which one renders and highlights a diagram. Use one of the two.
 
 ## About PlantUML
 

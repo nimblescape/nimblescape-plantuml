@@ -102,9 +102,9 @@ The JavaScript build of PlantUML does not have every feature of PlantUML in
 Java. With `@plantuml/core` 1.2026.8:
 
 - These diagram types do not render: wireframes (`salt`), `ditaa`, Graphviz
-  graphs (`dot`), `math`, `latex`, `chen`, `board`, `git`, `wire`, `files`
-  and `chronology`. A network diagram renders with `@startnwdiag`, but not
-  inside `@startuml`.
+  graphs (`dot`), `math`, `latex`, `chen`, `board`, `git`, `wire`, `files`,
+  `hcl` and `chronology`. A network diagram renders with `@startnwdiag`, but
+  not inside `@startuml`.
 - A diagram with `newpage` shows its first page only.
 - A link (`[[…]]`) is not clickable.
 - An image (`<img:…>`) does not show; a placeholder text shows in its place.

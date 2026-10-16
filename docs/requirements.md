@@ -45,7 +45,12 @@ file, neither SVG nor any other format.
 
 **Licenses.** The extension respects the licenses of the projects that it
 uses. `THIRD-PARTY-NOTICES.md` names every bundled component, its license and
-the place of its source code. Code that comes from
+the place of its source code. This includes the parts inside a bundled file,
+for example the runtime of the compiler and the libraries inside the engine,
+and each theme with its own license. It holds the full text of every license
+that requires it, and the notices that a license requires, such as the NOTICE
+file of a project under the Apache License. For the parts under the Eclipse
+Public License, it offers their source code. Code that comes from
 [vscode-plantuml](https://github.com/qjebbs/vscode-plantuml) (MIT) keeps its
 copyright notice.
 

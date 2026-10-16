@@ -201,15 +201,49 @@ test('the engine is pinned to one installed version under the MIT License (R-GEN
 test('the third-party notices name the engine version and every script of the engine (R-GEN-004)', () => {
   const notices = read('THIRD-PARTY-NOTICES.md');
   expect(notices).toContain(`[\`${engineName}\`](https://www.npmjs.com/package/${engineName})\n${engineManifest.version}`);
-  expect(notices).toContain(`/tree/v${engineManifest.version}>`);
+  // The source of the engine is the commit of the npm package (its gitHead), which is not always the commit of the tag.
+  expect(notices).toMatch(/<https:\/\/github\.com\/plantuml\/plantuml\/tree\/[0-9a-f]{40}>/);
   const scripts = [...new Set(Object.values<string>(engineManifest.exports))].filter((file) => file.endsWith('.js'));
   expect(scripts.length).toBeGreaterThan(0);
   for (const script of scripts) {
     expect(notices, script).toContain(`| \`${path.basename(script)}\` |`);
   }
-  for (const license of ['Eclipse Public License - v 1.0', 'CC BY 4.0', 'MIT License']) {
+  for (const license of [
+    'Eclipse Public License - v 1.0',
+    'CC BY 4.0',
+    'MIT License',
+    'Apache License',
+    'GNU GENERAL PUBLIC LICENSE',
+    'UNICODE LICENSE V3',
+  ]) {
     expect(notices, license).toContain(license);
   }
+  // plantuml.js holds more than PlantUML: the layout engine Smetana, the runtime and the class library of the
+  // compiler TeaVM with its NOTICE, and the libraries that PlantUML and TeaVM contain.
+  for (const section of ['## Smetana', '## TeaVM', '## Unicode CLDR data', '## JZlib', '## minimal-json', '## Base64Coder']) {
+    expect(notices, section).toContain(section);
+  }
+  expect(notices).toContain('This product includes software developed by Alexey Andreev');
+});
+
+test('the third-party notices name every theme of the engine and its license (R-GEN-004)', () => {
+  const notices = read('THIRD-PARTY-NOTICES.md');
+  const themes = read(`node_modules/${engineName}/themes.js`);
+  // Each theme is a JavaScript string that starts with a header of fields, among them its author and its license.
+  const licenses = new Map<string, string>();
+  for (const [, name, body] of themes.matchAll(/PLANTUML_THEMES\["([^"]+)"\]="((?:[^"\\]|\\.)*)"/g)) {
+    const header = /^---\n([\s\S]*?)\n---/.exec(JSON.parse(`"${body}"`))?.[1] ?? '';
+    licenses.set(name, /^license:[ \t]*(.*)$/m.exec(header)?.[1].trim() ?? '');
+  }
+  expect(licenses.size).toBeGreaterThan(0);
+  for (const [name, license] of licenses) {
+    expect(notices, name).toContain(`\`${name}\``);
+    if (license !== '') {
+      expect(notices, `${name}: ${license}`).toContain(license);
+    }
+  }
+  // A new kind of license needs a review of the notices, not only its name in them.
+  expect(new Set(licenses.values())).toEqual(new Set(['', 'MIT', 'Apache License, Version 2.0', 'GPL 3+']));
 });
 
 test('the README and the change log use full links, because vsce does not rewrite relative links', () => {

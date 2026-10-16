@@ -119,6 +119,33 @@ test('the manifest contributes the custom editor, the commands and the activatio
   expect(whens).toContain(`activeWebviewPanelId == '${diffPreviewViewType}'`);
 });
 
+test('the keys of the previews are those of the Markdown preview, for PlantUML files and their previews only (R-PUML-002, R-PUML-003)', () => {
+  // The same keys open the preview of a Markdown file; the conditions leave them to VS Code in Markdown files.
+  const plantuml = '(editorLangId == plantuml && !notebookEditorFocused)';
+  expect(manifest.contributes.keybindings).toEqual([
+    {
+      command: commands.togglePreview,
+      key: 'ctrl+shift+v',
+      mac: 'cmd+shift+v',
+      when: `${plantuml} || activeCustomEditorId == '${previewViewType}' || activeWebviewPanelId == '${diffPreviewViewType}'`,
+    },
+    {
+      command: commands.showPreviewToSide,
+      key: 'ctrl+k v',
+      mac: 'cmd+k v',
+      when: `${plantuml} || activeCustomEditorId == '${previewViewType}'`,
+    },
+  ]);
+});
+
+test('the extension uses no proposed API, and the API of the oldest VS Code version that it supports (R-GEN-005)', () => {
+  // The Marketplace does not accept an extension that enables a proposed API.
+  expect(manifest).not.toHaveProperty('enabledApiProposals');
+  // The types of the API are those of the version in engines.vscode, so the code compiles only with its API.
+  expect(manifest.engines.vscode).toMatch(/^\^\d+\.\d+\.0$/);
+  expect(manifest.devDependencies['@types/vscode']).toBe(`~${manifest.engines.vscode.slice(1)}`);
+});
+
 test('the extension is the default formatter of PlantUML files, and the command "Format PlantUML Blocks" is for Markdown files', () => {
   // A language-specific default of an extension wins over a general editor.defaultFormatter of the user, for example
   // Prettier, but not over a formatter that the user sets for the language plantuml.

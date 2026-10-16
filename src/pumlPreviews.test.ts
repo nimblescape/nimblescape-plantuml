@@ -6,7 +6,8 @@
  * These tests check the previews of PlantUML files with a fake of the API of
  * VS Code: the switch between the text and the preview in one tab
  * (R-PUML-002), the messages to the page while the user types (R-PUML-002,
- * R-PUML-003), the switch between a diff and its rendered diff
+ * R-PUML-003), the preview to the side and the file that it shows
+ * (R-PUML-003), the switch between a diff and its rendered diff
  * (R-PUML-004), the restore after a restart, and the documents that VS Code
  * closes and opens again.
  */
@@ -82,6 +83,8 @@ class FakePanel {
   active = false;
   disposed = false;
   readonly disposeListeners: (() => void)[] = [];
+  /** reveals records the arguments of each call of reveal. */
+  readonly reveals: unknown[][] = [];
 
   constructor(
     readonly viewType: string,
@@ -99,7 +102,9 @@ class FakePanel {
     this.disposeListeners.forEach((listener) => listener());
   }
 
-  reveal(): void {}
+  reveal(...args: unknown[]): void {
+    this.reveals.push(args);
+  }
 }
 
 /** FakeTabInputCustom stands for a vscode.TabInputCustom. */
@@ -133,6 +138,10 @@ let closedTabs: FakeTab[];
 let panels: FakePanel[];
 let executed: unknown[][];
 let changeListeners: ((event: { document: FakeDocument }) => void)[];
+/** activeEditor is the active text editor of the fake. */
+let activeEditor: { document: FakeDocument } | undefined;
+/** editorListeners are the listeners for a change of the active text editor. */
+let editorListeners: ((editor: { document: FakeDocument } | undefined) => void)[];
 
 beforeEach(() => {
   vi.resetModules();
@@ -143,6 +152,8 @@ beforeEach(() => {
   panels = [];
   executed = [];
   changeListeners = [];
+  activeEditor = undefined;
+  editorListeners = [];
   vi.doMock('vscode', () => ({
     Uri: FakeUri,
     ViewColumn: { Beside: -2 },
@@ -166,7 +177,9 @@ beforeEach(() => {
       },
     },
     window: {
-      activeTextEditor: undefined,
+      get activeTextEditor() {
+        return activeEditor;
+      },
       tabGroups: {
         get activeTabGroup() {
           return { activeTab };
@@ -183,7 +196,10 @@ beforeEach(() => {
       },
       registerCustomEditorProvider: () => ({ dispose() {} }),
       registerWebviewPanelSerializer: () => ({ dispose() {} }),
-      onDidChangeActiveTextEditor: () => ({ dispose() {} }),
+      onDidChangeActiveTextEditor: (listener: (typeof editorListeners)[number]) => {
+        editorListeners.push(listener);
+        return { dispose() {} };
+      },
     },
     commands: {
       executeCommand: async (...args: unknown[]) => {
@@ -261,6 +277,73 @@ test('a preview gets the text and the settings when its page is ready, and again
   expect(panel.webview.posted).toHaveLength(3);
 });
 
+test('the preview to the side opens next to the active PlantUML file, keeps the focus in the text, and follows its changes', async () => {
+  const { module, instance } = await previews();
+  const document = addDocument('file:/a.puml', 'A');
+  activeEditor = { document };
+  await instance.showPreviewToSide();
+  const [panel] = panels;
+  expect(panel).toMatchObject({ viewType: module.sidePreviewViewType, title: 'Preview a.puml', viewColumn: -2 });
+
+  panel.webview.ready();
+  change(document, 'A2');
+  expect(panel.webview.posted).toEqual([
+    { type: 'update', text: 'A', settings: defaultSettings, state: { uri: 'file:/a.puml' } },
+    { type: 'update', text: 'A2', settings: defaultSettings, state: { uri: 'file:/a.puml' } },
+  ]);
+});
+
+test('the preview to the side shows the PlantUML file of each newly active text editor, and no other file', async () => {
+  const { instance } = await previews();
+  const first = addDocument('file:/a.puml', 'A');
+  const second = addDocument('file:/b.puml', 'B');
+  activeEditor = { document: first };
+  await instance.showPreviewToSide();
+  const [panel] = panels;
+  panel.webview.ready();
+
+  editorListeners.forEach((listener) => listener({ document: second }));
+  expect(panel.title).toBe('Preview b.puml');
+  expect(panel.webview.posted.at(-1)).toEqual({ type: 'update', text: 'B', settings: defaultSettings, state: { uri: 'file:/b.puml' } });
+
+  // A Markdown file, no active text editor, and a change of the file that the preview no longer shows change nothing.
+  editorListeners.forEach((listener) => listener({ document: new FakeDocument(FakeUri.parse('file:/c.md'), 'C', 'markdown') }));
+  editorListeners.forEach((listener) => listener(undefined));
+  change(first, 'A2');
+  expect(panel.webview.posted).toHaveLength(2);
+  expect(panel.title).toBe('Preview b.puml');
+});
+
+test('the command opens one preview to the side: with another file, it shows that file in the open preview and reveals it', async () => {
+  const { instance } = await previews();
+  activeEditor = { document: addDocument('file:/a.puml', 'A') };
+  await instance.showPreviewToSide();
+  const second = addDocument('file:/b.puml', 'B');
+  await instance.showPreviewToSide(second.uri as never);
+  expect(panels).toHaveLength(1);
+  expect(panels[0].title).toBe('Preview b.puml');
+  expect(panels[0].reveals).toEqual([[-2, true]]);
+
+  // After the preview to the side closed, the command opens a new one.
+  panels[0].dispose();
+  await instance.showPreviewToSide();
+  expect(panels).toHaveLength(2);
+  expect(panels[1].title).toBe('Preview a.puml');
+});
+
+test('in the preview of a tab, the command opens the preview to the side of its file; without a PlantUML file it does nothing', async () => {
+  const { module, instance } = await previews();
+  activeEditor = { document: new FakeDocument(FakeUri.parse('file:/c.md'), 'C', 'markdown') };
+  activeTab = { input: {}, label: 'c.md', group: { viewColumn: 1 } };
+  await instance.showPreviewToSide();
+  expect(panels).toEqual([]);
+
+  activeEditor = undefined;
+  activeTab = { input: new FakeTabInputCustom(FakeUri.parse('file:/a.puml'), module.previewViewType), label: 'a.puml', group: { viewColumn: 1 } };
+  await instance.showPreviewToSide();
+  expect(panels.map((panel) => panel.title)).toEqual(['Preview a.puml']);
+});
+
 test('in a diff, the toggle replaces the diff with its rendered diff, and the rendered diff with the diff', async () => {
   const { module, instance } = await previews();
   const original = addDocument('git:/a.puml', '@startuml\nA\n@enduml');
@@ -325,6 +408,12 @@ test('a rendered diff and the preview to the side come back after a restart, and
   const deleted = new FakePanel(module.sidePreviewViewType, 'Preview gone.puml', 2);
   await instance.deserializeWebviewPanel(deleted as never, { uri: 'file:/gone.puml' });
   expect(deleted.disposed).toBe(true);
+
+  // There is one preview to the side: a second restored one replaces the first.
+  const second = new FakePanel(module.sidePreviewViewType, 'Preview a.puml', 2);
+  await instance.deserializeWebviewPanel(second as never, { uri: 'file:/a.puml' });
+  expect(side.disposed).toBe(true);
+  expect(second.disposed).toBe(false);
 });
 
 test('a rendered diff follows its files after VS Code has closed their documents and opened new ones', async () => {

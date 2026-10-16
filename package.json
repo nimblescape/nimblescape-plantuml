@@ -59,6 +59,7 @@
     "esbuild": "^0.28.2",
     "happy-dom": "^21.0.1",
     "markdown-it": "^14.3.2",
+    "morphdom": "^2.7.8",
     "typescript": "^7.0.2",
     "vitest": "^5.0.4",
     "vscode-oniguruma": "^2.0.1",

@@ -5,13 +5,13 @@
 /**
  * These tests check the one rule for the start and the end of a diagram that
  * the previews, the UML notation and the formatting share: the types, a
- * diagram without an end line, and the letter case that the engine requires.
+ * diagram without an end line, the letter case that the engine requires, and
+ * the split of a text into the diagrams that the previews render.
  */
 
 import { expect, test } from 'vitest';
 import { formatLines } from '../language/formatting';
-import { diagramSources } from '../preview/pumlPreview';
-import { diagramRanges, isStartLine } from './diagramRanges';
+import { diagramRanges, diagramsOf, isStartLine } from './diagramRanges';
 import { umlNotation } from './umlNotation';
 
 test('finds each diagram with its type, also a last diagram without an end line', () => {
@@ -31,7 +31,7 @@ test('reads the start and the end of a diagram in small letters only, as the eng
 
   // The previews, the UML notation and the formatting all follow the rule.
   const text = ['@STARTUML', 'interface A', '@ENDUML'];
-  expect(diagramSources(text.join('\n'))).toEqual([text.join('\n')]);
+  expect(diagramsOf(text.join('\n'))).toEqual([{ text: text.join('\n'), line: 0 }]);
   expect(umlNotation(text)).toEqual(text);
   expect(formatLines(['@StartUml', 'package p {', 'class A', '}', '@EndUml'], '  ')).toEqual([
     '@StartUml',
@@ -40,4 +40,17 @@ test('reads the start and the end of a diagram in small letters only, as the eng
     '}',
     '@EndUml',
   ]);
+});
+
+test('splits a text into its diagrams with their first lines, and leaves out the text between them', () => {
+  expect(diagramsOf('text\n@startuml\nA -> B\n@enduml\ntext\n@startmindmap\r\n* a\r\n@endmindmap\n@startuml\nC')).toEqual([
+    { text: '@startuml\nA -> B\n@enduml', line: 1 },
+    { text: '@startmindmap\n* a\n@endmindmap', line: 5 },
+    { text: '@startuml\nC', line: 8 },
+  ]);
+});
+
+test('takes a text without @start lines as the body of one diagram', () => {
+  expect(diagramsOf('A -> B\n')).toEqual([{ text: 'A -> B\n', line: 0 }]);
+  expect(diagramsOf(' \n')).toEqual([{ text: ' \n', line: 0 }]);
 });

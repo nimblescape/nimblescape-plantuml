@@ -13,6 +13,12 @@
  * The rendered diff of VS Code draws the bar of a changed block left of the
  * block, as a child of the block. For this reason, the block itself does not
  * clip its content; only the inner content element scrolls.
+ *
+ * The content element shows the diagrams in its shadow root. The styles
+ * reach the elements of the shadow root by their part names: a diagram, the
+ * note while the diagrams render, the message of an error, and each element
+ * after the first. Below a message, the shadow root shows the text of the
+ * block, which keeps the style of the code blocks of the preview.
  */
 
 .nimblescape-plantuml {
@@ -23,19 +29,25 @@
   overflow-x: auto;
 }
 
-.nimblescape-plantuml-content > svg {
+.nimblescape-plantuml-content::part(diagram) {
   display: block;
   max-width: 100%;
   height: auto;
 }
 
-/* The note that a block without a diagram shows while its diagram renders. */
-.nimblescape-plantuml-pending {
+.nimblescape-plantuml-content::part(pending) {
   color: var(--vscode-descriptionForeground);
   font-style: italic;
 }
 
-.nimblescape-plantuml-error {
+.nimblescape-plantuml-content::part(error) {
+  margin: 0 0 0.5em;
   color: var(--vscode-errorForeground);
+  font-family: var(--vscode-editor-font-family);
   white-space: pre-wrap;
+}
+
+/* An element after the first one: a further diagram or message. */
+.nimblescape-plantuml-content::part(following) {
+  margin-top: 1em;
 }

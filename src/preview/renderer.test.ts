@@ -5,49 +5,56 @@
 // @vitest-environment happy-dom
 
 /**
- * These tests run the renderer of the previews on a page of happy-dom
- * with a fake engine. They check the detection of a dark theme, the
- * rendering of one diagram at a time, the reuse of a result after the
- * preview replaced its content, the skip of a text that changed again, the new rendering after a change of the
- * theme or of the settings, the display of errors, that the bar of the
- * rendered diff stays in a block, that the text of a block never shows while
- * its diagram renders, and the results in the local storage. The real engine
- * runs in the preview of VS Code only.
+ * These tests run the renderer of the previews on a page of happy-dom with a
+ * fake engine. They check the detection of a dark theme and of WebAssembly,
+ * the rendering of one diagram at a time, every diagram of a block, the
+ * results in memory and in the local storage, the skip of a text that changed
+ * again, the new rendering after a change of the theme or of the settings, the
+ * display of errors with the line of the text, the labels for screen readers,
+ * that the elements of the page stay as the page wrote them, the time limit,
+ * and the load of the engine. `src/engine.test.ts` runs the real engine.
  */
 
-import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { umlCommands } from '../diagram/umlNotation';
-import { Engine, isDarkTheme, pendingClass, policiesAllowWebAssembly, PreviewRenderer, StoredResults } from './renderer';
+import { blockClass, contentClass, textClass } from '../markdown/markdownIt';
+import { defaultSettings } from '../settings';
+import { errorPicture, FakeEngine } from '../test/fakeEngine';
+import { fence, renderMarkdown } from '../test/markdownPreview';
+import { engineLoader, errorOf, isDarkTheme, pageRenderer, policiesAllowWebAssembly, PreviewRenderer, StoredResults } from './renderer';
 
-/** FakeEngine records its calls and answers each call after a turn of the event loop. */
-class FakeEngine implements Engine {
-  readonly calls: { lines: string[]; dark: boolean }[] = [];
-  running = 0;
-  maxRunning = 0;
-
-  renderToString(lines: string[], onSuccess: (svg: string) => void, onError: (message: string) => void, options?: { dark?: boolean }): void {
-    this.calls.push({ lines, dark: options?.dark === true });
-    this.running++;
-    this.maxRunning = Math.max(this.maxRunning, this.running);
-    setTimeout(() => {
-      this.running--;
-      if (lines.includes('fail')) {
-        onError('Syntax error');
-      } else {
-        onSuccess(`<svg data-text="${lines.join('|')}" data-dark="${options?.dark === true}"></svg>`);
-      }
-    }, 0);
-  }
+/**
+ * page returns an element with the HTML of a Markdown text, as the Markdown preview writes it.
+ * @param text - The Markdown text.
+ * @param settings - The settings of the extension.
+ */
+function page(text: string, settings = defaultSettings): HTMLElement {
+  const root = document.createElement('div');
+  root.innerHTML = renderMarkdown(text, settings);
+  return root;
 }
 
 /**
- * block returns the HTML of a PlantUML block as the markdown-it plugin writes it.
- * @param source - The text of the block.
+ * shown returns what the shadow root of each block of a page shows: `svg` with the lines of the diagram, the part
+ * name and the text of a note or an error, or `text` for the text of the block below an error.
+ * @param root - The node of the blocks.
  */
-const block = (source: string, settings?: string): string =>
-  `<div class="code-line ${blockClass}" ${sourceAttribute}="${source}"${settings ? ` ${settingsAttribute}='${settings}'` : ''}>` +
-  `<div class="${contentClass}"><pre class="${blockClass}-source"><code>${source}</code></pre></div></div>`;
+const shown = (root: ParentNode): string[][] =>
+  [...root.querySelectorAll(`.${contentClass}`)].map((content) =>
+    [...(content.shadowRoot?.children ?? [])].map((child) => {
+      if (child.localName === 'svg') {
+        return `svg ${child.getAttribute('data-text')}`;
+      }
+      return child.localName === 'slot' ? 'text' : `${child.getAttribute('part')!.split(' ')[0]} ${child.textContent}`;
+    }),
+  );
+
+/** lines returns the lines that the engine renders for a body with the default settings, joined with `|`. */
+const lines = (...body: string[]) => ['@startuml', ...umlCommands, ...body, '@enduml'].join('|');
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('isDarkTheme', () => {
   test('follows the class of the theme kind on the body', () => {
@@ -104,59 +111,10 @@ class FakeStorage implements Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
   }
 }
 
-/**
- * contentOf returns the classes of the children of the content element of the first block.
- * @param root - The node of the blocks.
- */
-const contentOf = (root: ParentNode) => [...root.querySelector(`.${contentClass}`)!.children].map((child) => child.tagName.toLowerCase() === 'svg' ? `svg ${child.getAttribute('data-text')}` : child.className);
-
-/** lines returns the lines that the engine renders for a text with the default settings. */
-const lines = (text: string) => ['@startuml', ...umlCommands, text, '@enduml'].join('|');
-
-describe('PreviewRenderer', () => {
-  test('shows a note, and not the text of the block, while the first diagram of a block renders', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A');
-    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
-    renderer.update();
-    expect(contentOf(root)).toEqual([pendingClass]);
-    // A second update, as the change of the page starts it, changes nothing.
-    const note = root.querySelector(`.${pendingClass}`);
-    renderer.update();
-    expect(root.querySelector(`.${pendingClass}`)).toBe(note);
-    await renderer.whenIdle();
-    expect(contentOf(root)).toEqual([`svg ${lines('A')}`]);
-  });
-
-  test('keeps the last diagram of a block while its new text renders, also after the preview wrote the text again', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A');
-    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
-    renderer.update();
-    await renderer.whenIdle();
-
-    // The Markdown preview keeps the element of the block, sets its attributes and writes its text again.
-    const element = root.querySelector<HTMLElement>(`.${blockClass}`)!;
-    const written = document.createElement('div');
-    written.innerHTML = block('AB');
-    const fresh = written.firstElementChild as HTMLElement;
-    for (const name of element.getAttributeNames()) {
-      element.removeAttribute(name);
-    }
-    for (const name of fresh.getAttributeNames()) {
-      element.setAttribute(name, fresh.getAttribute(name)!);
-    }
-    element.replaceChildren(...fresh.childNodes);
-    renderer.update();
-    expect(contentOf(root)).toEqual([`svg ${lines('A')}`]);
-    await renderer.whenIdle();
-    expect(contentOf(root)).toEqual([`svg ${lines('AB')}`]);
-  });
-
+describe('StoredResults', () => {
   test('keeps the results in the local storage, so that another preview shows them at once', async () => {
     const storage = new FakeStorage();
-    const first = document.createElement('div');
-    first.innerHTML = block('A') + block('fail');
+    const first = page(fence('A') + fence('fail'));
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(first, async () => engine, () => false, new StoredResults(storage as unknown as Storage, 'v1'));
     renderer.update();
@@ -164,12 +122,10 @@ describe('PreviewRenderer', () => {
     expect(engine.calls).toHaveLength(2);
 
     // A new preview of the same version shows the stored diagram without the engine; an error is not stored.
-    const second = document.createElement('div');
-    second.innerHTML = block('A') + block('fail');
+    const second = page(fence('A') + fence('fail'));
     const again = new PreviewRenderer(second, async () => engine, () => false, new StoredResults(storage as unknown as Storage, 'v1'));
     again.update();
-    expect(contentOf(second)).toEqual([`svg ${lines('A')}`]);
-    expect(second.querySelectorAll(`.${pendingClass}`)).toHaveLength(1);
+    expect(shown(second)).toEqual([[`svg ${lines('A')}`], ['pending Rendering the diagram…']]);
     await again.whenIdle();
     expect(engine.calls).toHaveLength(3);
 
@@ -179,7 +135,7 @@ describe('PreviewRenderer', () => {
     expect(new StoredResults(storage as unknown as Storage, 'v1').get(lines('A').split('|'), false)).toContain('<svg');
   });
 
-  test('the local storage keeps the most recently used results up to its limit, and makes room when it is full', () => {
+  test('keeps the most recently used results up to its limit, and makes room when it is full', () => {
     const storage = new FakeStorage();
     const stored = new StoredResults(storage as unknown as Storage, 'v1');
     for (let index = 0; index < 60; index++) {
@@ -209,59 +165,110 @@ describe('PreviewRenderer', () => {
     none.set(['A'], false, '<svg></svg>');
     expect(none.get(['A'], false)).toBeUndefined();
   });
+});
 
+describe('PreviewRenderer', () => {
+  test('shows a note, and not the text of the block, while the diagrams of a new block render', async () => {
+    const root = page(fence('A'));
+    const written = root.innerHTML;
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    expect(shown(root)).toEqual([['pending Rendering the diagram…']]);
+    // Screen readers announce the note.
+    const note = root.querySelector(`.${contentClass}`)!.shadowRoot!.firstElementChild!;
+    expect(note.getAttribute('role')).toBe('status');
+    // A second update changes nothing.
+    renderer.update();
+    expect(root.querySelector(`.${contentClass}`)!.shadowRoot!.firstElementChild).toBe(note);
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
+    // The elements of the page stay as the page wrote them; the shadow root hides the text.
+    expect(root.innerHTML).toBe(written);
+  });
 
-  test('renders every block, one at a time, and shows the diagram', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A -&gt; B') + block('C -&gt; D') + '<pre>other</pre>';
+  test('renders every diagram of a block, one at a time, and leaves the other elements of the page as they are', async () => {
+    const root = page(fence("' The flow\n@startuml\nA -> B\n@enduml\n@startuml\nC -> D") + '<pre>other</pre>\n');
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(root, async () => engine, () => false);
     renderer.update();
     await renderer.whenIdle();
+    // The second diagram gets its missing end line.
     expect(engine.calls.map((call) => call.lines)).toEqual([
       ['@startuml', ...umlCommands, 'A -> B', '@enduml'],
       ['@startuml', ...umlCommands, 'C -> D', '@enduml'],
     ]);
     expect(engine.maxRunning).toBe(1);
-    const diagrams = [...root.querySelectorAll(`.${contentClass} > svg`)].map((svg) => svg.getAttribute('data-text'));
-    expect(diagrams).toEqual([['@startuml', ...umlCommands, 'A -> B', '@enduml'].join('|'), ['@startuml', ...umlCommands, 'C -> D', '@enduml'].join('|')]);
+    // A diagram has no largest size, so that large diagrams render.
+    expect(engine.calls.map((call) => call.options)).toEqual([
+      { dark: false, maxSvgSize: 0 },
+      { dark: false, maxSvgSize: 0 },
+    ]);
+    expect(shown(root)).toEqual([[`svg ${lines('A -> B')}`, `svg ${lines('C -> D')}`]]);
+    const diagrams = [...root.querySelector(`.${contentClass}`)!.shadowRoot!.children];
+    expect(diagrams.map((diagram) => diagram.getAttribute('part'))).toEqual(['diagram', 'diagram following']);
     expect(root.querySelector(':scope > pre')?.textContent).toBe('other');
   });
 
-  test('renders the same text once and shows the kept result after the preview replaced its content', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A') + block('A');
+  test('labels each diagram for screen readers, with its title when it has one', async () => {
+    const root = page(fence('title The Order Flow\nA -> B') + fence('C -> D'));
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    const diagrams = [...root.querySelectorAll(`.${contentClass}`)].map((content) => content.shadowRoot!.querySelector('svg')!);
+    expect(diagrams.map((svg) => svg.getAttribute('role'))).toEqual(['img', 'img']);
+    expect(diagrams.map((svg) => svg.getAttribute('aria-label'))).toEqual(['PlantUML diagram: The Order Flow', 'PlantUML diagram']);
+  });
+
+  test('renders the same text once and shows the kept result in a new block at once', async () => {
+    const root = page(fence('A') + fence('A'));
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(root, async () => engine, () => false);
     renderer.update();
     await renderer.whenIdle();
     expect(engine.calls).toHaveLength(1);
-    expect(root.querySelectorAll('svg')).toHaveLength(2);
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`], [`svg ${lines('A')}`]]);
 
-    // The preview writes the blocks again on every change of the document.
-    root.innerHTML = block('A');
+    // The preview writes a new block, for example after a new paragraph before it.
+    root.innerHTML = renderMarkdown(`Text\n\n${fence('A')}`);
     renderer.update();
-    expect(root.querySelectorAll('svg')).toHaveLength(1);
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
     expect(engine.calls).toHaveLength(1);
+  });
+
+  test('keeps the last diagrams of a block while its new text renders', async () => {
+    const root = page(fence('A'));
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+
+    // The Markdown preview keeps the elements of a changed block and changes their attributes and text.
+    const element = root.querySelector<HTMLElement>(`.${blockClass}`)!;
+    const next = page(fence('AB')).querySelector(`.${blockClass}`)!;
+    for (const name of next.getAttributeNames()) {
+      element.setAttribute(name, next.getAttribute(name)!);
+    }
+    element.querySelector('code')!.textContent = 'AB';
+    renderer.update();
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([[`svg ${lines('AB')}`]]);
   });
 
   test('does not render a text that changed again before its turn, as while the user types', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A');
+    const root = page(fence('A'));
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(root, async () => engine, () => false);
     renderer.update();
-    root.innerHTML = block('AB');
+    root.innerHTML = renderMarkdown(fence('AB'));
     renderer.update();
     await renderer.whenIdle();
-    await renderer.whenIdle();
     expect(engine.calls.map((call) => call.lines)).toEqual([['@startuml', ...umlCommands, 'AB', '@enduml']]);
-    expect(root.querySelector('svg')?.getAttribute('data-text')).toBe(['@startuml', ...umlCommands, 'AB', '@enduml'].join('|'));
+    expect(shown(root)).toEqual([[`svg ${lines('AB')}`]]);
   });
 
   test('renders again for a dark background after a change of the theme', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A');
+    const root = page(fence('A'));
     const engine = new FakeEngine();
     let dark = false;
     const renderer = new PreviewRenderer(root, async () => engine, () => dark);
@@ -270,18 +277,17 @@ describe('PreviewRenderer', () => {
     dark = true;
     renderer.update();
     await renderer.whenIdle();
-    expect(engine.calls.map((call) => call.dark)).toEqual([false, true]);
-    expect(root.querySelector('svg')?.getAttribute('data-dark')).toBe('true');
+    expect(engine.calls.map((call) => call.options?.dark)).toEqual([false, true]);
+    expect(root.querySelector(`.${contentClass}`)!.shadowRoot!.querySelector('svg')?.getAttribute('data-dark')).toBe('true');
   });
 
   test('renders with the settings of the block, and again when they change', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A', '{"umlNotation":false}');
+    const root = page(fence('A'), { umlNotation: false });
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(root, async () => engine, () => false);
     renderer.update();
     await renderer.whenIdle();
-    root.innerHTML = block('A');
+    root.innerHTML = renderMarkdown(fence('A'));
     renderer.update();
     await renderer.whenIdle();
     expect(engine.calls.map((call) => call.lines)).toEqual([
@@ -291,19 +297,29 @@ describe('PreviewRenderer', () => {
   });
 
   test('shows the message of an error above the text of the block', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('fail');
+    const root = page(fence('fail'));
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     await renderer.whenIdle();
-    const children = [...root.querySelector(`.${contentClass}`)!.children];
-    expect(children.map((child) => child.className)).toEqual([`${blockClass}-error`, `${blockClass}-source`]);
-    expect(children.map((child) => child.textContent)).toEqual(['Syntax error', 'fail']);
+    expect(shown(root)).toEqual([['error Syntax error', 'text']]);
+    // The slot shows the text of the block from the content element.
+    expect(root.querySelector(`.${contentClass} > .${textClass}`)?.textContent).toBe('fail\n');
+  });
+
+  test('shows an error picture of the engine as a message with the number of the line of the block text', async () => {
+    // The engine counts the lines that it received, among them the lines that the extension added.
+    const root = page(fence('class A\nwrong') + fence("' The classes\n\n@startuml\nclass B\nwrong\n@enduml"));
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([
+      ['error Line 2: Syntax Error? (Assumed diagram type: class)', 'text'],
+      ['error Line 5: Syntax Error? (Assumed diagram type: class)', 'text'],
+    ]);
   });
 
   test('keeps the bar that the rendered diff of VS Code adds to a changed block', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A');
+    const root = page(fence('A'));
     // The preview adds the bar after it wrote the content, before the diagram is ready.
     const bar = document.createElement('div');
     bar.className = 'diff-modification-gutter';
@@ -313,15 +329,122 @@ describe('PreviewRenderer', () => {
     await renderer.whenIdle();
     const children = [...root.querySelector(`.${blockClass}`)!.children];
     expect(children.map((child) => child.className)).toEqual([contentClass, 'diff-modification-gutter']);
-    expect(children[0].querySelector(':scope > svg')).not.toBeNull();
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
   });
 
   test('shows the error when the engine does not load', async () => {
-    const root = document.createElement('div');
-    root.innerHTML = block('A');
+    const root = page(fence('A'));
     const renderer = new PreviewRenderer(root, () => Promise.reject(new Error('The engine did not load.')), () => false);
     renderer.update();
     await renderer.whenIdle();
-    expect(root.querySelector(`.${blockClass}-error`)?.textContent).toBe('The engine did not load.');
+    expect(shown(root)).toEqual([['error The engine did not load.', 'text']]);
+  });
+
+  test('an unexpected error in a rendering shows in its block, and the next renderings still run', async () => {
+    const root = page(fence('A'));
+    const engine = new FakeEngine();
+    let failing = false;
+    const renderer = new PreviewRenderer(root, async () => engine, () => {
+      if (failing) {
+        failing = false;
+        throw new Error('The page failed.');
+      }
+      return false;
+    });
+    renderer.update();
+    // The page fails once while the rendering runs.
+    failing = true;
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([['error The page failed.', 'text']]);
+
+    root.innerHTML = renderMarkdown(fence('B'));
+    renderer.update();
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([[`svg ${lines('B')}`]]);
+  });
+
+  test('fails a rendering after the time limit, renders the next diagram after the late end, and drops the late result', async () => {
+    vi.useFakeTimers();
+    const root = page(fence('slow') + fence('B'));
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(shown(root)).toEqual([['error The rendering of the diagram took too long.', 'text'], ['pending Rendering the diagram…']]);
+    // The engine still works on the first diagram, so the second one waits.
+    expect(engine.calls).toHaveLength(1);
+
+    engine.held[0]();
+    await vi.advanceTimersByTimeAsync(0);
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([['error The rendering of the diagram took too long.', 'text'], [`svg ${lines('B')}`]]);
+  });
+
+  test('renders the next diagram one more time limit later when the engine does not end a rendering', async () => {
+    vi.useFakeTimers();
+    const root = page(fence('slow') + fence('B'));
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(engine.calls).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(60_001);
+    await renderer.whenIdle();
+    expect(shown(root)[1]).toEqual([`svg ${lines('B')}`]);
+  });
+});
+
+describe('errorOf', () => {
+  test('reads the message and the line of an error picture, and no other image', () => {
+    const picture = errorPicture(['@startuml', 'skinparam style strictuml', 'class A {', 'wrong <b>', '@enduml']);
+    expect(errorOf(picture, [0, undefined, 1, 2, 3])).toEqual({ error: 'Syntax Error? (Assumed diagram type: class)', line: 2 });
+    // A line that the extension added names the line of the text before it.
+    expect(errorOf(picture, [undefined, undefined, 0, undefined, 1])).toEqual({ error: 'Syntax Error? (Assumed diagram type: class)', line: 0 });
+    expect(errorOf(picture, [undefined, undefined, undefined, undefined])).toEqual({ error: 'Syntax Error? (Assumed diagram type: class)', line: undefined });
+    expect(errorOf('<svg><text>PlantUML version 1</text><text>A &amp; B</text></svg>', [0])).toBeUndefined();
+    expect(errorOf('<svg><g class="title"><text>PlantUML version 1</text></g></svg>', [0])).toBeUndefined();
+  });
+
+  test('decodes the entities of the message', () => {
+    const picture = `<svg><text>PlantUML version 1</text><text>[From textarea (line 1) ]</text><text> cannot include &lt;a&gt; &amp; &#228;&#x1F600; &#x110000;</text></svg>`;
+    expect(errorOf(picture, [0])).toEqual({ error: 'cannot include <a> & ä😀 &#x110000;', line: 0 });
+  });
+});
+
+describe('pageRenderer', () => {
+  test('keeps the stored results of each layout engine apart, as the security of the preview decides the layout engine', async () => {
+    const folder = 'https://extension.test/dist/engine/';
+    localStorage.clear();
+    new StoredResults(localStorage, `${folder} graphviz`).set(lines('A').split('|'), false, '<svg data-text="graphviz"></svg>');
+    const engine = new FakeEngine();
+
+    // The policy of the Markdown preview with the security levels "Strict" and "Allow insecure content".
+    const policy = document.createElement('meta');
+    policy.httpEquiv = 'Content-Security-Policy';
+    policy.content = "default-src 'none'; script-src 'nonce-a'";
+    document.head.append(policy);
+    const strict = page(fence('A'));
+    const smetana = pageRenderer(strict, folder, async () => engine);
+    smetana.update();
+    expect(shown(strict)).toEqual([['pending Rendering the diagram…']]);
+    await smetana.whenIdle();
+
+    policy.remove();
+    const disabled = page(fence('A'));
+    pageRenderer(disabled, folder, async () => engine).update();
+    expect(shown(disabled)).toEqual([['svg graphviz']]);
+    expect(engine.calls).toHaveLength(1);
+  });
+});
+
+describe('engineLoader', () => {
+  test('loads the engine again after a failed load', async () => {
+    const load = engineLoader('file:///no/such/folder/', 'smetana');
+    const first = load();
+    expect(load()).toBe(first);
+    await expect(first).rejects.toThrow();
+    const second = load();
+    expect(second).not.toBe(first);
+    await expect(second).rejects.toThrow();
   });
 });

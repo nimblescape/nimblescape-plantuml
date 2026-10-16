@@ -20,7 +20,7 @@
  * "Disable"), the script loads Viz.js first.
  */
 
-import { engineLoader, isDarkTheme, PreviewRenderer } from './renderer';
+import { engineLoader, isDarkTheme, pageStorage, PreviewRenderer, StoredResults } from './renderer';
 
 /**
  * start renders the blocks of the preview page and renders again when the content or the color theme changes.
@@ -28,10 +28,12 @@ import { engineLoader, isDarkTheme, PreviewRenderer } from './renderer';
  * mutation observer starts each update.
  */
 function start(): void {
+  const engine = new URL('./engine/', import.meta.url).href;
   const renderer = new PreviewRenderer(
     document,
-    engineLoader(new URL('./engine/', import.meta.url).href),
+    engineLoader(engine),
     () => isDarkTheme(document.body),
+    new StoredResults(pageStorage(), engine),
   );
   let scheduled = false;
   const schedule = () => {

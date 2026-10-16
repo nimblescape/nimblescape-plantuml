@@ -36,6 +36,12 @@ body {
   height: auto;
 }
 
+/* The note that a block without a diagram shows while its diagram renders. */
+.nimblescape-plantuml-pending {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
 .nimblescape-plantuml-error {
   color: var(--vscode-errorForeground);
   white-space: pre-wrap;

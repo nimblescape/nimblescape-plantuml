@@ -9,9 +9,10 @@
  * ([R-MD-001](../../docs/requirements.md#r-md-001)) and the preview of
  * PlantUML files ([R-PUML-002](../../docs/requirements.md#r-puml-002),
  * [R-PUML-003](../../docs/requirements.md#r-puml-003)). It renders every
- * diagram of every PlantUML block of a page, one diagram after the other, and
- * keeps the results, so that a change of the document shows the unchanged
- * diagrams at once.
+ * diagram of every PlantUML block of a page
+ * ([R-GEN-009](../../docs/requirements.md#r-gen-009)), one diagram after the
+ * other, and keeps the results, so that a change of the document shows the
+ * unchanged diagrams at once.
  *
  * A block shows its diagrams in a shadow root of its content element. The
  * content element itself keeps the text of the block as the page wrote it, and
@@ -21,7 +22,7 @@
  * changed text keeps its last diagrams until the new ones are ready. A new
  * block shows a note while its diagrams render, never its text. A block with
  * an error shows the message and the line of the text that the message names,
- * above its text. The styles of the page reach the elements of the shadow root
+ * above its text ([R-GEN-010](../../docs/requirements.md#r-gen-010)). The styles of the page reach the elements of the shadow root
  * by their part names: `diagram`, `pending`, `error`, and `following` for each
  * element after the first.
  *
@@ -35,14 +36,17 @@
  * The results also stay in the local storage of the preview, which VS Code
  * keeps for all previews of one kind across previews and restarts. So a
  * preview that opens again shows its diagrams at once, without the time that
- * the engine needs to start.
+ * the engine needs to start ([R-GEN-013](../../docs/requirements.md#r-gen-013)).
+ * The diagrams use the dark mode of PlantUML with a dark color theme
+ * ([R-GEN-012](../../docs/requirements.md#r-gen-012)).
  *
  * A preview loads its script as a module with the nonce of its security
  * policy. The renderer loads the engine with a dynamic import, which keeps the
  * nonce, and loads the further scripts of the engine (themes, emoji, icons)
  * with script elements that carry the nonce. Viz.js, the Graphviz layout, needs
  * WebAssembly; the renderer loads it only when the policy of the page allows
- * WebAssembly. Without it, PlantUML uses its own layout engine Smetana.
+ * WebAssembly. Without it, PlantUML uses its own layout engine Smetana
+ * ([R-GEN-011](../../docs/requirements.md#r-gen-011)).
  */
 
 import { diagramLines } from '../diagram/diagramLines';

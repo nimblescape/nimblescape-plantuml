@@ -5,8 +5,9 @@
 /**
  * These tests check the lines that the engine receives for a PlantUML text:
  * the lines of the text, the `@startuml` and `@enduml` lines around a body,
- * the end line of a diagram without one, the UML notation of the setting
- * `umlNotation` (R-GEN-007), and the line of the text of each line.
+ * the end line of a diagram without one (R-GEN-009), the UML notation of the
+ * setting `umlNotation` (R-GEN-007), and the line of the text of each line,
+ * for the line numbers of errors (R-GEN-010).
  */
 
 import { describe, expect, test } from 'vitest';

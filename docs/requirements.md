@@ -16,8 +16,8 @@ comes first, the support of PlantUML files second.
 | Step | Content | Requirements |
 | --- | --- | --- |
 | 1 | Setup: manifest, build, the bundled engine, CI, release workflows, license notices | [R-GEN-001](#r-gen-001), [R-GEN-004](#r-gen-004), [R-GEN-005](#r-gen-005), [R-GEN-006](#r-gen-006), [R-PUML-001](#r-puml-001) |
-| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007), [R-GEN-008](#r-gen-008) |
-| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-007](#r-puml-007), [R-GEN-007](#r-gen-007), [R-GEN-008](#r-gen-008) |
+| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007) to [R-GEN-013](#r-gen-013) |
+| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-008](#r-puml-008), [R-GEN-007](#r-gen-007) to [R-GEN-013](#r-gen-013) |
 | 4 | Tests, README, icon, and a release workflow that is ready but not run | all |
 
 ## General
@@ -139,6 +139,54 @@ file outside these folders, or a file that includes itself. An error inside an
 included file names the line of the include and the line in the included
 file.
 
+### R-GEN-009
+
+**Diagrams of a text.** A PlantUML block or a PlantUML file can hold several
+diagrams, each from its `@start…` line to its `@end…` line. The preview shows
+every diagram, in the order of the text. A text without an `@start…` line
+renders as one UML diagram, as if it started with `@startuml` and ended with
+`@enduml`, and a diagram without its `@end…` line renders as if it had one.
+
+### R-GEN-010
+
+**Errors.** When the engine cannot render a diagram, the preview shows the
+message of the engine in place of the diagram, with the text of the PlantUML
+block, or of the diagram in a PlantUML file, below it. The message names the number of the line in the user's text: in a
+PlantUML file, the line of the file; in a Markdown file, the line of the
+block, where line 1 is the first line after the opening fence. The lines that
+the extension adds to the copy that the engine renders
+([R-GEN-007](#r-gen-007), [R-GEN-009](#r-gen-009)) do not change the number.
+The other diagrams of the text still show.
+
+A diagram has no largest size. A rendering that takes longer than 60 seconds
+fails with a message, and the next diagram renders after it.
+
+### R-GEN-011
+
+**Layout engine.** A preview arranges the diagrams with Graphviz (Viz.js)
+when its page allows WebAssembly, and otherwise with Smetana, the layout
+engine of PlantUML that needs no WebAssembly. The previews of PlantUML files
+allow WebAssembly. The Markdown preview allows it only with its security
+setting "Disable"; the extension does not change the security of the
+Markdown preview.
+
+### R-GEN-012
+
+**Color theme.** With a dark color theme of VS Code, including a dark high
+contrast theme, the diagrams use the dark mode of PlantUML; with a light
+theme, its normal colors. When the color theme changes, the open previews
+render their diagrams again.
+
+### R-GEN-013
+
+**Stored diagrams.** The previews keep the pictures of the 50 most recently
+rendered diagrams in the storage that VS Code keeps for its webviews on the
+user's computer, so that a preview that opens again, also after a restart of
+VS Code, shows its diagrams at once. A stored picture is used only for the
+same version of the extension, layout engine, color theme, settings and
+text, with the same included files. The previews store nothing else and send
+nothing to the internet.
+
 ## Markdown
 
 ### R-MD-001
@@ -184,6 +232,13 @@ PlantUML blocks. Inside a PlantUML block, it adds the rendering in the preview
 ([R-MD-003](#r-md-003)), the code completion ([R-MD-004](#r-md-004)) and the
 formatting ([R-MD-005](#r-md-005)).
 
+For the formatting, the extension registers a formatter for Markdown files
+that changes only the PlantUML blocks. VS Code lists it with the other
+formatters of Markdown files: without another one, "Format Document" formats
+the PlantUML blocks; with another one and no default formatter of Markdown
+files, VS Code asks the user to set the default formatter. This is the only
+effect of the extension on Markdown files outside the PlantUML blocks.
+
 ## PlantUML files
 
 ### R-PUML-001
@@ -208,7 +263,8 @@ preview, and the title bar of the preview has a button that opens the text.
 
 **Preview to the side.** Ctrl+K V opens the preview of a PlantUML file next to
 its text, and the preview follows every change of the text while the user
-types.
+types. When the active text editor shows another PlantUML file, the preview
+to the side shows that file.
 
 In every preview of a PlantUML file, a diagram is never wider than the
 preview. A click on a diagram that the preview makes smaller shows it in its
@@ -251,6 +307,13 @@ text keep their spaces. The members of a class, an object or a map are the
 exception: each run of spaces in a member becomes one space, outside quoted
 text, for example `- type:      string` becomes `- type: string`. Diagrams of
 other types than UML stay as they are.
+
+### R-PUML-008
+
+**Restored previews.** After a restart of VS Code, the previews of PlantUML
+files that were open show again: the preview in the tab of a file, the
+preview to the side and the rendered diff. A restored preview to the side or
+rendered diff whose file no longer exists closes, without an error.
 
 ---
 

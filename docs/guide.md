@@ -11,24 +11,25 @@ The extension shows [PlantUML](https://plantuml.com) diagrams in two places:
 in the PlantUML blocks of Markdown files, and in PlantUML files. Markdown
 files come first; PlantUML files have the same features.
 
-The extension is in development. The table shows the state of each feature,
-and [requirements.md](requirements.md) defines each feature exactly; the ID
-in the last column links to its definition. The key combinations are those of
+The table shows each feature, where it works and its state, and
+[requirements.md](requirements.md) defines each feature exactly; the ID in
+the last column links to its definition. The key combinations are those of
 Windows and Linux; on macOS, use Cmd instead of Ctrl.
 
 | Feature | Markdown files | PlantUML files | State | Requirements |
 | --- | --- | --- | --- | --- |
 | [Language PlantUML](#plantuml-files) | | yes | available | [R-PUML-001](requirements.md#r-puml-001) |
-| [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | in development | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003) |
-| [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | in development | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
-| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side, with marks on the changed diagrams | in development | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
-| [Syntax highlighting](#syntax-highlighting) | yes | yes | in development | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
-| [Code completion](#code-completion) | yes | yes | in development | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
-| [Formatting](#formatting) | yes | yes | in development | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
-| [Folding and indentation while typing](#folding-and-indentation) | no, VS Code uses the rules of Markdown | yes | in development | [R-PUML-001](requirements.md#r-puml-001) |
-| [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
-| [UML notation](#uml-notation) | yes | yes | in development | [R-GEN-007](requirements.md#r-gen-007) |
-| [Included files](#included-files) | yes | yes | in development | [R-GEN-008](requirements.md#r-gen-008) |
+| [Diagrams in the preview](#diagrams-in-the-markdown-preview) | yes | yes | available | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002), [R-PUML-003](requirements.md#r-puml-003), [R-PUML-008](requirements.md#r-puml-008) |
+| [Several diagrams, errors, layout, color theme and stored diagrams](#how-the-extension-renders) | yes | yes | available | [R-GEN-009](requirements.md#r-gen-009) to [R-GEN-013](requirements.md#r-gen-013) |
+| [Switch between text and preview in one tab](#switch-between-text-and-preview) | yes | yes | available | [R-MD-001](requirements.md#r-md-001), [R-PUML-002](requirements.md#r-puml-002) |
+| [Rendered Git diff](#rendered-git-diff) | yes, with marks on the changes | yes, side by side, with marks on the changed diagrams | available | [R-MD-002](requirements.md#r-md-002), [R-PUML-004](requirements.md#r-puml-004) |
+| [Syntax highlighting](#syntax-highlighting) | yes | yes | available | [R-MD-003](requirements.md#r-md-003), [R-PUML-005](requirements.md#r-puml-005) |
+| [Code completion](#code-completion) | yes | yes | available | [R-MD-004](requirements.md#r-md-004), [R-PUML-006](requirements.md#r-puml-006) |
+| [Formatting](#formatting) | yes | yes | available | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
+| [Folding and indentation while typing](#folding-and-indentation) | no, VS Code uses the rules of Markdown | yes | available | [R-PUML-001](requirements.md#r-puml-001) |
+| [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | available | [R-MD-006](requirements.md#r-md-006) |
+| [UML notation](#uml-notation) | yes | yes | available | [R-GEN-007](requirements.md#r-gen-007) |
+| [Included files](#included-files) | yes | yes | available | [R-GEN-008](requirements.md#r-gen-008) |
 
 ## How the extension renders
 
@@ -39,15 +40,27 @@ runs inside VS Code. You need no Java, no Graphviz installation and no
 PlantUML server, and the extension sends no diagram text to the internet. The
 extension renders every diagram type that this engine renders: for example
 sequence, use case, class, activity, component, state and timing diagrams,
-and also Gantt charts, mind maps, JSON and YAML data, and wireframes. The
-themes of PlantUML (`!theme`), the emoji and the Open Iconic icons are part of
-the engine and work offline.
+and also Gantt charts, mind maps, work breakdown structures, and JSON and
+YAML data. The themes of PlantUML (`!theme`), the emoji and the Open Iconic
+icons are part of the engine and work offline. The section
+[Limits of the engine](#limits-of-the-engine) lists what the engine does not
+render.
+
+A PlantUML block or file can hold several diagrams, each from its `@start…`
+line to its `@end…` line, for example `@startuml` … `@enduml` and
+`@startmindmap` … `@endmindmap`. The preview shows all of them, one below the
+other. A text without an `@start…` line is one UML diagram: the extension
+renders it as if it started with `@startuml` and ended with `@enduml`.
 
 A diagram can include other files. The section
 [Included files](#included-files) explains it.
 
 The extension only shows diagrams. It does not export a diagram to a file, in
 no format.
+
+The diagrams follow the color theme of VS Code: with a dark theme, PlantUML
+draws them for a dark background. When the theme changes, the previews draw
+the diagrams again.
 
 The engine needs a moment to start when a preview opens. While a diagram
 renders, the preview shows the note "Rendering the diagram…", or the last
@@ -56,6 +69,45 @@ text in its place. The previews keep the pictures of the 50 most recently
 rendered diagrams in the storage that VS Code keeps for its previews on your
 computer. A preview that opens again shows these diagrams at once, also after
 a restart of VS Code.
+
+A diagram has no largest size. A large diagram can keep the preview busy for
+about a second. A diagram that takes longer than 60 seconds to render shows
+the message "The rendering of the diagram took too long."
+
+### Layout
+
+PlantUML arranges most diagram types with Graphviz. The extension contains
+Graphviz, compiled to WebAssembly (Viz.js). The preview of PlantUML files
+always uses Graphviz. The Markdown preview uses it only when its security
+setting allows WebAssembly; otherwise PlantUML uses its own layout engine
+Smetana. The section
+[Layout of diagrams in the Markdown preview](#layout-of-diagrams-in-the-markdown-preview)
+explains it.
+
+### Errors
+
+When PlantUML cannot render a diagram, the preview shows the message of
+PlantUML in place of the diagram, and below it the text of the PlantUML
+block, or of the diagram in a PlantUML file. The message starts with the
+number of the line in your text, for example "Line 3: Syntax Error?". In a
+PlantUML file, line 1 is the first line of the file; in a Markdown file, it
+is the first line after the opening fence of the block. The lines that the
+extension adds for the [UML notation](#uml-notation), or around a text
+without `@startuml`, do not change the number. The other diagrams of the
+same text still show.
+
+### Limits of the engine
+
+The JavaScript build of PlantUML does not have every feature of PlantUML in
+Java. With `@plantuml/core` 1.2026.8:
+
+- These diagram types do not render: wireframes (`salt`), `ditaa`, Graphviz
+  graphs (`dot`), `math`, `latex`, `chen`, `board`, `git`, `wire`, `files`
+  and `chronology`. A network diagram renders with `@startnwdiag`, but not
+  inside `@startuml`.
+- A diagram with `newpage` shows its first page only.
+- A link (`[[…]]`) is not clickable.
+- An image (`<img:…>`) does not show; a placeholder text shows in its place.
 
 ### Included files
 
@@ -121,8 +173,7 @@ the preview with one of these commands:
 | Markdown: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview. |
 
 The extension adds the diagrams to the preview of VS Code; it does not
-replace the preview. The diagrams follow the color theme: with a dark theme,
-PlantUML draws them for a dark background. Outside the PlantUML blocks, the Markdown editor and the
+replace the preview. Outside the PlantUML blocks, the Markdown editor and the
 Markdown preview work as without the extension, and all settings of the
 Markdown preview stay valid.
 
@@ -181,6 +232,11 @@ PlantUML files work like Markdown files:
 | PlantUML: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview, in both directions. In a diff, it switches between the diff and the rendered diff. |
 | PlantUML: Open as Preview | button in the title bar of the text editor or of the diff | Shows the preview or the rendered diff in the same tab. |
 | PlantUML: Reopen as Source | button in the title bar of the preview or of the rendered diff | Shows the text or the diff in the same tab. |
+
+The preview to the side shows the PlantUML file of the active editor: when
+you switch to the text of another PlantUML file, the preview shows that file.
+After a restart, VS Code shows the previews and rendered diffs that were open
+again; a preview whose file was deleted or renamed closes.
 
 A diagram is never wider than the preview. When the preview makes a diagram
 smaller, the pointer shows a magnifier over it: a click shows the diagram in
@@ -330,7 +386,7 @@ The blocks are:
 | Block | Opening line | Middle lines | Closing line |
 | --- | --- | --- | --- |
 | Braces | a line that ends with `{`, for example `package shop {` | | a line that starts with `}` |
-| Group of a sequence diagram | `alt`, `opt`, `loop`, `par`, `break …`, `critical`, `group`, `box` | `else` | `end`, `end box`, `end group` |
+| Group of a sequence diagram | `alt`, `opt`, `loop`, `par`, `par2`, `break …`, `critical`, `group`, `box` | `else` | `end`, or `end` with the name of the group, for example `end box`, `end group` or `end alt` |
 | Condition | `if` | `else`, `elseif` | `endif` |
 | Loop | `while`; `repeat` | `backward` | `endwhile`; `repeat while` |
 | Parallel flows | `fork`, `split` | `fork again`, `split again` | `end fork`, `end merge`, `end split` |
@@ -395,6 +451,13 @@ are. The PlantUML blocks are then formatted in these two ways:
 
 The command "Format Document With…" selects a formatter for one run, for
 example "nimblescape PlantUML" for the PlantUML blocks only.
+
+When another extension also formats Markdown files and no default formatter
+of Markdown files is set, VS Code does not choose one: "Format Document"
+formats nothing, and VS Code shows the message "There are multiple formatters
+for 'Markdown' files. One of them should be configured as default
+formatter." Its button "Configure..." sets the default formatter. Until then,
+the formatting on save formats only the PlantUML blocks.
 
 ### Folding and indentation
 

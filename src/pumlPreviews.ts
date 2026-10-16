@@ -20,6 +20,9 @@
  *   webview panel of the extension, because VS Code 1.142 and earlier cannot
  *   open a custom editor in a diff: the editor of the original side gets no
  *   options, and VS Code fails on them. The same keys switch back to the diff.
+ * - After a restart, VS Code restores the previews; a restored preview to the
+ *   side or rendered diff whose file is gone closes
+ *   ([R-PUML-008](../docs/requirements.md#r-puml-008)).
  *
  * Each preview is a webview with the page of `src/preview/previewHtml.ts` and
  * the script `dist/pumlPreview.js`. The page tells the extension when it is

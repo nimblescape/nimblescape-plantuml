@@ -115,12 +115,33 @@ license of the package, into `dist/engine/`; vsce packages without
 library of PlantUML (`!include <C4/C4_Context>` and others), which the engine
 loads on demand from a configurable address.
 
-`THIRD-PARTY-NOTICES.md` names the components of the engine: PlantUML (MIT),
-Viz.js (MIT) with Graphviz (Eclipse Public License 1.0) and Expat (MIT), the
-themes (MIT), the Twemoji graphics (CC BY 4.0) and the Open Iconic icons (MIT).
-A test checks that the installed engine is under the MIT License and that the
-notices name every script of the engine. After an update of the engine, check
-the versions in the notices against the headers of `viz-global.js`.
+`THIRD-PARTY-NOTICES.md` names the components of the engine and their
+licenses:
+
+- in `plantuml.js`: PlantUML (MIT) with Smetana (Eclipse Public License 1.0),
+  minimal-json (MIT) and Base64Coder (MIT), and the runtime and the class
+  library of TeaVM (Apache License 2.0, with its NOTICE) with the Unicode CLDR
+  data (Unicode License V3) and JZlib (BSD-style);
+- in `viz-global.js`: Viz.js (MIT) with Graphviz (Eclipse Public License 1.0)
+  and Expat (MIT);
+- in `themes.js`: 44 themes, each with its author and license (MIT, Apache
+  License 2.0, one theme under the GPL 3.0 or later, and themes without a
+  license statement, which come with PlantUML under its license);
+- the Twemoji graphics (CC BY 4.0) and the Open Iconic icons (MIT).
+
+The section "Source code" of the notices offers the source code of the parts
+under the Eclipse Public License on request, because that license requires
+this offer for object code. Tests check that the installed engine is under
+the MIT License, that the notices name every script of the engine, and that
+they name every theme with its license; a theme with a new kind of license
+fails the test until the notices cover it. After an update of the engine:
+
+- set the source link of PlantUML to the commit of the new npm package
+  (`npm view @plantuml/core@<version> gitHead`), which is not always the
+  commit of the tag of the version;
+- check the versions in the notices against the headers of `viz-global.js`,
+  and the version of TeaVM against `gradle/libs.versions.toml` of PlantUML at
+  that commit.
 
 ## Markdown preview
 

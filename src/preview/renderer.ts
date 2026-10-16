@@ -254,11 +254,37 @@ const decodeText = (text: string): string =>
   });
 
 /**
+ * bundledLibraries are the libraries of the standard library of PlantUML that the package contains, by the name of
+ * their file without `.min.js`, which is the lower-case name of the library: the build copies each file of the
+ * folder `stdlib/` next to the engine.
+ */
+export const bundledLibraries: ReadonlyMap<string, string> = new Map([['c4', 'C4']]);
+
+/** libraryInclude matches a line that includes a file of the standard library of PlantUML, with its library. */
+const libraryInclude = /^\s*!include(?:_many|_once)?\s*<([^/>]+)/;
+
+/**
+ * missingLibrary returns the message for a line that includes a file of a library of the standard library of
+ * PlantUML that the package does not contain, and undefined for every other line. The engine reports such a line
+ * with "Fatal parsing error" or "cannot include".
+ * @param line - The line.
+ */
+function missingLibrary(line: string): string | undefined {
+  const library = libraryInclude.exec(line)?.[1];
+  if (library === undefined || bundledLibraries.has(library.toLowerCase())) {
+    return undefined;
+  }
+  const names = [...bundledLibraries.values()].join(', ');
+  return `The extension does not contain the PlantUML library ${library}. It contains only the library ${names}.`;
+}
+
+/**
  * errorOf reads the picture that the engine draws for an error in a diagram text: a line with the version of
  * PlantUML, a line `[From textarea (line N) ]` with the number of the line, the lines of the text up to that line,
  * and the message. The line number counts the lines that the engine received, which hold added lines, such as the
  * commands of the UML notation; so errorOf returns the index of the line of the diagram text instead, through the
- * origins of the lines. It returns undefined for every other image.
+ * origins of the lines. For a line that includes a library that the package does not contain, it returns a message
+ * that says so. It returns undefined for every other image.
  * @param svg - The SVG text from the engine.
  * @param origins - For each line that the engine received, the index of the line of the diagram text that it comes
  *   from, or undefined for an added line.
@@ -273,16 +299,14 @@ export function errorOf(svg: string, origins: readonly (number | undefined)[]): 
   if (!from) {
     return undefined;
   }
-  let last = header;
-  for (let match = texts.exec(svg); match; match = texts.exec(svg)) {
-    last = match;
-  }
+  // The texts after the line number end with the line of the error and the message.
+  const [line, message] = [...svg.slice(texts.lastIndex).matchAll(svgText)].map((match) => decodeText(match[1])).slice(-2);
   // An added line, such as the @enduml line around a body, names the last line of the text before it.
   let index = Math.min(Number(from[1]) - 1, origins.length - 1);
   while (index >= 0 && origins[index] === undefined) {
     index--;
   }
-  return { error: decodeText(last[1]).trim(), line: index >= 0 ? origins[index] : undefined };
+  return { error: missingLibrary(line ?? '') ?? (message ?? line ?? '').trim(), line: index >= 0 ? origins[index] : undefined };
 }
 
 /** pending is the value of a content element in the shown results of a renderer while it shows the note. */
@@ -585,8 +609,8 @@ function show(content: HTMLElement, diagrams: readonly Diagram[], results: reado
   shadowOf(content).replaceChildren(...nodes);
 }
 
-/** bundledScripts are the further scripts of the engine that the package contains. */
-const bundledScripts = new Set(['themes.js', 'emoji.js', 'openiconic.js']);
+/** bundledScripts are the further scripts of the engine that the package contains, with the files of its libraries. */
+const bundledScripts = new Set(['themes.js', 'emoji.js', 'openiconic.js', ...[...bundledLibraries.keys()].map((name) => `${name}.min.js`)]);
 
 /**
  * loadScript loads a classic script with the nonce of the preview.

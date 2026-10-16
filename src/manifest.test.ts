@@ -13,10 +13,12 @@
 import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
 import * as path from 'node:path';
+import * as vm from 'node:vm';
 import * as esbuild from 'esbuild';
 import { expect, test, vi } from 'vitest';
 import { formatBlocksCommand } from './extension';
 import { grammarFiles } from './language/grammars';
+import { bundledLibraries } from './preview/renderer';
 import { commands, diffPreviewViewType, previewViewType, sidePreviewViewType } from './pumlPreviews';
 import { defaultSettings, settingsSection } from './settings';
 
@@ -308,6 +310,29 @@ test('the third-party notices name every theme of the engine and its license (R-
   }
   // A new kind of license needs a review of the notices, not only its name in them.
   expect(new Set(licenses.values())).toEqual(new Set(['', 'MIT', 'Apache License, Version 2.0', 'GPL 3+']));
+});
+
+test('the third-party notices name every library of PlantUML in stdlib/ with its version and license (R-GEN-004)', () => {
+  const notices = read('THIRD-PARTY-NOTICES.md');
+  const files = fs.readdirSync(path.join(repository, 'stdlib')).sort();
+  expect(files).toEqual([...bundledLibraries.keys()].map((library) => `${library}.min.js`).sort());
+  for (const file of files) {
+    // The file of a library is a script that writes the files and the facts of the library into global variables.
+    const page: { window: { PLANTUML_STDLIB_INFO?: Record<string, { name: string; version: string; license: string }> } } = { window: {} };
+    vm.runInNewContext(read(`stdlib/${file}`), page);
+    const library = file.slice(0, -'.min.js'.length);
+    const info = page.window.PLANTUML_STDLIB_INFO![library];
+    expect(info.name).toBe(bundledLibraries.get(library));
+    // A new kind of license needs a review of the notices, not only its name in them.
+    expect(info.license, file).toBe('MIT');
+    const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const row = new RegExp(String.raw`^\| \`${escape(file)}\` \|[^\n]* ${escape(info.version)} [^\n]*\| ${info.license} \|$`, 'm').exec(notices);
+    expect(row, file).not.toBeNull();
+    // The row links to the section of the library, which holds its license.
+    const anchor = /\]\(#([^)]+)\)/.exec(row![0])?.[1];
+    const headings = [...notices.matchAll(/^## (.+)$/gm)].map((match) => match[1].toLowerCase().replace(/[^\p{L}\p{N} -]/gu, '').replace(/ /g, '-'));
+    expect(headings, file).toContain(anchor);
+  }
 });
 
 test('the documents of the package use full links, so that each link works in the repository, in the package and on the Marketplace', () => {

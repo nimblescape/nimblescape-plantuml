@@ -9,6 +9,9 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 The package of nimblescape PlantUML contains the PlantUML engine of the npm
 package [`@plantuml/core`](https://www.npmjs.com/package/@plantuml/core)
 1.2026.8 in the folder `dist/engine/`. The build copies its files without a
+change. Next to the engine, the folder holds the library C4 of the standard
+library of PlantUML, which the PlantUML project builds for the engine; the
+build copies it from the folder `stdlib/` of the repository, also without a
 change. This file names the software in these files and in the other files of
 the package that contain software of others, its license and the place of its
 source code. The code of the extension itself is under the
@@ -24,6 +27,7 @@ project does not endorse it.
 | `themes.js` | The 44 themes of PlantUML (`!theme`) by several authors; the section [PlantUML themes](#plantuml-themes) names the author and the license of each theme | MIT (31 themes), Apache License 2.0 (3 themes), GNU General Public License 3.0 or later (1 theme), and the license of PlantUML, MIT (9 themes without a license statement) |
 | `emoji.js` | The emoji graphics of [Twemoji](https://github.com/twitter/twemoji) by Twitter, Inc and other contributors, as PlantUML ships them | CC BY 4.0 |
 | `openiconic.js` | The icons of [Open Iconic](https://github.com/iconic/open-iconic) by Waybury | MIT |
+| `c4.min.js` | The library C4 of the standard library of PlantUML (`!include <C4/…>`): [C4-PlantUML](#c4-plantuml) 2.14.0 by Ricardo Niepel, kirchsth and contributors, with its themes and examples, as the PlantUML project builds it for the engine | MIT |
 | `LICENSE` | The license of `@plantuml/core` | |
 
 The grammar `dist/syntaxes/markdown-plantuml.tmLanguage.json`, which marks
@@ -733,6 +737,41 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+## C4-PlantUML
+
+`c4.min.js` holds the files of the library C4 of the
+[standard library of PlantUML](https://github.com/plantuml/plantuml-stdlib),
+the integrated version of
+[C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) 2.14.0. The
+PlantUML project builds the file for the engine and publishes it at
+<https://plantuml.github.io/plantuml/js-plantuml/c4.min.js>; the package
+contains the file as published on 2026-10-16. Source code of the release:
+<https://github.com/plantuml-stdlib/C4-PlantUML/tree/v2.14.0>. Its license:
+
+```text
+MIT License
+
+(c) 2018-2020 Ricardo Niepel, 2021-2026 Ricardo Niepel, kirchsth and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## vscode-markdown-tm-grammar

@@ -27,7 +27,7 @@ each requirement with an ID.
 | `src/pumlPreviews.ts` | The previews of PlantUML files: the custom editor that shows a file as a preview in its own tab, the preview to the side, the rendered diff, and their commands. |
 | `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the diagrams of the PlantUML blocks of a page one at a time into a shadow root of each block, shows errors with the line of the block text, and keeps the results in memory and in the local storage of the preview. |
 | `src/preview/markdownPreview.ts` | The script of the Markdown preview: starts the renderer for the PlantUML blocks of the page, and again after each change of the page. |
-| `src/preview/pumlPreview.ts` | The script of the preview of PlantUML files: writes a block for each diagram of the file, or a row for each pair of diagrams of a rendered diff with a label (Changed, Added, Removed) on each changed side, and starts the renderer. |
+| `src/preview/pumlPreview.ts` | The script of the preview of PlantUML files: writes a block for each diagram of the file, or a row for each pair of diagrams of a rendered diff with a label (Changed, Added, Removed) on each changed side, starts the renderer, and switches a diagram that is wider than its column between the width of the column and its original size on a click. |
 | `src/preview/previewHtml.ts` | The page of the preview of PlantUML files, with its security policy. |
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |

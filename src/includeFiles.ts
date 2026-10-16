@@ -83,15 +83,23 @@ function withQueryPath(uri: vscode.Uri): vscode.Uri {
 const pathKey = (path: string): string => (process.platform === 'win32' ? path.toLowerCase() : path);
 
 /**
+ * isInFolder tells whether a file is in a folder. It compares the authority and the path of the addresses, not their
+ * scheme, so that a version of a file in Git, whose address has the scheme `git`, is in the folder of the file.
+ * @param uri - The address of the file.
+ * @param folder - The address of the folder.
+ */
+export function isInFolder(uri: vscode.Uri, folder: vscode.Uri): boolean {
+  return folder.authority === uri.authority && pathKey(`${uri.path}/`).startsWith(pathKey(folder.path.replace(/\/?$/, '/')));
+}
+
+/**
  * isInFolders tells whether a file is in a workspace folder or in the folder of the document.
  * @param uri - The address of the file.
  * @param folder - The folder of the document.
  */
 function isInFolders(uri: vscode.Uri, folder: vscode.Uri): boolean {
   const roots = [folder, ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => workspaceFolder.uri)];
-  return roots.some(
-    (root) => root.authority === uri.authority && pathKey(`${uri.path}/`).startsWith(pathKey(root.path.replace(/\/?$/, '/'))),
-  );
+  return roots.some((root) => isInFolder(uri, root));
 }
 
 /**

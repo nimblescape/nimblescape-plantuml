@@ -442,7 +442,8 @@ other blocks.
 
 The settings apply to the PlantUML blocks of Markdown files and to PlantUML
 files. You can set them for the user, for a workspace or for a folder of a
-workspace. An open preview renders again when a setting changes.
+workspace. Both versions in a rendered Git diff use the settings of the folder
+of the file. An open preview renders again when a setting changes.
 
 ### UML notation
 

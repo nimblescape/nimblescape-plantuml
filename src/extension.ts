@@ -19,7 +19,7 @@
 
 import type MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
-import { IncludeFiles } from './includeFiles';
+import { IncludeFiles, isInFolder } from './includeFiles';
 import { Completion, complete } from './language/completion';
 import { formatLines } from './language/formatting';
 import { Block, plantUmlBlocks } from './markdown/blocks';
@@ -38,8 +38,22 @@ export interface Api {
  * @param document - The document, or undefined for the settings of the window.
  */
 export function readSettings(document: vscode.Uri | undefined): Settings {
-  const configuration = vscode.workspace.getConfiguration(settingsSection, document);
+  const configuration = vscode.workspace.getConfiguration(settingsSection, settingsScope(document));
   return { umlNotation: configuration.get<boolean>('umlNotation', defaultSettings.umlNotation) };
+}
+
+/**
+ * settingsScope returns the scope of the settings of a document. VS Code finds the workspace folder of a document by
+ * its whole address, scheme included, so a version of a file in Git, whose address has the scheme `git`, has no
+ * folder, and would get the settings of the window. Such a document gets the workspace folder of its path, so that
+ * both sides of a diff render with the settings of the folder of the file.
+ * @param document - The document, or undefined for the settings of the window.
+ */
+function settingsScope(document: vscode.Uri | undefined): vscode.ConfigurationScope | undefined {
+  if (!document || vscode.workspace.getWorkspaceFolder(document)) {
+    return document;
+  }
+  return vscode.workspace.workspaceFolders?.find((folder) => isInFolder(document, folder.uri)) ?? document;
 }
 
 /** foundDocuments holds the document of each rendering of a text without its document, by its environment. */

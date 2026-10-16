@@ -6,13 +6,15 @@
 
 /**
  * These tests run the renderer of the previews on a page of happy-dom with a
- * fake engine. They check the detection of a dark theme and of WebAssembly,
- * the rendering of one diagram at a time, every diagram of a block, the
- * results in memory and in the local storage, the skip of a text that changed
- * again, the new rendering after a change of the theme or of the settings, the
- * display of errors with the line of the text, the included files of a block
+ * fake engine. They check the detection of a dark theme (R-GEN-012) and of
+ * WebAssembly (R-GEN-011), the rendering of one diagram at a time, every
+ * diagram of a block (R-GEN-009), the results in memory and in the local
+ * storage (R-GEN-013), the skip of a text that changed again, the new
+ * rendering after a change of the theme or of the settings, the display of
+ * errors with the line of the text (R-GEN-010), the included files of a block
  * (R-GEN-008), the labels for screen readers, that the elements of the page
- * stay as the page wrote them, the time limit, and the load of the engine.
+ * stay as the page wrote them, the time limit (R-GEN-010), and the load of
+ * the engine.
  * `src/engine.test.ts` runs the real engine.
  */
 

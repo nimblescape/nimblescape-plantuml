@@ -6,7 +6,7 @@
  * These tests check the one rule for the start and the end of a diagram that
  * the previews, the UML notation and the formatting share: the types, a
  * diagram without an end line, the letter case that the engine requires, and
- * the split of a text into the diagrams that the previews render.
+ * the split of a text into the diagrams that the previews render (R-GEN-009).
  */
 
 import { expect, test } from 'vitest';

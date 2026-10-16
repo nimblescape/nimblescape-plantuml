@@ -9,7 +9,8 @@
  * R-PUML-003), the preview to the side and the file that it shows
  * (R-PUML-003), the switch between a diff and its rendered diff
  * (R-PUML-004), the included files of the diagrams (R-GEN-008), the restore
- * after a restart, and the documents that VS Code closes and opens again.
+ * after a restart (R-PUML-008), and the documents that VS Code closes and
+ * opens again.
  */
 
 import { beforeEach, expect, test, vi } from 'vitest';

@@ -10,7 +10,7 @@
  * VS Code changes it, with morphdom: the tests check the first rendering, the
  * rendering after a change of the document, that an unchanged block keeps its
  * diagram, which the renderer neither renders nor draws again, and the
- * rendering after a change of the color theme.
+ * rendering after a change of the color theme (R-GEN-012).
  */
 
 import { expect, test } from 'vitest';

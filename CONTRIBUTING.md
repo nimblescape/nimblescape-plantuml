@@ -10,7 +10,7 @@ each requirement with an ID.
 
 | File | Purpose |
 | --- | --- |
-| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings of the rendered document, refreshes the previews when a setting changes, and registers the code completion and the formatting for PlantUML files and for the PlantUML blocks of Markdown files, with the command "Format PlantUML Blocks" and the formatting of the blocks on save. |
+| `src/extension.ts` | The editor wiring: activation returns the markdown-it plugin for the Markdown preview with the settings and the included files of the rendered document, refreshes the previews when a setting or an included file changes, and registers the code completion and the formatting for PlantUML files and for the PlantUML blocks of Markdown files, with the command "Format PlantUML Blocks" and the formatting of the blocks on save. |
 | `src/settings.ts` | The settings of the extension that change the diagrams, their defaults, and their JSON form for the preview. It uses no API of VS Code, so the preview script can use it. |
 | `src/language/keywords.ts` | The keywords of PlantUML that the highlighting and the code completion share. |
 | `src/language/grammars.ts` | The TextMate grammars: `source.plantuml` for PlantUML text, and the injection `markdown.nimblescape.plantuml.codeblock`, which marks the PlantUML blocks of Markdown files. The build writes them into `dist/syntaxes/`. |
@@ -18,9 +18,11 @@ each requirement with an ID.
 | `src/language/formatting.ts` | The formatting: the indentation of the lines of a UML diagram by the depth of their blocks, one space for a run of spaces between the parts of a statement, and one space for each run of spaces in a member. It uses no API of VS Code. |
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for the text of one diagram: `@startuml` and `@enduml` around a body, the `@end` line of a diagram without one, and the settings applied, each line with the line of the text that it comes from. |
 | `src/diagram/diagramRanges.ts` | The diagrams of a PlantUML text, from a `@start` line to the next `@end` line, in small letters as the engine reads them, and the split of a text into the texts of its diagrams. The previews, the UML notation and the formatting use this one rule. |
+| `src/diagram/includes.ts` | The expansion of the include lines of a diagram with the texts of the included files, by the rules of the preprocessor of PlantUML, with the line and the file that each line comes from, and the problems of the include lines that stay. It uses no API of VS Code, so the preview scripts can use it. The section [Included files](#included-files) explains it. |
+| `src/includeFiles.ts` | The reading of the included files for the previews: the folders that it reads from, the watchers of the files, and the event that refreshes the previews. |
 | `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
 | `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, member of a class, an object, a map or JSON data, rule of a style, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
-| `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, and leaves every other token as it is. |
+| `src/markdown/markdownIt.ts` | The markdown-it plugin: writes a PlantUML block as an element that carries the diagram text, the settings and the included files, and leaves every other token as it is. |
 | `src/markdown/blocks.ts` | The PlantUML blocks of a Markdown text by their lines, with the prefix of each line (the markers of a block quote, the indentation of a list item), for the code completion and the formatting. It finds them with markdown-it, as the preview does. |
 | `src/pumlPreviews.ts` | The previews of PlantUML files: the custom editor that shows a file as a preview in its own tab, the preview to the side, the rendered diff, and their commands. |
 | `src/preview/renderer.ts` | The renderer that both previews share: loads the engine, renders the diagrams of the PlantUML blocks of a page one at a time into a shadow root of each block, shows errors with the line of the block text, and keeps the results in memory and in the local storage of the preview. |
@@ -30,7 +32,7 @@ each requirement with an ID.
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
-| `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
+| `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the expansion of included files, the reading of included files with a fake of the editor API and of the file system, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
 | `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
 | `stdlib/` | The libraries of the standard library of PlantUML that the package contains: `c4.min.js`, the library C4, as the PlantUML project builds it for the engine. The section [Engine](#engine) explains it. |
 | `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
@@ -175,6 +177,19 @@ the engine:
 - check the versions in the notices against the headers of `viz-global.js`,
   and the version of TeaVM against `gradle/libs.versions.toml` of PlantUML at
   that commit.
+
+## Included files
+
+The engine of the previews cannot read files
+([R-GEN-008](docs/requirements.md#r-gen-008)). The extension reads the
+included files, and the previews put their text into the copy of the diagram
+text that the engine renders:
+
+- `src/diagram/includes.ts` expands the include lines of a diagram with the rules of the preprocessor of PlantUML: the path relative to the including file, the selection of a diagram (`!1`, `!MY_ID`) or of a part (`!includesub parts.puml!PART`), the comments, the YAML header of a diagram, and the limits of 32 levels and 100,000 lines. For each line it keeps the line and the file that the line comes from, for the messages of errors. The extension runs it to find the files that a diagram needs, and the previews run it to expand the text.
+- `src/includeFiles.ts` reads the files, only in the workspace folders and in the folder of the document, as the Markdown preview does for images. It reads a file of the disk at once with the file system of Node.js: the Markdown preview renders a document in one step and renders it again only with a new page (`markdown.preview.refresh`), so the files must be there for the first rendering. A file of another file system, such as a version in Git (`git:`) or a file of a virtual workspace, it reads through `vscode.workspace.fs`; the previews render again when it has read the file. It watches the files of the disk and uses their saved text, so that typing in an included file does not load the Markdown preview again with each key. The Markdown previews and the previews of PlantUML files have a reader each, so that a change of a file refreshes only the previews of the kind that include it.
+- The Markdown plugin writes the files of a block as JSON into the attribute `data-plantuml-includes`; the previews of PlantUML files receive them with each update.
+- The engine fails at a local `!include` line with the message "cannot include …" and ignores a line `!includesub`. A file that the extension cannot include therefore keeps its line, as an `!include` line, so that the engine fails at that line; the preview shows the message of the extension there instead of the message of the engine.
+- The rendered diff of Markdown renders a side with changes from its text with the marks of the changes, without naming its document (`currentDocument`). The plugin gives the callbacks the Markdown text of the rendering, and the extension takes the open Markdown document with the same text without the marks.
 
 ## Markdown preview
 

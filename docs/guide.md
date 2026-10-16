@@ -27,6 +27,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [Formatting](#formatting) | yes | yes | in development | [R-MD-005](requirements.md#r-md-005), [R-PUML-007](requirements.md#r-puml-007) |
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | in development | [R-MD-006](requirements.md#r-md-006) |
 | [UML notation](#uml-notation) | yes | yes | in development | [R-GEN-007](requirements.md#r-gen-007) |
+| [Included files](#included-files) | yes | yes | in development | [R-GEN-008](requirements.md#r-gen-008) |
 
 ## How the extension renders
 
@@ -41,9 +42,8 @@ and also Gantt charts, mind maps, JSON and YAML data, and wireframes. The
 themes of PlantUML (`!theme`), the emoji and the Open Iconic icons are part of
 the engine and work offline.
 
-The engine does not contain the standard library of PlantUML, for example
-`!include <C4/C4_Context>` or the AWS and Azure icons. How the extension
-handles these includes is decided in step 2 of the plan.
+A diagram can include other files. The section
+[Included files](#included-files) explains it.
 
 The extension only shows diagrams. It does not export a diagram to a file, in
 no format.
@@ -55,6 +55,47 @@ text in its place. The previews keep the pictures of the 50 most recently
 rendered diagrams in the storage that VS Code keeps for its previews on your
 computer. A preview that opens again shows these diagrams at once, also after
 a restart of VS Code.
+
+### Included files
+
+A diagram can include files of your workspace with `!include`,
+`!include_many`, `!include_once` and `!includesub`, as in PlantUML:
+
+```plantuml
+@startuml
+!include ../styles/common.puml
+!includesub parts.puml!ENGINE
+class Car
+@enduml
+```
+
+- A relative path starts at the folder of the Markdown or PlantUML file. In
+  an included file, it starts at the folder of that file.
+- `!include parts.puml!1` includes the second diagram of the file, and
+  `!include parts.puml!MY_ID` the diagram that starts with
+  `@startuml(id=MY_ID)`. Without a selection, the first diagram of the file is
+  included, or the whole file when it has no `@start` line.
+- The extension reads files only in the workspace folders and in the folder of
+  the document, up to 1 MB per file.
+- The previews use the saved file. When you save, create or delete an included
+  file, the previews that include it render again; the Markdown preview loads
+  its page again for this.
+- In the [rendered Git diff](#rendered-git-diff), the old version includes the
+  files of the same Git version.
+- The extension reads no file from the internet: an include of an address
+  such as `https://…` shows a message. It also does not read a path with a
+  variable or a function (`$` or `%`).
+
+A problem with an included file shows as a message at the line of the include,
+for example "Line 1: The file missing.puml does not exist.". An error inside an
+included file names the line of the include and the line in the included
+file, for example
+"Line 2 (included file ../styles/broken.puml, line 2): Syntax Error?".
+
+`!include <C4/C4_Context>` and the other lines with `<…>` include a library
+of the standard library of PlantUML, not a file. The extension contains the
+library C4. It does not contain the other libraries, for example the AWS and
+Azure icons, and shows a message at the line of such an include.
 
 ## Markdown files
 

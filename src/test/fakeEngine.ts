@@ -16,20 +16,35 @@ import { Engine } from '../preview/renderer';
 export const escapeXml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
- * errorPicture returns the picture of the engine for an error in the first line that contains `wrong`: the version,
- * the number of the line among the lines that the engine received, those lines up to the error, and the message.
+ * localInclude matches a line that includes a file by its path, which the engine cannot read, with the path.
+ */
+const localInclude = /^\s*!include\S*\s+([^<\s].*)$/;
+
+/**
+ * failsAt tells whether the engine fails at a line: a line that contains `wrong`, and a line that includes a file
+ * by its path.
+ * @param line - The line.
+ */
+const failsAt = (line: string): boolean => line.includes('wrong') || localInclude.test(line);
+
+/**
+ * errorPicture returns the picture of the engine for an error in the first line that contains `wrong` or includes a
+ * file by its path: the version, the number of the line among the lines that the engine received, those lines up to
+ * the error, and the message.
  * @param lines - The lines that the engine received.
  */
 export function errorPicture(lines: readonly string[]): string {
-  const line = lines.findIndex((text) => text.includes('wrong')) + 1;
-  const texts = ['PlantUML version 1.2026.8', `[From textarea (line ${line}) ]`, ' ', ...lines.slice(0, line), ' Syntax Error? (Assumed diagram type: class)'];
+  const line = lines.findIndex(failsAt) + 1;
+  const path = localInclude.exec(lines[line - 1])?.[1];
+  const message = path === undefined ? ' Syntax Error? (Assumed diagram type: class)' : ` cannot include ${path}`;
+  const texts = ['PlantUML version 1.2026.8', `[From textarea (line ${line}) ]`, ' ', ...lines.slice(0, line), message];
   return `<svg>${texts.map((text) => `<text>${escapeXml(text)}</text>`).join('')}</svg>`;
 }
 
 /**
  * FakeEngine records its calls and answers each call after a turn of the event loop: with an error for a text with
- * the line `fail`, with the error picture for a text with a line that contains `wrong`, and with an image of the
- * lines else, with the title of a line `title …`. It holds the answer to a text with the line `slow` until the test
+ * the line `fail`, with the error picture for a text with a line that contains `wrong` or includes a file by its
+ * path, as the engine cannot read files, and with an image of the lines else, with the title of a line `title …`. It holds the answer to a text with the line `slow` until the test
  * releases it.
  */
 export class FakeEngine implements Engine {
@@ -52,7 +67,7 @@ export class FakeEngine implements Engine {
       const title = lines.find((line) => line.startsWith('title '))?.slice('title '.length);
       if (lines.includes('fail')) {
         onError('Syntax error');
-      } else if (lines.some((line) => line.includes('wrong'))) {
+      } else if (lines.some(failsAt)) {
         onSuccess(errorPicture(lines));
       } else {
         const titleGroup = title ? `<g class="title">${title.split(' ').map((word) => `<text>${word}</text>`).join('')}</g>` : '';

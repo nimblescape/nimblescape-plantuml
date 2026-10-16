@@ -25,6 +25,13 @@
  * by their part names: `diagram`, `pending`, `error`, and `following` for each
  * element after the first.
  *
+ * A block can carry the texts of the files that its diagrams include
+ * ([R-GEN-008](../../docs/requirements.md#r-gen-008)). The renderer puts them
+ * into the copy of each diagram text that the engine renders, and an error in
+ * an included line names the line of the block and the line of the included
+ * file. A block whose included files the extension still reads waits for
+ * them: it keeps what it shows, or shows the note.
+ *
  * The results also stay in the local storage of the preview, which VS Code
  * keeps for all previews of one kind across previews and restarts. So a
  * preview that opens again shows its diagrams at once, without the time that
@@ -40,7 +47,8 @@
 
 import { diagramLines } from '../diagram/diagramLines';
 import { Diagram, diagramsOf } from '../diagram/diagramRanges';
-import { blockClass, contentClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { Expansion, expandWith, IncludedFiles, parseIncludedFiles } from '../diagram/includes';
+import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { parseSettings, Settings } from '../settings';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
@@ -63,7 +71,8 @@ export interface Engine {
 
 /**
  * Result is the outcome of the rendering of one diagram: the SVG text of the diagram, or the message of an error,
- * with the index of the line of the diagram text that the message names, when it names one.
+ * with the index of the line of the diagram text that the message names, when it names one. For a diagram with
+ * included files, the index names a line of the diagram text with the texts of the files.
  */
 export type Result = { svg: string } | { error: string; line?: number };
 
@@ -314,8 +323,48 @@ const pending = '';
 
 /** BlockDiagram is a diagram of a block on the page, with the key of its result. */
 interface BlockDiagram extends Diagram {
-  /** key names the result of the diagram: the theme, the settings and the text of the diagram. */
+  /** text is the text that the engine renders: the diagram text, with the texts of its included files. */
+  text: string;
+  /** key names the result of the diagram: the theme, the settings and the text that the engine renders. */
   key: string;
+  /** expansion holds the places of the lines of a diagram text with include lines. */
+  expansion?: Expansion;
+}
+
+/** Block is a PlantUML block of the page. */
+interface Block {
+  element: HTMLElement;
+  settings: Settings;
+  dark: boolean;
+  diagrams: BlockDiagram[];
+  /** key names what the block shows: the results of its diagrams, and the first line of each diagram in the block. */
+  key: string;
+}
+
+/** ParsedBlock is a block with the attributes of its element that it was read from. */
+interface ParsedBlock {
+  attributes: readonly (string | null)[];
+  dark: boolean;
+  block: Block;
+}
+
+/**
+ * isPending tells whether a diagram waits for included files that the extension still reads.
+ * @param diagram - The diagram.
+ */
+const isPending = (diagram: BlockDiagram): boolean => (diagram.expansion?.pending.length ?? 0) > 0;
+
+/**
+ * blockDiagram returns a diagram of a block, with the texts of its included files.
+ * @param diagram - The diagram.
+ * @param files - The included files of the block, or undefined when the block carries none.
+ * @param settings - The settings of the block.
+ * @param dark - Whether the diagram is for a dark background.
+ */
+function blockDiagram({ text, line }: Diagram, files: IncludedFiles | undefined, settings: Settings, dark: boolean): BlockDiagram {
+  const expansion = expandWith(text, files);
+  const rendered = expansion ? expansion.lines.join('\n') : text;
+  return { text: rendered, line, expansion, key: JSON.stringify([dark, settings, rendered]) };
 }
 
 /**
@@ -331,6 +380,8 @@ export class PreviewRenderer {
   readonly #pending = new Set<string>();
   /** #shown holds for each content element the key of the results that it shows, or `pending` for the note. */
   readonly #shown = new WeakMap<Element, string>();
+  /** #parsed holds each block element as the renderer read it last, so that an unchanged element costs no work. */
+  readonly #parsed = new WeakMap<Element, ParsedBlock>();
   #queue: Promise<void> = Promise.resolve();
   /** #engineFree resolves when the engine has ended a rendering that ran past the time limit. */
   #engineFree: Promise<void> = Promise.resolve();
@@ -350,12 +401,20 @@ export class PreviewRenderer {
 
   /**
    * update shows the kept results in every block that does not show them yet, and queues the rendering of the
-   * diagrams without a result. A block shows its results when every diagram of the block has one.
+   * diagrams without a result. A block shows its results when every diagram of the block has one. A block whose
+   * included files the extension still reads keeps what it shows, or shows the note.
    */
   update(): void {
     for (const { element, settings, dark, diagrams, key } of this.#blocks()) {
       const content = contentOf(element);
       if (this.#shown.get(content) === key) {
+        continue;
+      }
+      if (diagrams.some(isPending)) {
+        if (!this.#shown.has(content)) {
+          showPending(content);
+          this.#shown.set(content, pending);
+        }
         continue;
       }
       const results = diagrams.map((diagram) => this.#results.get(diagram.key) ?? this.#fromStorage(diagram, settings, dark));
@@ -445,17 +504,23 @@ export class PreviewRenderer {
   /**
    * #blocks returns the PlantUML blocks of the page, each with its settings, the theme, its diagrams, and the key of
    * what it shows: the results of its diagrams, and the first line of each diagram in the block, which the message of
-   * an error names.
+   * an error names. It reads a block element again only when its attributes or the theme changed.
    */
-  #blocks() {
+  #blocks(): Block[] {
     const dark = this.#isDark();
     return [...this.#root.querySelectorAll<HTMLElement>(`.${blockClass}[${sourceAttribute}]`)].map((element) => {
-      const settings = parseSettings(element.getAttribute(settingsAttribute));
-      const diagrams: BlockDiagram[] = diagramsOf(element.getAttribute(sourceAttribute) ?? '').map((diagram) => ({
-        ...diagram,
-        key: JSON.stringify([dark, settings, diagram.text]),
-      }));
-      return { element, settings, dark, diagrams, key: JSON.stringify(diagrams.map(({ key, line }) => [key, line])) };
+      const attributes = [sourceAttribute, settingsAttribute, includesAttribute].map((name) => element.getAttribute(name));
+      const parsed = this.#parsed.get(element);
+      if (parsed && parsed.dark === dark && parsed.attributes.every((value, index) => value === attributes[index])) {
+        return parsed.block;
+      }
+      const [source, settingsText, includesText] = attributes;
+      const settings = parseSettings(settingsText);
+      const files = parseIncludedFiles(includesText);
+      const diagrams = diagramsOf(source ?? '').map((diagram) => blockDiagram(diagram, files, settings, dark));
+      const block = { element, settings, dark, diagrams, key: JSON.stringify(diagrams.map(({ key, line }) => [key, line])) };
+      this.#parsed.set(element, { attributes, dark, block });
+      return block;
     });
   }
 
@@ -570,6 +635,23 @@ function diagramLabel(svg: Element): string {
 }
 
 /**
+ * errorText returns the message of the error of a diagram, with the number of the line of the block text that it
+ * names. For a line of an included file, that is the include line, and the message also names the file and its line.
+ * For an include line that the extension could not resolve, the message is the problem of the line, in place of the
+ * message of the engine.
+ * @param diagram - The diagram.
+ * @param result - The error of the diagram.
+ */
+function errorText(diagram: BlockDiagram, { error, line }: { error: string; line?: number }): string {
+  if (line === undefined) {
+    return error;
+  }
+  const origin = diagram.expansion?.origins[line] ?? { line };
+  const place = origin.file === undefined ? '' : ` (included file ${origin.file}, line ${(origin.fileLine ?? 0) + 1})`;
+  return `Line ${diagram.line + origin.line + 1}${place}: ${diagram.expansion?.problems.get(line) ?? error}`;
+}
+
+/**
  * show shows the results of the diagrams of a block in its shadow root: each diagram as an image, or the message
  * of its error with the number of the line of the block text that the message names. Below the messages, the shadow
  * root shows the text of the block from the content element. Other children of the block, such as the bar that the
@@ -579,7 +661,7 @@ function diagramLabel(svg: Element): string {
  * @param diagrams - The diagrams of the block.
  * @param results - The result of each diagram.
  */
-function show(content: HTMLElement, diagrams: readonly Diagram[], results: readonly Result[]): void {
+function show(content: HTMLElement, diagrams: readonly BlockDiagram[], results: readonly Result[]): void {
   const page = content.ownerDocument;
   const message = (text: string): Element => {
     const element = page.createElement('pre');
@@ -589,7 +671,7 @@ function show(content: HTMLElement, diagrams: readonly Diagram[], results: reado
   };
   const nodes = results.map((result, index): Element => {
     if ('error' in result) {
-      return message(result.line === undefined ? result.error : `Line ${diagrams[index].line + result.line + 1}: ${result.error}`);
+      return message(errorText(diagrams[index], result));
     }
     const template = page.createElement('template');
     template.innerHTML = result.svg;

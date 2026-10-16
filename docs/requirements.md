@@ -16,8 +16,8 @@ comes first, the support of PlantUML files second.
 | Step | Content | Requirements |
 | --- | --- | --- |
 | 1 | Setup: manifest, build, the bundled engine, CI, release workflows, license notices | [R-GEN-001](#r-gen-001), [R-GEN-004](#r-gen-004), [R-GEN-005](#r-gen-005), [R-GEN-006](#r-gen-006), [R-PUML-001](#r-puml-001) |
-| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007) |
-| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-007](#r-puml-007), [R-GEN-007](#r-gen-007) |
+| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007), [R-GEN-008](#r-gen-008) |
+| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-007](#r-puml-007), [R-GEN-007](#r-gen-007), [R-GEN-008](#r-gen-008) |
 | 4 | Tests, README, icon, and a release workflow that is ready but not run | all |
 
 ## General
@@ -107,6 +107,37 @@ no modifier for a member that has a modifier of PlantUML already.
 
 The setting applies to the PlantUML blocks of Markdown files and to PlantUML
 files.
+
+### R-GEN-008
+
+**Included files.** A diagram can include files with the lines `!include`,
+`!include_many`, `!include_once` and `!includesub` of PlantUML. The engine
+cannot read files, so the extension reads each included file and puts its
+text into the copy of the diagram text that the engine renders. The file of
+the diagram stays as it is. The rules are those of PlantUML:
+
+- A relative path starts at the folder of the Markdown or PlantUML file; in an
+  included file, it starts at the folder of that file.
+- A path can select a diagram of the file by its number or by its id
+  (`!include parts.puml!1`, `!include parts.puml!MY_ID`), and `!includesub`
+  selects the lines between `!startsub` and `!endsub` of a name. Without a
+  selection, the first diagram of the file is included, or the whole file
+  when it has no `@start` line.
+
+The extension reads files only in the workspace folders and in the folder of
+the document, as the Markdown preview does for images, and only files up to
+1 MB. It reads the saved file: when an included file is saved, created or
+deleted, the previews that include it render again. In the rendered Git diff,
+the old version includes the files of the same Git version. The extension
+reads no file from the internet and no path with a variable or a function
+(`$` or `%`). The libraries of the standard library of PlantUML
+(`!include <…>`) are not files; the engine handles them.
+
+A problem with an included file shows as a message at the line of the
+include, for example a missing file, a folder, a file that is too large, a
+file outside these folders, or a file that includes itself. An error inside an
+included file names the line of the include and the line in the included
+file.
 
 ## Markdown
 

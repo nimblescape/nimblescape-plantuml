@@ -7,20 +7,23 @@
  * `plantuml`, its editing rules, the grammars, the settings, and the script
  * and the styles of the Markdown preview without code. Activation returns the
  * markdown-it plugin, which the Markdown extension of VS Code reads from the
- * export `extendMarkdownIt` when it builds its preview, refreshes the Markdown
- * previews when a setting of the extension changes, registers the previews
- * of PlantUML files (`src/pumlPreviews.ts`), and registers the code completion
- * and the formatting for `.puml` files and for the PlantUML blocks of
- * Markdown files, with the command "Format PlantUML Blocks" and the formatting
- * of the blocks on save for Markdown files that another extension formats.
+ * export `extendMarkdownIt` when it builds its preview, reads the files that
+ * the diagrams include (`src/includeFiles.ts`), refreshes the previews when a
+ * setting of the extension or an included file changes, registers the
+ * previews of PlantUML files (`src/pumlPreviews.ts`), and registers the code
+ * completion and the formatting for `.puml` files and for the PlantUML blocks
+ * of Markdown files, with the command "Format PlantUML Blocks" and the
+ * formatting of the blocks on save for Markdown files that another extension
+ * formats.
  */
 
 import type MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
+import { IncludeFiles } from './includeFiles';
 import { Completion, complete } from './language/completion';
 import { formatLines } from './language/formatting';
 import { Block, plantUmlBlocks } from './markdown/blocks';
-import { extendMarkdownIt } from './markdown/markdownIt';
+import { extendMarkdownIt, Rendering } from './markdown/markdownIt';
 import { PumlPreviews } from './pumlPreviews';
 import { defaultSettings, Settings, settingsSection } from './settings';
 
@@ -39,14 +42,37 @@ export function readSettings(document: vscode.Uri | undefined): Settings {
   return { umlNotation: configuration.get<boolean>('umlNotation', defaultSettings.umlNotation) };
 }
 
+/** foundDocuments holds the document of each rendering of a text without its document, by its environment. */
+const foundDocuments = new WeakMap<object, vscode.Uri | undefined>();
+
 /**
- * documentOf returns the document that the Markdown preview renders, from the environment of a rendering. The
- * preview names it in `currentDocument`; a rendering of a text without a document has none.
- * @param env - The environment of the rendering.
+ * documentOf returns the document that the Markdown preview renders. The preview names it in the environment of the
+ * rendering (`currentDocument`). The rendered diff renders a side with changes as a text with marks of the changes,
+ * without its document; the open Markdown document with this text, without the marks, is then the document. A
+ * rendering of another text has no document.
+ * @param rendering - The rendering.
  */
-function documentOf(env: unknown): vscode.Uri | undefined {
+function documentOf(rendering: Rendering): vscode.Uri | undefined {
+  const { env } = rendering;
   const document = (env as { currentDocument?: unknown } | undefined)?.currentDocument;
-  return typeof document === 'object' && document !== null && 'scheme' in document ? (document as vscode.Uri) : undefined;
+  if (typeof document === 'object' && document !== null && 'scheme' in document) {
+    return document as vscode.Uri;
+  }
+  if (typeof env !== 'object' || env === null) {
+    return undefined;
+  }
+  // The plugin asks for the document of each block of a rendering, and the search runs once for the rendering.
+  if (!foundDocuments.has(env)) {
+    const text = rendering.markdown();
+    const found =
+      text === undefined
+        ? undefined
+        : vscode.workspace.textDocuments.find(
+            (candidate) => candidate.languageId === 'markdown' && candidate.getText().replace(/\r\n?/g, '\n') === text,
+          );
+    foundDocuments.set(env, found?.uri);
+  }
+  return foundDocuments.get(env);
 }
 
 /**
@@ -320,9 +346,9 @@ function formatBlocksOnSave(event: vscode.TextDocumentWillSaveEvent): void {
 const markdownExtension = 'vscode.markdown-language-features';
 
 /**
- * refreshMarkdownPreviews renders the Markdown previews again, so that they use a changed setting of the extension.
- * While the Markdown extension is not active, no Markdown preview is open, and the command would only start that
- * extension, so nothing happens then.
+ * refreshMarkdownPreviews renders the Markdown previews again, so that they use a changed setting of the extension or
+ * a changed included file. While the Markdown extension is not active, no Markdown preview is open, and the command
+ * would only start that extension, so nothing happens then.
  */
 function refreshMarkdownPreviews(): void {
   if (vscode.extensions.getExtension(markdownExtension)?.isActive) {
@@ -336,8 +362,14 @@ function refreshMarkdownPreviews(): void {
  * @returns The export of the extension, which the Markdown extension of VS Code reads.
  */
 export function activate(context: vscode.ExtensionContext): Api {
-  const previews = new PumlPreviews(context.extensionUri, readSettings);
+  // Each kind of preview has a reader of its own, so that a change of an included file refreshes only the kind that
+  // includes it: the Markdown preview renders again only as a whole, with a new page.
+  const markdownIncludes = new IncludeFiles();
+  const pumlIncludes = new IncludeFiles();
+  const previews = new PumlPreviews(context.extensionUri, readSettings, (document, text) => pumlIncludes.load(document, text));
   context.subscriptions.push(
+    markdownIncludes,
+    pumlIncludes,
     // The Markdown preview renders again only when its document or its own settings change.
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration(settingsSection)) {
@@ -345,6 +377,8 @@ export function activate(context: vscode.ExtensionContext): Api {
         previews.refreshAll();
       }
     }),
+    markdownIncludes.onDidChange(refreshMarkdownPreviews),
+    pumlIncludes.onDidChange(() => previews.refreshAll()),
     ...previews.register(),
     vscode.languages.registerCompletionItemProvider('plantuml', pumlCompletion, ...triggerCharacters),
     vscode.languages.registerCompletionItemProvider('markdown', markdownCompletion, ...triggerCharacters),
@@ -356,7 +390,14 @@ export function activate(context: vscode.ExtensionContext): Api {
     vscode.commands.registerCommand(formatBlocksCommand, formatBlocks),
     vscode.workspace.onWillSaveTextDocument(formatBlocksOnSave),
   );
-  return { extendMarkdownIt: (md) => extendMarkdownIt(md, (env) => readSettings(documentOf(env))) };
+  return {
+    extendMarkdownIt: (md) =>
+      extendMarkdownIt(
+        md,
+        (rendering) => readSettings(documentOf(rendering)),
+        (rendering, source) => markdownIncludes.filesOf(documentOf(rendering), source),
+      ),
+  };
 }
 
 /** deactivate stops the extension. VS Code disposes the registrations of the context. */

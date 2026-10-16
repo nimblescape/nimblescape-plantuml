@@ -13,8 +13,9 @@
  * its options `dark` and `maxSvgSize`, every diagram type of
  * `src/language/keywords.ts`, the picture of an error that `errorOf` reads,
  * the group of the title that the label of an image reads, the library C4 of
- * the package, and the Graphviz layout of Viz.js. One test renders a Markdown
- * page with the renderer of the previews.
+ * the package, the failure at an include line of a file, which the engine
+ * cannot read, and the Graphviz layout of Viz.js. Two tests render a Markdown
+ * page with the renderer of the previews, one with included files.
  *
  * The tests run the engine in happy-dom, which has no fonts: a text measures
  * a fixed width for each character.
@@ -26,6 +27,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as vm from 'node:vm';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { diagramLines } from './diagram/diagramLines';
+import { mayInclude } from './diagram/includes';
 import { diagramTypes } from './language/keywords';
 import { contentClass } from './markdown/markdownIt';
 import { Engine, engineLoader, errorOf, PreviewRenderer } from './preview/renderer';
@@ -210,6 +212,32 @@ describe('the engine with the loader of the previews', () => {
     const [first, second] = [...document.querySelectorAll(`.${contentClass}`)].map((content) => content.shadowRoot);
     expect(first?.querySelector('svg')?.getAttribute('aria-label')).toBe('PlantUML diagram: Greeting');
     expect(second?.querySelector('[part~="error"]')?.textContent).toBe('Line 2: Syntax Error? (Assumed diagram type: sequence)');
+  });
+
+  test('renders the included files of the blocks of a Markdown page, and fails at an include line that it cannot resolve', async () => {
+    const files = {
+      'styles.puml': { text: '@startuml\ntitle Greeting\n@enduml' },
+      'broken.puml': { text: 'Alice -> Bob : hello\nthis is wrong' },
+      'missing.puml': { problem: 'The file missing.puml does not exist.' },
+      'parts.puml': { text: '!startsub OTHER\nBob -> Alice\n!endsub' },
+    };
+    const blocks = [
+      fence('!include styles.puml\nAlice -> Bob : hello'),
+      fence('Alice -> Bob : hello\n!include broken.puml'),
+      fence('!include missing.puml\nAlice -> Bob : hello'),
+      fence('Alice -> Bob : hello\n!includesub parts.puml!PART'),
+    ];
+    document.body.innerHTML = renderMarkdown(blocks.join('\n'), defaultSettings, (source) => (mayInclude(source) ? files : undefined));
+    const renderer = new PreviewRenderer(document.body, loadEngine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    const roots = [...document.querySelectorAll(`.${contentClass}`)].map((content) => content.shadowRoot);
+    expect(roots[0]?.querySelector('svg')?.getAttribute('aria-label')).toBe('PlantUML diagram: Greeting');
+    expect(roots.slice(1).map((root) => root?.querySelector('[part~="error"]')?.textContent)).toEqual([
+      'Line 2 (included file broken.puml, line 2): Syntax Error? (Assumed diagram type: sequence)',
+      'Line 1: The file missing.puml does not exist.',
+      'Line 2: The file parts.puml has no lines between !startsub PART and !endsub.',
+    ]);
   });
 });
 

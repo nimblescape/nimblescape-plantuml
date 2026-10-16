@@ -8,12 +8,13 @@
  * These tests check the page of the preview of PlantUML files (R-PUML-002,
  * R-PUML-003) and of their rendered diff (R-PUML-004): the split of a file
  * into its diagrams, the pairs of diagrams of two versions, the blocks and
- * rows that the page writes and reuses, the labels of the changes, the text
- * of a diagram below an error, and the security policy of the page.
+ * rows that the page writes and reuses, the labels of the changes, the
+ * included files of the diagrams (R-GEN-008), the text of a diagram below an
+ * error, and the security policy of the page.
  */
 
 import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
 import { FakeEngine } from '../test/fakeEngine';
 import { diagramSources, diffRows, emptyClass, labelClass, rowClass, showDiagrams, showDiff, sideClass } from './pumlPreview';
 import { previewHtml } from './previewHtml';
@@ -61,6 +62,26 @@ describe('showDiagrams', () => {
     expect(content.querySelector(`:scope > .${textClass}`)?.textContent).toBe('@startuml\nfail\n@enduml');
   });
 
+  test('writes the included files into each block, and renders each diagram with them', async () => {
+    const container = document.createElement('main');
+    const includes = { 'styles.puml': { text: 'skinparam a 1' } };
+    const text = '@startuml\n!include styles.puml\nA\n@enduml\n@startuml\nB\n@enduml';
+    showDiagrams(container, { type: 'update', text, includes, settings: { umlNotation: false } });
+    const blocks = [...container.children];
+    expect(blocks.map((block) => block.getAttribute(includesAttribute))).toEqual([JSON.stringify(includes), JSON.stringify(includes)]);
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(container, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls.map((call) => call.lines)).toEqual([
+      ['@startuml', 'skinparam a 1', 'A', '@enduml'],
+      ['@startuml', 'B', '@enduml'],
+    ]);
+
+    showDiagrams(container, { type: 'update', text, settings: { umlNotation: false } });
+    expect(blocks.map((block) => block.hasAttribute(includesAttribute))).toEqual([false, false]);
+  });
+
   test('shows a message for a file without a diagram', () => {
     const container = document.createElement('main');
     showDiagrams(container, { type: 'update', text: '', settings: { umlNotation: true } });
@@ -89,6 +110,11 @@ describe('diffRows', () => {
       { original: 'A', modified: 'A', change: 'unchanged' },
     ]);
     expect(diffRows([], [])).toEqual([]);
+  });
+
+  test('pairs the diagrams by a key', () => {
+    const rows = diffRows([{ name: 'A', key: 1 }], [{ name: 'B', key: 1 }], (item) => item.key);
+    expect(rows).toEqual([{ original: { name: 'A', key: 1 }, modified: { name: 'B', key: 1 }, change: 'unchanged' }]);
   });
 });
 
@@ -126,6 +152,25 @@ describe('showDiff', () => {
     showDiff(container, message('', ''));
     expect(container.querySelector(`.${rowClass}`)).toBeNull();
     expect(container.querySelector(`.${emptyClass}`)).not.toBeNull();
+  });
+
+  test('marks a diagram whose included file changed as changed, and gives each side its included files', () => {
+    const container = document.createElement('main');
+    const [a, b] = ['@startuml\n!include styles.puml\nA\n@enduml', '@startuml\nB\n@enduml'];
+    const [originalIncludes, includes] = [{ 'styles.puml': { text: 'old' } }, { 'styles.puml': { text: 'new' } }];
+    const text = [a, b].join('\n');
+    showDiff(container, { type: 'update', original: text, text, originalIncludes, includes, settings: { umlNotation: true } });
+    expect(sides(container)).toEqual([
+      [`${rowClass} ${rowClass}-modified`, `Changed: ${a}`, `Changed: ${a}`],
+      [`${rowClass} ${rowClass}-unchanged`, b, b],
+    ]);
+    const [left, right] = [...container.querySelectorAll(`.${rowClass}`)[0].querySelectorAll(`.${blockClass}`)];
+    expect([left.getAttribute(includesAttribute), right.getAttribute(includesAttribute)]).toEqual([
+      JSON.stringify(originalIncludes),
+      JSON.stringify(includes),
+    ]);
+    showDiff(container, { type: 'update', original: text, text, originalIncludes: includes, includes, settings: { umlNotation: true } });
+    expect(sides(container).map(([row]) => row)).toEqual([`${rowClass} ${rowClass}-unchanged`, `${rowClass} ${rowClass}-unchanged`]);
   });
 });
 

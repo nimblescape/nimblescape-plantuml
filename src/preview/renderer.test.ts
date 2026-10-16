@@ -10,14 +10,16 @@
  * the rendering of one diagram at a time, every diagram of a block, the
  * results in memory and in the local storage, the skip of a text that changed
  * again, the new rendering after a change of the theme or of the settings, the
- * display of errors with the line of the text, the labels for screen readers,
- * that the elements of the page stay as the page wrote them, the time limit,
- * and the load of the engine. `src/engine.test.ts` runs the real engine.
+ * display of errors with the line of the text, the included files of a block
+ * (R-GEN-008), the labels for screen readers, that the elements of the page
+ * stay as the page wrote them, the time limit, and the load of the engine.
+ * `src/engine.test.ts` runs the real engine.
  */
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { IncludedFiles, mayInclude } from '../diagram/includes';
 import { umlCommands } from '../diagram/umlNotation';
-import { blockClass, contentClass, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesAttribute, textClass } from '../markdown/markdownIt';
 import { defaultSettings } from '../settings';
 import { errorPicture, escapeXml, FakeEngine } from '../test/fakeEngine';
 import { fence, renderMarkdown } from '../test/markdownPreview';
@@ -48,6 +50,18 @@ const shown = (root: ParentNode): string[][] =>
       return child.localName === 'slot' ? 'text' : `${child.getAttribute('part')!.split(' ')[0]} ${child.textContent}`;
     }),
   );
+
+/**
+ * includingPage returns an element with the HTML of a Markdown text whose blocks include files, as the Markdown
+ * preview writes it with the included files that the extension read.
+ * @param text - The Markdown text.
+ * @param files - The included files of each block whose text includes files.
+ */
+function includingPage(text: string, files: IncludedFiles): HTMLElement {
+  const root = document.createElement('div');
+  root.innerHTML = renderMarkdown(text, defaultSettings, (source) => (mayInclude(source) ? files : undefined));
+  return root;
+}
 
 /** lines returns the lines that the engine renders for a body with the default settings, joined with `|`. */
 const lines = (...body: string[]) => ['@startuml', ...umlCommands, ...body, '@enduml'].join('|');
@@ -391,6 +405,80 @@ describe('PreviewRenderer', () => {
     await vi.advanceTimersByTimeAsync(60_001);
     await renderer.whenIdle();
     expect(shown(root)[1]).toEqual([`svg ${lines('B')}`]);
+  });
+});
+
+describe('PreviewRenderer with included files', () => {
+  test('renders the text of a block with the texts of its included files', async () => {
+    const root = includingPage(fence('!include styles.puml\nA'), { 'styles.puml': { text: 'skinparam a 1\nskinparam b 2' } });
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(engine.calls.map((call) => call.lines)).toEqual([['@startuml', ...umlCommands, 'skinparam a 1', 'skinparam b 2', 'A', '@enduml']]);
+    expect(shown(root)).toEqual([[`svg ${lines('skinparam a 1', 'skinparam b 2', 'A')}`]]);
+  });
+
+  test('names the include line and the line of the included file in the message of an error in the file', async () => {
+    const root = includingPage(fence('A\n!include lib/styles.puml'), { 'lib/styles.puml': { text: 'skinparam a 1\nwrong' } });
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([['error Line 2 (included file lib/styles.puml, line 2): Syntax Error? (Assumed diagram type: class)', 'text']]);
+  });
+
+  test('shows the problem of an include line in place of the message of the engine, also without included files', async () => {
+    const root = includingPage(fence('A\n!include missing.puml') + fence('B\n!includesub parts.puml!PART'), {
+      'missing.puml': { problem: 'The file missing.puml does not exist.' },
+      'parts.puml': { text: 'C' },
+    });
+    root.innerHTML += renderMarkdown(fence('!include other.puml'));
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([
+      ['error Line 2: The file missing.puml does not exist.', 'text'],
+      ['error Line 2: The file parts.puml has no lines between !startsub PART and !endsub.', 'text'],
+      ['error Line 1: The preview did not receive the included file other.puml.', 'text'],
+    ]);
+  });
+
+  test('waits for the included files that the extension still reads, and renders when they come', async () => {
+    const root = includingPage(fence('A'), {});
+    const engine = new FakeEngine();
+    const renderer = new PreviewRenderer(root, async () => engine, () => false);
+    renderer.update();
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
+
+    // A new include line names a file that the extension reads now: the block keeps its diagram.
+    const block = root.querySelector<HTMLElement>(`.${blockClass}`)!;
+    const replace = (files: IncludedFiles) => {
+      const next = includingPage(fence('A\n!include b.puml'), files).querySelector(`.${blockClass}`)!;
+      next.getAttributeNames().forEach((name) => block.setAttribute(name, next.getAttribute(name)!));
+      renderer.update();
+    };
+    replace({});
+    await renderer.whenIdle();
+    expect(engine.calls).toHaveLength(1);
+    expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
+    replace({ 'b.puml': { text: 'B' } });
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([[`svg ${lines('A', 'B')}`]]);
+
+    // A change of the included file renders the block again.
+    replace({ 'b.puml': { text: 'B2' } });
+    await renderer.whenIdle();
+    expect(shown(root)).toEqual([[`svg ${lines('A', 'B2')}`]]);
+    expect(engine.calls).toHaveLength(3);
+  });
+
+  test('shows the note in a new block whose included files the extension still reads', () => {
+    const root = includingPage(fence('!include a.puml'), {});
+    expect(root.querySelector(`.${blockClass}`)?.getAttribute(includesAttribute)).toBe('{}');
+    const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
+    renderer.update();
+    expect(shown(root)).toEqual([['pending Rendering the diagram…']]);
   });
 });
 

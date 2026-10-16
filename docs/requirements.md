@@ -64,9 +64,14 @@ official product of the PlantUML project.
 ### R-GEN-006
 
 **Release.** The publisher is `nimblescape`. The release uses the same
-workflows as the other extensions of the publisher (`release.yml`,
-`marketplace-identity.yml`). Nobody publishes the extension until Hannes asks
-for it.
+workflows and checks as the other extensions of the publisher (`release.yml`,
+`release-dry-run.yml`, `marketplace-identity.yml`,
+`scripts/release-checks.mjs`) and follows the
+[release rules](../CONTRIBUTING.md#release-rules) of the publisher: one
+extension ID for good, no deletion, only versions that change something for
+the users, a dry run before a change of the release process reaches `main`,
+and publishing only from GitHub Actions with Microsoft Entra ID. Nobody
+publishes the extension until Hannes asks for it.
 
 ### R-GEN-007
 

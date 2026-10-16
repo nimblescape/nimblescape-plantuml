@@ -8,11 +8,13 @@
  * (R-PUML-002), the messages to the page while the user types (R-PUML-002,
  * R-PUML-003), the preview to the side and the file that it shows
  * (R-PUML-003), the switch between a diff and its rendered diff
- * (R-PUML-004), the restore after a restart, and the documents that VS Code
- * closes and opens again.
+ * (R-PUML-004), the included files of the diagrams (R-GEN-008), the restore
+ * after a restart, and the documents that VS Code closes and opens again.
  */
 
 import { beforeEach, expect, test, vi } from 'vitest';
+import { IncludedFiles } from './diagram/includes';
+import type { IncludesLoader } from './pumlPreviews';
 import { defaultSettings } from './settings';
 
 /** FakeUri stands for a vscode.Uri. */
@@ -210,10 +212,13 @@ beforeEach(() => {
   }));
 });
 
-/** previews imports the module with the fake API and returns the previews, with the default settings. */
-const previews = async () => {
+/**
+ * previews imports the module with the fake API and returns the previews, with the default settings.
+ * @param includes - Reads the included files of a text; by default, a text includes none.
+ */
+const previews = async (includes?: IncludesLoader) => {
   const module = await import('./pumlPreviews');
-  const instance = new module.PumlPreviews(new FakeUri('file', '/extension') as never, () => defaultSettings);
+  const instance = new module.PumlPreviews(new FakeUri('file', '/extension') as never, () => defaultSettings, includes);
   instance.register();
   return { module, instance };
 };
@@ -414,6 +419,51 @@ test('a rendered diff and the preview to the side come back after a restart, and
   await instance.deserializeWebviewPanel(second as never, { uri: 'file:/a.puml' });
   expect(side.disposed).toBe(true);
   expect(second.disposed).toBe(false);
+});
+
+test('a preview gets the included files of its text, at once when they are read, and else after the reading', async () => {
+  const pending = new Map<string, (files: IncludedFiles) => void>();
+  const { instance } = await previews((uri, text) => {
+    if (!text.includes('!include')) {
+      return undefined;
+    }
+    if (text.includes('read')) {
+      return { 'read.puml': { text: `${uri.toString()} R` } };
+    }
+    return new Promise((resolve) => pending.set(text, resolve));
+  });
+  const document = addDocument('file:/a.puml', '!include read.puml');
+  const panel = new FakePanel('nimblescape.plantuml.preview', 'a.puml', 1);
+  instance.resolveCustomTextEditor(document as never, panel as never);
+  panel.webview.ready();
+  expect(panel.webview.posted).toEqual([
+    { type: 'update', text: '!include read.puml', includes: { 'read.puml': { text: 'file:/a.puml R' } }, settings: defaultSettings, state: { uri: 'file:/a.puml' } },
+  ]);
+
+  // A text whose included files the extension reads comes after the reading, unless a later text came meanwhile.
+  change(document, '!include first.puml');
+  change(document, '!include second.puml');
+  pending.get('!include second.puml')!({ 'second.puml': { text: 'S' } });
+  pending.get('!include first.puml')!({ 'first.puml': { text: 'F' } });
+  await vi.waitFor(() => expect(panel.webview.posted).toHaveLength(2));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(panel.webview.posted.slice(1)).toEqual([
+    { type: 'update', text: '!include second.puml', includes: { 'second.puml': { text: 'S' } }, settings: defaultSettings, state: { uri: 'file:/a.puml' } },
+  ]);
+});
+
+test('a rendered diff gets the included files of each side, read for the document of the side', async () => {
+  const { instance } = await previews((uri, text) => (text.includes('!include') ? { 's.puml': { text: uri.toString() } } : undefined));
+  const original = addDocument('git:/a.puml', '!include s.puml');
+  addDocument('file:/a.puml', '!include s.puml\nA');
+  activeTab = { input: new FakeTabInputTextDiff(original.uri, FakeUri.parse('file:/a.puml')), label: 'a.puml', group: { viewColumn: 1 } };
+  await instance.togglePreview();
+  const [panel] = panels;
+  panel.webview.ready();
+  expect(panel.webview.posted.at(-1)).toMatchObject({
+    includes: { 's.puml': { text: 'file:/a.puml' } },
+    originalIncludes: { 's.puml': { text: 'git:/a.puml' } },
+  });
 });
 
 test('a rendered diff follows its files after VS Code has closed their documents and opened new ones', async () => {

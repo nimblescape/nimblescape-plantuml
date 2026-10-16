@@ -9,13 +9,16 @@
  * ([R-PUML-002](../../docs/requirements.md#r-puml-002),
  * [R-PUML-003](../../docs/requirements.md#r-puml-003)) and of their rendered
  * diff ([R-PUML-004](../../docs/requirements.md#r-puml-004)). The extension
- * sends the text of the file and the settings in a message; the script writes
- * one block for each diagram of the file and renders the blocks with the
- * renderer of `src/preview/renderer.ts`. For a rendered diff, the message also
- * has the original text, and the script writes one row for each diagram: the
- * original diagram on the left, the modified one on the right, with a colored
- * mark and a label (Changed, Added, Removed) on the changed side. The page
- * allows WebAssembly, so the diagrams use the Graphviz layout of Viz.js.
+ * sends the text of the file, the files that its diagrams include
+ * ([R-GEN-008](../../docs/requirements.md#r-gen-008)) and the settings in a
+ * message; the script writes one block for each diagram of the file and
+ * renders the blocks with the renderer of `src/preview/renderer.ts`. For a
+ * rendered diff, the message also has the original text with its included
+ * files, and the script writes one row for each diagram: the original diagram
+ * on the left, the modified one on the right, with a colored mark and a label
+ * (Changed, Added, Removed) on the changed side. A diagram whose included
+ * files changed counts as changed. The page allows WebAssembly, so the
+ * diagrams use the Graphviz layout of Viz.js.
  *
  * The script reuses the blocks from one message to the next, so that the page
  * keeps its scroll position and shows the unchanged diagrams at once while
@@ -23,7 +26,8 @@
  */
 
 import { diagramsOf } from '../diagram/diagramRanges';
-import { blockClass, contentClass, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
+import { expandWith, IncludedFiles } from '../diagram/includes';
+import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
 import { isDefault, Settings } from '../settings';
 import { pageRenderer } from './renderer';
 
@@ -34,6 +38,10 @@ export interface UpdateMessage {
   text: string;
   /** original is the original text of the file in a rendered diff. */
   original?: string;
+  /** includes are the files that the diagrams of the text include, if they include any. */
+  includes?: IncludedFiles;
+  /** originalIncludes are the files that the diagrams of the original text include, if they include any. */
+  originalIncludes?: IncludedFiles;
   /** settings are the settings of the extension for the file. */
   settings: Settings;
   /** state is the state that the page keeps for the extension, for example the address of the file. */
@@ -56,9 +64,9 @@ export const labelClass = `${blockClass}-change`;
 export type Change = 'unchanged' | 'modified' | 'added' | 'removed';
 
 /** DiffRow is a row of a rendered diff: a diagram of the original text, of the modified text, or of both. */
-export interface DiffRow {
-  original?: string;
-  modified?: string;
+export interface DiffRow<Item = string> {
+  original?: Item;
+  modified?: Item;
   change: Change;
 }
 
@@ -80,27 +88,33 @@ export function diagramSources(text: string): string[] {
  * order as modified; the rest are removed from the original or added in the modified version.
  * @param original - The diagrams of the original text.
  * @param modified - The diagrams of the modified text.
+ * @param keyOf - Returns the text that two equal diagrams share; by default, the diagram itself.
  */
-export function diffRows(original: readonly string[], modified: readonly string[]): DiffRow[] {
+export function diffRows<Item = string>(
+  original: readonly Item[],
+  modified: readonly Item[],
+  keyOf: (item: Item) => unknown = (item) => item,
+): DiffRow<Item>[] {
+  const [originalKeys, modifiedKeys] = [original.map(keyOf), modified.map(keyOf)];
+  const equal = (i: number, j: number) => originalKeys[i] === modifiedKeys[j];
   // common[i][j] is the length of the longest common sequence of original.slice(i) and modified.slice(j).
   const common = Array.from({ length: original.length + 1 }, () => new Array<number>(modified.length + 1).fill(0));
   for (let i = original.length - 1; i >= 0; i--) {
     for (let j = modified.length - 1; j >= 0; j--) {
-      common[i][j] = original[i] === modified[j] ? common[i + 1][j + 1] + 1 : Math.max(common[i + 1][j], common[i][j + 1]);
+      common[i][j] = equal(i, j) ? common[i + 1][j + 1] + 1 : Math.max(common[i + 1][j], common[i][j + 1]);
     }
   }
-  const rows: DiffRow[] = [];
-  let removed: string[] = [];
-  let added: string[] = [];
+  const rows: DiffRow<Item>[] = [];
+  let removed: Item[] = [];
+  let added: Item[] = [];
   const pairChanges = () => {
     for (let index = 0; index < Math.max(removed.length, added.length); index++) {
-      const [before, after] = [removed[index], added[index]];
-      if (before !== undefined && after !== undefined) {
-        rows.push({ original: before, modified: after, change: 'modified' });
-      } else if (before !== undefined) {
-        rows.push({ original: before, change: 'removed' });
+      if (index < removed.length && index < added.length) {
+        rows.push({ original: removed[index], modified: added[index], change: 'modified' });
+      } else if (index < removed.length) {
+        rows.push({ original: removed[index], change: 'removed' });
       } else {
-        rows.push({ modified: after, change: 'added' });
+        rows.push({ modified: added[index], change: 'added' });
       }
     }
     removed = [];
@@ -109,7 +123,7 @@ export function diffRows(original: readonly string[], modified: readonly string[
   let i = 0;
   let j = 0;
   while (i < original.length || j < modified.length) {
-    if (i < original.length && j < modified.length && original[i] === modified[j]) {
+    if (i < original.length && j < modified.length && equal(i, j)) {
       pairChanges();
       rows.push({ original: original[i++], modified: modified[j++], change: 'unchanged' });
     } else if (j === modified.length || (i < original.length && common[i + 1][j] >= common[i][j + 1])) {
@@ -134,19 +148,31 @@ const labels: Readonly<Record<Change, readonly (string | undefined)[]>> = {
 };
 
 /**
- * showBlock writes a diagram and the settings into a block, and the text of the diagram into the element that the
- * renderer shows below the message of an error.
+ * setAttribute sets an attribute of an element, or removes it for undefined.
+ * @param element - The element.
+ * @param name - The name of the attribute.
+ * @param value - The value.
+ */
+function setAttribute(element: HTMLElement, name: string, value: string | undefined): void {
+  if (value === undefined) {
+    element.removeAttribute(name);
+  } else if (element.getAttribute(name) !== value) {
+    element.setAttribute(name, value);
+  }
+}
+
+/**
+ * showBlock writes a diagram, its included files and the settings into a block, and the text of the diagram into
+ * the element that the renderer shows below the message of an error.
  * @param block - The element of the block.
  * @param source - The text of the diagram.
  * @param settings - The settings.
+ * @param includes - The included files of the text of the diagram as JSON text, or undefined for none.
  */
-function showBlock(block: HTMLElement, source: string, settings: Settings): void {
+function showBlock(block: HTMLElement, source: string, settings: Settings, includes: string | undefined): void {
   block.setAttribute(sourceAttribute, source);
-  if (isDefault(settings)) {
-    block.removeAttribute(settingsAttribute);
-  } else {
-    block.setAttribute(settingsAttribute, JSON.stringify(settings));
-  }
+  setAttribute(block, settingsAttribute, isDefault(settings) ? undefined : JSON.stringify(settings));
+  setAttribute(block, includesAttribute, includes);
   const code = block.querySelector(`:scope > .${contentClass} > .${textClass} > code`);
   if (code && code.textContent !== source) {
     code.textContent = source;
@@ -214,6 +240,7 @@ function showEmpty(container: HTMLElement, empty: boolean): void {
  */
 export function showDiagrams(container: HTMLElement, message: UpdateMessage): void {
   const sources = diagramSources(message.text);
+  const includes = message.includes && JSON.stringify(message.includes);
   const blocks = [...container.querySelectorAll<HTMLElement>(`:scope > .${blockClass}`)];
   sources.forEach((source, index) => {
     let block = blocks[index];
@@ -221,22 +248,40 @@ export function showDiagrams(container: HTMLElement, message: UpdateMessage): vo
       block = newBlock(container.ownerDocument);
       container.append(block);
     }
-    showBlock(block, source, message.settings);
+    showBlock(block, source, message.settings, includes);
   });
   blocks.slice(sources.length).forEach((block) => block.remove());
   showEmpty(container, sources.length === 0);
 }
 
+/** DiffDiagram is a diagram of a side of a rendered diff, with the text that the engine renders for it. */
+interface DiffDiagram {
+  source: string;
+  rendered: string;
+}
+
+/**
+ * diffDiagrams returns the diagrams of a side of a rendered diff, each with the text that the engine renders: with
+ * the texts of its included files.
+ * @param text - The text of the side.
+ * @param files - The included files of the side.
+ */
+const diffDiagrams = (text: string, files: IncludedFiles | undefined): DiffDiagram[] =>
+  diagramSources(text).map((source) => ({ source, rendered: expandWith(source, files)?.lines.join('\n') ?? source }));
+
 /**
  * showDiff writes one row for each diagram of a rendered diff into a container, and reuses the rows that exist.
  * The class of a row names its change, a label names the change of each changed side in words, and an empty side
- * has no block.
+ * has no block. Two diagrams are equal when the engine renders the same text for them, with their included files.
  * @param container - The element of the rows.
- * @param message - The message with the original and the modified text and the settings.
+ * @param message - The message with the original and the modified text, their included files and the settings.
  */
 export function showDiff(container: HTMLElement, message: UpdateMessage & { original: string }): void {
   const page = container.ownerDocument;
-  const rows = diffRows(diagramSources(message.original), diagramSources(message.text));
+  const sides = [message.original, message.text];
+  const files = [message.originalIncludes, message.includes];
+  const includes = files.map((side) => side && JSON.stringify(side));
+  const rows = diffRows(diffDiagrams(sides[0], files[0]), diffDiagrams(sides[1], files[1]), (diagram) => diagram.rendered);
   const elements = [...container.querySelectorAll<HTMLElement>(`:scope > .${rowClass}`)];
   rows.forEach((row, index) => {
     let element = elements[index];
@@ -250,11 +295,11 @@ export function showDiff(container: HTMLElement, message: UpdateMessage & { orig
       container.append(element);
     }
     element.className = `${rowClass} ${rowClass}-${row.change}`;
-    [row.original, row.modified].forEach((source, side) => {
+    [row.original, row.modified].forEach((diagram, side) => {
       const cell = element.children[side] as HTMLElement;
       showLabel(cell, labels[row.change][side]);
       let block = cell.querySelector<HTMLElement>(`:scope > .${blockClass}`);
-      if (source === undefined) {
+      if (diagram === undefined) {
         block?.remove();
         return;
       }
@@ -262,7 +307,7 @@ export function showDiff(container: HTMLElement, message: UpdateMessage & { orig
         block = newBlock(page);
         cell.append(block);
       }
-      showBlock(block, source, message.settings);
+      showBlock(block, diagram.source, message.settings, includes[side]);
     });
   });
   elements.slice(rows.length).forEach((element) => element.remove());

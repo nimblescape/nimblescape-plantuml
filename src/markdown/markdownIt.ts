@@ -11,6 +11,10 @@
  * token keeps the output of the preview
  * ([R-MD-006](../../docs/requirements.md#r-md-006)).
  *
+ * The element also carries the texts of the files that the diagrams of the
+ * block include ([R-GEN-008](../../docs/requirements.md#r-gen-008)), which
+ * the extension reads, because the preview script cannot read files.
+ *
  * The element keeps the attributes that the preview gives to the token of the
  * block, among them `data-line` and the class `code-line`. The preview needs
  * them to synchronize the scrolling with the editor and to mark the block in a
@@ -20,14 +24,18 @@
  * First, it inserts empty `span` elements with the attribute `data-diff-start`
  * or `data-diff-end` into the Markdown text around each changed part of a
  * line, before markdown-it renders the text. In a code block these elements
- * are plain text, so the plugin removes them from the diagram text. Second, it
- * adds a bar for a changed block as a child of the element of the block. For
- * this reason, the diagram goes into an inner content element, and the preview
- * script changes only the shadow root of that content element.
+ * are plain text, so the plugin removes them from the diagram text. Such a
+ * text reaches markdown-it without its document, so the plugin also gives the
+ * callbacks the Markdown text of the rendering, by which the extension finds
+ * the document. Second, it adds a bar for a changed block as a child of the
+ * element of the block. For this reason, the diagram goes into an inner
+ * content element, and the preview script changes only the shadow root of
+ * that content element.
  */
 
 import type MarkdownIt from 'markdown-it';
 import type { Token } from 'markdown-it';
+import { IncludedFiles } from '../diagram/includes';
 import { defaultSettings, isDefault, Settings } from '../settings';
 
 /** blockClass is the class of the element of a PlantUML block, which the preview script looks for. */
@@ -53,6 +61,13 @@ export const sourceAttribute = 'data-plantuml-source';
 export const settingsAttribute = 'data-plantuml-settings';
 
 /**
+ * includesAttribute is the attribute that carries the files that the diagrams of a PlantUML block include
+ * ([R-GEN-008](../../docs/requirements.md#r-gen-008)) to the preview script, as JSON text. A block whose diagrams
+ * include no file has no such attribute.
+ */
+export const includesAttribute = 'data-plantuml-includes';
+
+/**
  * diffMarker matches an empty element that the rendered diff of VS Code inserts into the Markdown text at the
  * start or at the end of a changed part of a line
  * (extensions/markdown-language-features/src/preview/documentRenderer.ts).
@@ -68,6 +83,25 @@ export function withoutDiffMarkers(text: string): string {
 }
 
 /**
+ * Rendering is a rendering of the preview, as the callbacks of the plugin receive it.
+ */
+export interface Rendering {
+  /** env is the environment of the rendering, in which the preview names its document as `currentDocument`. */
+  readonly env: unknown;
+  /**
+   * markdown returns the Markdown text of the rendering with the line breaks `\n` of markdown-it, without the elements
+   * that the rendered diff inserts, or undefined when the plugin did not see the parsing of the text.
+   */
+  markdown(): string | undefined;
+}
+
+/**
+ * markdownTexts holds the Markdown text of each parsing, by the tokens of the parsing, which the renderer receives.
+ * The preview keeps the tokens of a version of a document, so the text stays as long as these tokens.
+ */
+const markdownTexts = new WeakMap<Token[], string>();
+
+/**
  * isPlantUmlInfo tells whether the info string of a fenced code block names PlantUML: its first word is
  * `plantuml`, in any letter case.
  * @param info - The info string of the block, the text after the opening fence.
@@ -80,14 +114,21 @@ export function isPlantUmlInfo(info: string): boolean {
  * extendMarkdownIt adds the rendering of PlantUML blocks to a markdown-it instance. The Markdown extension of
  * VS Code calls it for the preview, through the export of the same name of the extension.
  * @param md - The markdown-it instance of the preview.
- * @param settings - Returns the settings for a rendering; it receives the environment of the rendering, in which
- *   the preview names the document. It runs on every rendering, so a changed setting applies to the next one.
+ * @param settings - Returns the settings for a rendering. It runs on every rendering, so a changed setting applies to
+ *   the next one.
+ * @param includes - Returns the files that the diagrams of the text of a block include, as far as the extension has
+ *   read them, or undefined for a text that includes no file; it receives the rendering and the text.
  * @returns The same instance.
  */
 export function extendMarkdownIt(
   md: MarkdownIt,
-  settings: (env: unknown) => Readonly<Settings> = () => defaultSettings,
+  settings: (rendering: Rendering) => Readonly<Settings> = () => defaultSettings,
+  includes: (rendering: Rendering, source: string) => IncludedFiles | undefined = () => undefined,
 ): MarkdownIt {
+  // The last rule of the parsing keeps the text, after the plugins that may replace the list of the tokens.
+  md.core.ruler.push('nimblescape_plantuml_text', (state) => {
+    markdownTexts.set(state.tokens, state.src);
+  });
   const fence = md.renderer.rules.fence;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
@@ -100,9 +141,20 @@ export function extendMarkdownIt(
     const attributes = new Map(token.attrs ?? []);
     attributes.set('class', [attributes.get('class'), blockClass].filter(Boolean).join(' '));
     attributes.set(sourceAttribute, source);
-    const values = settings(env);
+    const rendering: Rendering = {
+      env,
+      markdown: () => {
+        const text = markdownTexts.get(tokens);
+        return text === undefined ? undefined : withoutDiffMarkers(text);
+      },
+    };
+    const values = settings(rendering);
     if (!isDefault(values)) {
       attributes.set(settingsAttribute, JSON.stringify(values));
+    }
+    const files = includes(rendering, source);
+    if (files) {
+      attributes.set(includesAttribute, JSON.stringify(files));
     }
     // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute. The preview script
     // hides the text before the page shows it; the text stays when the preview runs no scripts.

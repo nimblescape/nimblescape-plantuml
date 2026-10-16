@@ -5,16 +5,17 @@
 /**
  * These tests run the activation of the extension with a fake of the API of
  * VS Code. They check that every registration can be removed, that the export
- * renders PlantUML blocks with the lines of the settings of the document, that
- * a change of a setting of the extension refreshes the open Markdown previews
- * (R-GEN-007), that the code completion works in `.puml` files (R-PUML-006)
+ * renders PlantUML blocks with the lines of the settings of the document and
+ * with their included files (R-GEN-008), that a change of a setting of the
+ * extension or of an included file refreshes the open Markdown previews
+ * (R-GEN-007, R-GEN-008), that the code completion works in `.puml` files (R-PUML-006)
  * and in the PlantUML blocks of Markdown files only (R-MD-004, R-MD-006), and
  * the formatting with its command and on save (R-MD-005, R-PUML-007).
  */
 
 import MarkdownIt from 'markdown-it';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { settingsAttribute } from './markdown/markdownIt';
+import { includesAttribute, settingsAttribute } from './markdown/markdownIt';
 import { settingsSection } from './settings';
 
 /** FakeUri stands for a vscode.Uri; the extension only passes it on. */
@@ -159,6 +160,32 @@ const disposable = () => {
   return registration;
 };
 
+/** openDocuments are the open documents of the fake: their language, address and text. */
+let openDocuments: { languageId: string; uri: FakeUri; getText(): string }[];
+
+/** emitters are the event emitters that the extension created. */
+let emitters: FakeEventEmitter[];
+
+/** FakeEventEmitter stands for a vscode.EventEmitter. */
+class FakeEventEmitter {
+  readonly listeners: (() => void)[] = [];
+
+  constructor() {
+    emitters.push(this);
+  }
+
+  readonly event = (listener: () => void) => {
+    this.listeners.push(listener);
+    return disposable();
+  };
+
+  fire(): void {
+    this.listeners.forEach((listener) => listener());
+  }
+
+  dispose(): void {}
+}
+
 beforeEach(() => {
   settingsOf = new Map();
   requests = [];
@@ -172,6 +199,8 @@ beforeEach(() => {
   disposables = [];
   markdownActive = true;
   refreshFails = false;
+  emitters = [];
+  openDocuments = [];
   providers = new Map();
   formatters = new Map();
   vi.resetModules();
@@ -193,6 +222,9 @@ beforeEach(() => {
       onWillSaveTextDocument: (listener: (typeof saveListeners)[number]) => {
         saveListeners.push(listener);
         return disposable();
+      },
+      get textDocuments() {
+        return openDocuments;
       },
     },
     window: {
@@ -237,6 +269,7 @@ beforeEach(() => {
         return disposable();
       },
     },
+    EventEmitter: FakeEventEmitter,
     TextDocumentSaveReason: { Manual: 1, AfterDelay: 2, FocusOut: 3 },
     TextEdit: { replace: (range: FakeRange, newText: string): FakeEdit => ({ range, newText }) },
     Range: FakeRange,
@@ -281,11 +314,59 @@ test('the export reads the settings of the rendered document and adds them to th
   expect(requests.at(-1)).toEqual([settingsSection, '']);
 });
 
+test('the export finds the document of a text that the rendered diff renders without its document, by the text', async () => {
+  const { api } = await activate();
+  const md = api.extendMarkdownIt(new MarkdownIt());
+  const text = '# A\r\n\r\n```plantuml\r\nclass Car\r\n```\r\n\r\n```plantuml\r\nclass Bike\r\n```\r\n';
+  let reads = 0;
+  const read = (content: string) => () => {
+    reads++;
+    return content;
+  };
+  openDocuments = [
+    { languageId: 'plaintext', uri: { scheme: 'file', path: '/folder/a.txt' }, getText: read(text) },
+    { languageId: 'markdown', uri: { scheme: 'file', path: '/folder/other.md' }, getText: read('# Other') },
+    { languageId: 'markdown', uri: { scheme: 'git', path: '/folder/a.md' }, getText: read(text) },
+  ];
+  // The rendered diff marks the changes in the text of a side with changes.
+  md.render(text.replace('Car', '<span data-diff-start="0"></span>Car<span data-diff-end="0"></span>'));
+  expect(requests).toEqual([
+    [settingsSection, '/folder/a.md'],
+    [settingsSection, '/folder/a.md'],
+  ]);
+  // The search runs once for the rendering, not once for each block.
+  expect(reads).toBe(2);
+
+  // A text that no open Markdown document has gets the settings of the window.
+  md.render('```plantuml\nclass Car\n```\n');
+  expect(requests.at(-1)).toEqual([settingsSection, '']);
+});
+
+test('the export adds the included files of a block, and a change of a file that it includes refreshes the Markdown previews', async () => {
+  const { api } = await activate();
+  const md = api.extendMarkdownIt(new MarkdownIt());
+  expect(md.render(block)).not.toContain(includesAttribute);
+  // A text without a document has no folder for the paths of its included files.
+  const problem = 'The document is not saved in a folder, so the extension cannot find the included file a.puml.';
+  expect(md.render('```plantuml\n!include a.puml\nclass A\n```\n')).toContain(
+    `${includesAttribute}="{&quot;a.puml&quot;:{&quot;problem&quot;:&quot;${problem}&quot;}}"`,
+  );
+  // The Markdown previews and the previews of PlantUML files each have a reader of included files, in this order.
+  const [markdownReader, pumlReader] = emitters;
+  expect(emitters).toHaveLength(2);
+  pumlReader.fire();
+  expect(commands).toEqual([]);
+  markdownReader.fire();
+  expect(commands).toEqual(['markdown.preview.refresh']);
+});
+
 test('every registration goes into the subscriptions of the context, so that VS Code removes it on deactivation', async () => {
   const { context } = await activate();
   expect(disposables.length).toBeGreaterThan(0);
   expect(disposables.every((registration) => context.subscriptions.includes(registration))).toBe(true);
-  expect(context.subscriptions).toHaveLength(disposables.length);
+  // The other subscriptions are the readers of the included files, which stop the watchers of the files.
+  const others = context.subscriptions.filter((subscription) => !disposables.includes(subscription));
+  expect(others.map((other) => other.constructor.name)).toEqual(['IncludeFiles', 'IncludeFiles']);
 });
 
 /**

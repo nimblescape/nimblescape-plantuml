@@ -24,6 +24,7 @@
 
 import MarkdownIt from 'markdown-it';
 import morphdom from 'morphdom';
+import { IncludedFiles } from '../diagram/includes';
 import { extendMarkdownIt } from '../markdown/markdownIt';
 import { defaultSettings, Settings } from '../settings';
 
@@ -31,8 +32,13 @@ import { defaultSettings, Settings } from '../settings';
  * renderMarkdown returns the HTML of a Markdown text as the preview writes it, with the plugin of the extension.
  * @param text - The Markdown text.
  * @param settings - The settings of the extension for the document.
+ * @param includes - Returns the included files of the text of a block, as the extension reads them; by default, none.
  */
-export function renderMarkdown(text: string, settings: Readonly<Settings> = defaultSettings): string {
+export function renderMarkdown(
+  text: string,
+  settings: Readonly<Settings> = defaultSettings,
+  includes: (source: string) => IncludedFiles | undefined = () => undefined,
+): string {
   const md = new MarkdownIt({ html: true });
   md.core.ruler.push('source_lines', (state) => {
     for (const token of state.tokens) {
@@ -42,7 +48,7 @@ export function renderMarkdown(text: string, settings: Readonly<Settings> = defa
       }
     }
   });
-  return extendMarkdownIt(md, () => settings).render(text);
+  return extendMarkdownIt(md, () => settings, (_rendering, source) => includes(source)).render(text);
 }
 
 /**

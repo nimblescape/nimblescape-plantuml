@@ -76,7 +76,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": true,
-      "description": "The extension reads PlantUML text to show it and runs no program of the workspace."
+      "description": "The extension reads PlantUML text and the files that it includes from the workspace to show the diagrams, and runs no program of the workspace."
     },
     "virtualWorkspaces": {
       "supported": true

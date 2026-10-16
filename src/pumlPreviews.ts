@@ -23,14 +23,16 @@
  *
  * Each preview is a webview with the page of `src/preview/previewHtml.ts` and
  * the script `dist/pumlPreview.js`. The page tells the extension when it is
- * ready, and the extension then sends the text of the file and the settings.
- * A preview keeps the address of its file, not the document: VS Code closes a
- * document that no editor shows after a few minutes, and a later change of
- * the file reaches a new document.
+ * ready, and the extension then sends the text of the file, the files that its
+ * diagrams include ([R-GEN-008](../docs/requirements.md#r-gen-008)) and the
+ * settings. A preview keeps the address of its file, not the document:
+ * VS Code closes a document that no editor shows after a few minutes, and a
+ * later change of the file reaches a new document.
  */
 
 import { randomBytes } from 'crypto';
 import * as vscode from 'vscode';
+import { IncludedFiles } from './diagram/includes';
 import { previewHtml } from './preview/previewHtml';
 import { Settings } from './settings';
 
@@ -60,7 +62,15 @@ interface Preview {
   diff?: { original: vscode.Uri; label: string };
   /** ready tells whether the page of the webview can receive the text. */
   ready: boolean;
+  /** version counts the texts that the extension has sent, so that a text whose included files come late is dropped. */
+  version: number;
 }
+
+/**
+ * IncludesLoader returns the files that the diagrams of a text include, after it has read them; without a promise
+ * when it has read them already, and undefined for a text that includes no file.
+ */
+export type IncludesLoader = (document: vscode.Uri, text: string) => IncludedFiles | undefined | Promise<IncludedFiles | undefined>;
 
 /** DiffState is the state that the page of a rendered diff keeps for a restart of VS Code. */
 interface DiffState {
@@ -86,6 +96,7 @@ const openDocument = (uri: vscode.Uri): vscode.TextDocument | undefined =>
 export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.WebviewPanelSerializer {
   readonly #extensionUri: vscode.Uri;
   readonly #settings: (document: vscode.Uri) => Settings;
+  readonly #includes: IncludesLoader;
   readonly #previews = new Set<Preview>();
   readonly #diffs = new Map<vscode.WebviewPanel, Preview>();
   #side: { panel: vscode.WebviewPanel; preview: Preview } | undefined;
@@ -95,10 +106,12 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
   /**
    * @param extensionUri - The folder of the extension, which holds the scripts and the styles of the page.
    * @param settings - Reads the settings of the extension for a document.
+   * @param includes - Reads the files that the diagrams of a text include.
    */
-  constructor(extensionUri: vscode.Uri, settings: (document: vscode.Uri) => Settings) {
+  constructor(extensionUri: vscode.Uri, settings: (document: vscode.Uri) => Settings, includes: IncludesLoader = () => undefined) {
     this.#extensionUri = extensionUri;
     this.#settings = settings;
+    this.#includes = includes;
   }
 
   /** register registers the custom editor, the panel serializers, the commands and the listeners. */
@@ -116,7 +129,10 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
     ];
   }
 
-  /** refreshAll sends the text and the settings to every preview again, for example after a change of a setting. */
+  /**
+   * refreshAll sends the text, the included files and the settings to every preview again, for example after a change
+   * of a setting or of an included file.
+   */
   refreshAll(): void {
     this.#previews.forEach((preview) => this.#send(preview));
   }
@@ -293,7 +309,7 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
       script: webview.asWebviewUri(vscode.Uri.joinPath(dist, 'pumlPreview.js')).toString(),
       style: webview.asWebviewUri(vscode.Uri.joinPath(media, 'pumlPreview.css')).toString(),
     });
-    const preview: Preview = { webview, uri, diff, ready: false };
+    const preview: Preview = { webview, uri, diff, ready: false, version: 0 };
     this.#previews.add(preview);
     const subscriptions = [
       // A hidden webview loses its page; the page then sends `ready` again when it shows.
@@ -338,20 +354,39 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
   }
 
   /**
-   * #post posts the text of the documents of a preview and the settings to its page.
+   * #post posts the text of the documents of a preview, their included files and the settings to its page. When the
+   * extension has to read included files first, it posts after the reading, unless a later text has come meanwhile.
    * @param preview - The preview.
    * @param documents - The document of the file and, for a rendered diff, the original document.
    */
   #post(preview: Preview, [document, original]: readonly vscode.TextDocument[]): void {
     const { uri, diff } = preview;
-    void preview.webview.postMessage({
-      type: 'update',
-      text: document.getText(),
-      settings: this.#settings(uri),
-      ...(diff
-        ? { original: original.getText(), state: { uri: uri.toString(), original: diff.original.toString(), label: diff.label } }
-        : { state: { uri: uri.toString() } }),
-    });
+    const version = ++preview.version;
+    const [text, originalText] = [document.getText(), original?.getText()];
+    const includes = [this.#includes(document.uri, text), ...(diff ? [this.#includes(original.uri, originalText!)] : [])];
+    const send = ([files, originalFiles]: readonly (IncludedFiles | undefined)[]) => {
+      if (version !== preview.version) {
+        return;
+      }
+      void preview.webview.postMessage({
+        type: 'update',
+        text,
+        settings: this.#settings(uri),
+        ...(files ? { includes: files } : {}),
+        ...(diff
+          ? {
+              original: originalText,
+              ...(originalFiles ? { originalIncludes: originalFiles } : {}),
+              state: { uri: uri.toString(), original: diff.original.toString(), label: diff.label },
+            }
+          : { state: { uri: uri.toString() } }),
+      });
+    };
+    if (includes.some((files) => files instanceof Promise)) {
+      Promise.all(includes).then(send, () => undefined);
+    } else {
+      send(includes as (IncludedFiles | undefined)[]);
+    }
   }
 
   /**

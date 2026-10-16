@@ -6,15 +6,25 @@
  * These tests render Markdown with markdown-it, the renderer of the built-in
  * Markdown preview, with and without the plugin. They check the element of a
  * PlantUML block, the attributes that the preview needs for scrolling and for
- * the rendered diff, the escaping of the diagram text, the removal of the
- * marks of the rendered diff, and that the plugin changes nothing outside
- * PlantUML blocks (R-MD-006).
+ * the rendered diff, the settings and the included files (R-GEN-008) of a
+ * block, the escaping of the diagram text, the removal of the marks of the
+ * rendered diff, and that the plugin changes nothing outside PlantUML blocks
+ * (R-MD-006).
  */
 
 import MarkdownIt from 'markdown-it';
 import { describe, expect, test } from 'vitest';
 import { defaultSettings } from '../settings';
-import { blockClass, contentClass, extendMarkdownIt, isPlantUmlInfo, settingsAttribute, sourceAttribute, withoutDiffMarkers } from './markdownIt';
+import {
+  blockClass,
+  contentClass,
+  extendMarkdownIt,
+  includesAttribute,
+  isPlantUmlInfo,
+  settingsAttribute,
+  sourceAttribute,
+  withoutDiffMarkers,
+} from './markdownIt';
 
 /**
  * sourceMap is the rule of the Markdown preview of VS Code that adds the first source line and the class
@@ -92,8 +102,8 @@ describe('extendMarkdownIt', () => {
 
   test('adds the settings to a PlantUML block only, and only when they differ from the defaults', () => {
     const envs: unknown[] = [];
-    const md = extendMarkdownIt(new MarkdownIt(), (env) => {
-      envs.push(env);
+    const md = extendMarkdownIt(new MarkdownIt(), (rendering) => {
+      envs.push(rendering.env);
       return { ...defaultSettings, umlNotation: false };
     });
     const env = { currentDocument: 'a.md' };
@@ -103,6 +113,39 @@ describe('extendMarkdownIt', () => {
     expect(envs).toEqual([env]);
     expect(extendMarkdownIt(new MarkdownIt(), () => defaultSettings).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);
     expect(preview(true).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);
+  });
+
+  test('adds the included files of the text of a PlantUML block, as escaped JSON text, to that block only', () => {
+    const calls: unknown[][] = [];
+    const md = extendMarkdownIt(new MarkdownIt(), undefined, (rendering, source) => {
+      calls.push([rendering.env, source]);
+      return source.includes('!include') ? { 'a "b".puml': { text: 'A <&x>' } } : undefined;
+    });
+    const env = { currentDocument: 'a.md' };
+    const html = md.render('```plantuml\n!include a "b".puml\n```\n\n```plantuml\nA\n```\n\n```js\n!include x\n```\n', env);
+    expect(html).toContain(`${includesAttribute}="{&quot;a \\&quot;b\\&quot;.puml&quot;:{&quot;text&quot;:&quot;A &lt;&amp;x&gt;&quot;}}"`);
+    expect(html.match(new RegExp(includesAttribute, 'g'))).toHaveLength(1);
+    expect(calls).toEqual([
+      [env, '!include a "b".puml\n'],
+      [env, 'A\n'],
+    ]);
+  });
+
+  test('gives the callbacks the Markdown text of the rendering, without the marks of the rendered diff', () => {
+    const texts: (string | undefined)[] = [];
+    const md = extendMarkdownIt(new MarkdownIt(), (rendering) => {
+      texts.push(rendering.markdown());
+      return defaultSettings;
+    });
+    // The rendered diff renders a side with changes from its text, with marks of the changes and without a document.
+    md.render('# A\r\n\r\n```plantuml\r\nclass <span data-diff-start="0"></span>Car<span data-diff-end="0"></span>\r\n```\r\n', {});
+    expect(texts).toEqual(['# A\n\n```plantuml\nclass Car\n```\n']);
+
+    // The preview renders the kept tokens of a version again; tokens that another instance parsed have no text here.
+    const tokens = md.parse('```plantuml\nA\n```\n', {});
+    md.renderer.render(tokens, md.options, {});
+    md.renderer.render(new MarkdownIt().parse('```plantuml\nB\n```\n', {}), md.options, {});
+    expect(texts.slice(1)).toEqual(['```plantuml\nA\n```\n', undefined]);
   });
 
   test('renders the same tokens again with the same result, because the preview keeps the tokens of a version', () => {

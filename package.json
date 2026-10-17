@@ -46,7 +46,8 @@
     "test": "vitest run",
     "vscode:prepublish": "node esbuild.mjs --production",
     "package": "vsce package --no-dependencies",
-    "install-local": "node scripts/install-local.mjs"
+    "install-local": "node scripts/install-local.mjs",
+    "uninstall-local": "node scripts/uninstall-local.mjs"
   },
   "dependencies": {
     "@plantuml/core": "1.2026.8"

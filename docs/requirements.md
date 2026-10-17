@@ -67,11 +67,12 @@ official product of the PlantUML project.
 workflows and checks as the other extensions of the publisher (`release.yml`,
 `release-dry-run.yml`, `marketplace-identity.yml`,
 `scripts/release-checks.mjs`) and follows the
-[release rules](../CONTRIBUTING.md#release-rules) of the publisher: one
-extension ID for good, no deletion, only versions that change something for
-the users, a dry run before a change of the release process reaches `main`,
-and publishing only from GitHub Actions with Microsoft Entra ID. Nobody
-publishes the extension until Hannes asks for it.
+[release rules](../CONTRIBUTING.md#release-rules) of the publisher: the
+extension ID never changes, no deletion, only versions that change something
+for the users and at most one version in 7 days, a dry run before a change of
+the release process reaches `main`, and publishing only from GitHub Actions
+with Microsoft Entra ID. Nobody publishes the extension until Hannes asks for
+it.
 
 ### R-GEN-007
 

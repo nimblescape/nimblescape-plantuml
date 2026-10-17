@@ -2,9 +2,10 @@
 
 This guide explains the files, the development, the tests and the release of
 the extension. The [README](README.md) describes the use in short, the
-[user guide](docs/guide.md) describes every feature, and
+[user guide](docs/guide.md) describes every feature,
 [docs/requirements.md](docs/requirements.md) lists what the extension must do,
-each requirement with an ID.
+each requirement with an ID, and [docs/security.md](docs/security.md)
+describes its security model.
 
 ## Files
 
@@ -39,6 +40,7 @@ each requirement with an ID.
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets, the pairs that the editor closes, the folding markers of the diagrams and of the preprocessor, and the indentation rules while typing, with the blocks of the formatting. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
+| `docs/security.md` | The security model: what the extension does on your computer, what it protects, and where its protection ends. The section "What the extension does on your computer" at the top of the README lists the same behaviors in short. |
 | `docs/images/` | The screenshots of the README, as PNG files, because the Marketplace shows no SVG image. The README links them with full addresses on the branch `main`, which the Marketplace requires; they are not part of the package. A test checks that each image of the README is a PNG file here. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
@@ -87,7 +89,7 @@ change can be tried without a package.
 `package.json` is the extension manifest. It has these parts:
 
 - The name and the publisher define the extension ID `nimblescape.nimblescape-plantuml`; the section [Naming](#naming) explains the name.
-- The description, the keywords, the categories, the banner (`galleryBanner`), `preview` and `qna` make the page of the Marketplace. vsce turns some words of the description into search tags, for example "Java" into `java`; a test checks that the description adds no tag. `preview` shows the label "Preview" on the page, and `qna` sends the questions of the page to the GitHub issues.
+- The description, the keywords, the categories, the banner (`galleryBanner`), `preview` and `qna` make the page of the Marketplace. The description names the behaviors that a user may not expect, the formatting at save and the default formatter, as the section "What the extension does on your computer" at the top of the README does. vsce turns some words of the description into search tags, for example "Java" into `java`; a test checks that the description adds no tag. `preview` shows the label "Preview" on the page, and `qna` sends the questions of the page to the GitHub issues.
 - The version is the only source of the package version, and the tag of a release names it.
 - The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range, so that the code compiles only with the API of that version. The manifest enables no proposed API (`enabledApiProposals`), because the Marketplace does not accept an extension that uses one. A test checks both.
 - `main` selects the bundle `dist/extension.js`. A test checks it.

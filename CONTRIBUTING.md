@@ -56,8 +56,7 @@ describes its security model.
 | `.github/workflows/release-dry-run.yml` | Fails on a pull request that changes the release process (`release.yml`, `ci.yml` or `scripts/release-checks.mjs`) until a dry run on its branch tested the change (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
 | `.github/dependabot.yml` | Proposes weekly updates of the development tools, of the engine and of the pinned actions. |
-| `scripts/install-local.mjs` | Builds the package and installs it into the current VS Code profile. The section [Development](#development) explains it. |
-| `scripts/uninstall-local.mjs` | Removes the extension from every profile of the VS Code of this computer, the counterpart of `scripts/install-local.mjs`. The section [Development](#development) explains it. |
+| `scripts/install-local.mjs`, `scripts/uninstall-local.mjs` | Install the built package into every profile of the VS Code of this computer, and remove it again. |
 | `scripts/marketplace-setup.sh` | Sets up the Marketplace publishing of the repository. The section [Setup of a repository](#setup-of-a-repository) explains it. |
 | `scripts/release-checks.mjs`, `scripts/release-checks.test.mjs` | The checks of the [release rules](#release-rules), which the workflows run, and their test. |
 | `.vscode/launch.json`, `.vscode/tasks.json` | Build the bundle and start a VS Code window that loads the extension from this folder. |
@@ -77,8 +76,8 @@ release in `.node-version` for the tools and CI, and the runtime of VS Code
 | `npm test` | Runs the tests with vitest. The tests touch no installed editor. |
 | `npm run build` | Bundles `dist/extension.js` with a source map and copies the engine into `dist/engine/`. |
 | `npm run package` | Builds `nimblescape-plantuml-<version>.vsix` with vsce, which first runs the production build (`vscode:prepublish`). vsce also validates the manifest and the README. |
-| `npm run install-local` | Builds the package and installs it into the current VS Code profile only: the profile of the VS Code window that has this repository open (or a parent folder of it), or the default profile when no window has opened it yet. `npm run install-local -- --profile <name>` installs it into the named profile instead. Other profiles stay as they are. Before the build, it installs the locked development tools with `npm ci --ignore-scripts` when they are missing or older than `package-lock.json`. Reload the windows of the profile after an update of an active extension. |
-| `npm run uninstall-local` | Removes `nimblescape.nimblescape-plantuml` from every profile of the VS Code of this computer: the default profile and each other profile that VS Code knows. A profile without the extension is skipped. `npm run uninstall-local -- --profile <name>` removes it from the named profile only. It also removes a copy from the Marketplace, because that copy has the same ID. Reload the open VS Code windows afterwards. |
+| `npm run install-local` | Builds the package and installs it into every profile of the VS Code of this computer; `-- --profile <name>` installs into one profile. Reload the window after an update of an active extension. |
+| `npm run uninstall-local` | Removes `nimblescape.nimblescape-plantuml` from every profile of the VS Code of this computer; `-- --profile <name>` removes it from one profile. |
 
 The launch configuration "Run the extension" builds the bundle and starts a
 second VS Code window that loads the extension from this folder, so that a

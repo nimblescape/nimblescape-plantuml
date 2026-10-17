@@ -7,6 +7,51 @@ Java, no Graphviz installation and no server, and it works offline.
 
 ![A Markdown file with a PlantUML block, and the Markdown preview with its diagram](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/markdown-preview.png)
 
+## What the extension does on your computer
+
+- **When it works.** The extension starts when a Markdown file or a PlantUML
+  file opens, and when VS Code restores a preview of a PlantUML file after a
+  restart. It does not run in VS Code for the Web.
+- **Rendering.** The diagrams render on your computer, in the preview, with
+  the PlantUML engine that the package contains (`@plantuml/core` 1.2026.8,
+  PlantUML compiled to JavaScript). The extension uses no PlantUML server,
+  starts no Java and no other program, and sends no diagram text and no file
+  to the internet. No setting changes this. The security setting of the
+  Markdown preview only selects the layout engine: Graphviz with "Disable",
+  otherwise Smetana.
+- **Markdown preview.** The extension adds a markdown-it plugin, a script and
+  a style sheet to the built-in Markdown preview of VS Code. The plugin
+  changes only the fenced code blocks with the language `plantuml`.
+- **Markdown files.** While the setting `editor.formatOnSave` is on, each save
+  of a Markdown file formats the lines of its PlantUML blocks, also when
+  another extension, for example Prettier, formats Markdown files. No other
+  line changes. An automatic save after a delay does not format, and the
+  formatting at save needs `editor.formatOnSaveMode` set to `file`, its
+  default. In a PlantUML block, the code completion opens while you type,
+  although VS Code turns it off for Markdown files.
+- **PlantUML files.** The extension is the default formatter of PlantUML
+  files (`"[plantuml]": { "editor.defaultFormatter": "nimblescape.nimblescape-plantuml" }`).
+  This default wins over a formatter that you set for all files, but not over
+  a formatter that you set for `[plantuml]`. In PlantUML files and in their
+  previews, the keys Ctrl+Shift+V and Ctrl+K V (Cmd on macOS) run the preview
+  commands of the extension. In Markdown files, these keys stay with the
+  Markdown preview of VS Code.
+- **Files and data.** For `!include`, `!include_many`, `!include_once` and
+  `!includesub`, the extension reads files of the workspace folders and of
+  the folder of the document only, up to 1 MB each, and watches them for
+  changes. It reads no address of the internet. It writes no file, except the
+  formatting of the file that you format or save. The previews keep the
+  pictures of the 50 most recently rendered diagrams, with their text, in the
+  storage that VS Code keeps for its previews on your computer.
+- **Network.** The extension connects to no address and collects no
+  telemetry.
+- **Restricted Mode and virtual workspaces.** The extension works with all
+  features in Restricted Mode and in virtual workspaces, because it only reads
+  the files of the workspace and runs no program of the workspace.
+
+[Security](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/security.md#what-the-extension-does-on-your-computer)
+describes each step and where its protection ends.
+
 ## Features
 
 - **Markdown preview.** The built-in Markdown preview shows each

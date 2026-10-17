@@ -1,7 +1,7 @@
 {
   "name": "nimblescape-plantuml",
   "displayName": "nimblescape PlantUML",
-  "description": "Shows PlantUML diagrams in Markdown and PlantUML files. The bundled engine needs no other installation and no server.",
+  "description": "Shows PlantUML diagrams in Markdown and PlantUML files. The bundled engine renders them on your computer and needs no other installation and no server. The extension formats the PlantUML blocks of Markdown files at each save while editor.formatOnSave is on, and is the default formatter of PlantUML files.",
   "publisher": "nimblescape",
   "author": {
     "name": "nimblescape e.U.",

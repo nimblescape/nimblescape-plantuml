@@ -44,7 +44,7 @@ describes its security model.
 | `docs/images/` | The screenshots of the README, as PNG files, because the Marketplace shows no SVG image. The README links them with full addresses on the branch `main`, which the Marketplace requires; they are not part of the package. A test checks that each image of the README is a PNG file here. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
-| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. The editor API stays outside the bundle. A production build (`--production`) is minified and has no source maps. |
+| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. The editor API stays outside the bundle. The bundles are readable JavaScript, not minified (see [Reviewing the package](#reviewing-the-package)); a production build (`--production`) has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
 | `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` and `scripts/**/*.test.mjs` on Node; a test file that needs a page (the preview scripts and the real engine) selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
@@ -83,6 +83,21 @@ release in `.node-version` for the tools and CI, and the runtime of VS Code
 The launch configuration "Run the extension" builds the bundle and starts a
 second VS Code window that loads the extension from this folder, so that a
 change can be tried without a package.
+
+## Reviewing the package
+
+The VSIX holds the three bundles of `dist/` (`extension.js`,
+`markdownPreview.js` and `pumlPreview.js`) as readable JavaScript: not
+minified, with the names of the source, and with a comment that names each
+source file. `dist/syntaxes/` holds the grammars as JSON files. `dist/engine/`
+holds the scripts of the engine `@plantuml/core` as the PlantUML project
+publishes them on npm, which TeaVM compiled from Java, and the library C4 of
+`stdlib/`; the section [Engine](#engine) names their sources. To compare a
+VSIX with the sources, unpack it (a VSIX is a ZIP file), run
+`npm ci --ignore-scripts` and `npm run vscode:prepublish` at the tag of its
+version, and compare `extension/dist/` of the VSIX with `dist/`. With the same
+sources and the locked versions of the tools and of the engine, the build
+gives the same files.
 
 ## Manifest
 

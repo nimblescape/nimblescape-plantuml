@@ -8,8 +8,14 @@
 // dist/syntaxes/, and copy the PlantUML engine into dist/engine/. VS Code provides the module `vscode` at run time, so the bundle
 // of the extension leaves it out. A preview loads its script as a module in
 // the browser of the webview; that script imports the engine from
-// ./engine/plantuml.js at run time. A production build (--production, which
-// vscode:prepublish passes) is minified and has no source maps.
+// ./engine/plantuml.js at run time. The three bundles are readable JavaScript:
+// not minified, so that they keep the names of the source and anyone can read
+// the code of the package and compare it with the source (CONTRIBUTING.md,
+// "Reviewing the package"). The option `keepNames` stays off: without
+// minification the names of the source stay, and no code of the extension
+// reads the name of a function at run time. Only a development build writes
+// source maps; a production build (--production, which vscode:prepublish
+// passes) has none.
 //
 // The engine is the package @plantuml/core: PlantUML compiled to JavaScript
 // with TeaVM, with the Graphviz layout engine of Viz.js. Its files are browser
@@ -33,8 +39,8 @@ const pumlPreviewOutfile = 'dist/pumlPreview.js';
 const engineDir = 'dist/engine';
 
 // A production build writes no source maps: remove the maps of an earlier
-// development build, so that no map that does not match a minified bundle
-// stays in dist/.
+// development build, so that no map that does not match a bundle of the
+// production build stays in dist/.
 if (production) {
   for (const file of [outfile, previewOutfile, pumlPreviewOutfile]) fs.rmSync(`${file}.map`, { force: true });
 }
@@ -48,7 +54,7 @@ await esbuild.build({
   target: 'node24',
   external: ['vscode'],
   sourcemap: !production,
-  minify: production,
+  minify: false,
   logLevel: 'info',
 });
 
@@ -66,7 +72,7 @@ for (const [entry, file] of [
     format: 'esm',
     target: 'es2022',
     sourcemap: !production,
-    minify: production,
+    minify: false,
     logLevel: 'info',
   });
 }

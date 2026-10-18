@@ -3,6 +3,19 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.0
+
+**Colors of class members.** In the body `{ … }` of a class, an interface,
+an enum or another classifier, the editor colors the members as the theme
+colors code: the name of an attribute as a property, the name of an
+operation as a function, a parameter as a parameter, a type as a type, and
+a value of an enum as an enum member. The colors follow the notation of
+UML, `name : Type` and `name(param : Type) : Type`, so they do not depend
+on the programming language that the diagram describes; a member in
+another order, for example `int count`, keeps the color of plain text.
+This works in PlantUML files and in the PlantUML blocks of Markdown files.
+The diagram does not change.
+
 ## 0.1.0
 
 The first version.

@@ -63,7 +63,9 @@ describes each step and where its protection ends.
   PlantUML file shows as a rendered diff, with marks on the changed diagrams.
 - **Editing.** Syntax highlighting, code completion of keywords and declared
   names, and formatting, in PlantUML files and in the PlantUML blocks of
-  Markdown files. Folding and indentation while typing in PlantUML files.
+  Markdown files. The members of a class have the colors of code, by the
+  notation of UML (`name : Type`, `name(param : Type) : Type`). Folding and
+  indentation while typing in PlantUML files.
 - **UML notation.** UML diagrams show the notation of the UML standard, as
   far as PlantUML allows; a setting switches to the own notation of
   PlantUML.

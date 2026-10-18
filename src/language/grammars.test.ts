@@ -224,6 +224,72 @@ describe('source.plantuml', () => {
     expect(lines[3].find((token) => token.text === '{field}')?.scopes.at(-1)).toBe('storage.modifier.plantuml');
   });
 
+  test('keeps stereotypes, comments and directives in a class body, and ends an open body with the diagram', async () => {
+    const lines = await tokenize(
+      'source.plantuml',
+      [
+        'class Order {',
+        '  - id : int <<PK>>',
+        '  + total() : Money <<query>>',
+        "  - x : int /' note '/",
+        '  !if %true()',
+        '  - created = now()',
+        '  {method} run',
+        '  - m : Map<String, List<Map<K, V>>>',
+        '  __str__()',
+        '  __ private __',
+        '}',
+        'enum Color {',
+        '  GREEN,',
+        '  BLUE;',
+        '  YELLOW = 3',
+        '}',
+        'class Open {',
+        '  - title :',
+        '@enduml',
+        'class After',
+      ].join('\n'),
+    );
+    const scope = (line: number, text: string) => lines[line].find((token) => token.text.trim() === text)?.scopes.at(-1);
+    expect([scope(1, 'id'), scope(1, 'int'), scope(1, '<<PK>>')]).toEqual([
+      'variable.other.property.plantuml',
+      'entity.name.type.plantuml',
+      'entity.other.attribute-name.stereotype.plantuml',
+    ]);
+    expect([scope(2, 'total'), scope(2, 'Money'), scope(2, '<<query>>')]).toEqual([
+      'entity.name.function.plantuml',
+      'entity.name.type.plantuml',
+      'entity.other.attribute-name.stereotype.plantuml',
+    ]);
+    expect([scope(3, 'x'), scope(3, 'int'), scope(3, 'note')]).toEqual([
+      'variable.other.property.plantuml',
+      'entity.name.type.plantuml',
+      'comment.block.plantuml',
+    ]);
+    expect(scope(4, '!if')).toBe('keyword.control.directive.plantuml');
+    expect([scope(5, 'created'), scope(5, '= now()')]).toEqual(['variable.other.property.plantuml', 'meta.body.class.plantuml']);
+    expect(scope(6, 'run')).toBe('meta.body.class.plantuml');
+    expect(lines[7].filter((token) => token.scopes.at(-1) === 'entity.name.type.plantuml').map((token) => token.text)).toEqual([
+      'Map',
+      'String',
+      'List',
+      'Map',
+      'K',
+      'V',
+    ]);
+    expect(scope(8, '__str__')).toBe('entity.name.function.plantuml');
+    expect(scope(9, '__ private __')).toBe('meta.separator.plantuml');
+    expect([scope(12, 'GREEN'), scope(13, 'BLUE'), scope(14, 'YELLOW')]).toEqual([
+      'variable.other.enummember.plantuml',
+      'variable.other.enummember.plantuml',
+      'variable.other.enummember.plantuml',
+    ]);
+    // While you type: an attribute without its type yet, and a body without `}` that ends with the diagram.
+    expect(scope(17, 'title')).toBe('variable.other.property.plantuml');
+    expect(scope(18, '@enduml')).toBe('keyword.control.diagram.plantuml');
+    expect(scope(19, 'class')).toBe('storage.type.plantuml');
+  });
+
   test('colors the rules of a style up to its end, where a rule for notes starts no note', async () => {
     const lines = await tokenize('source.plantuml', ['<style>', 'note {', '  BackGroundColor #ffffcc', '}', '</style>', 'class B'].join('\n'));
     expect(scopeOf(lines, '<style>')).toBe('entity.name.tag.style.plantuml');

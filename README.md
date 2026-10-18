@@ -5,7 +5,7 @@ Shows [PlantUML](https://plantuml.com) diagrams in VS Code: in the
 extension carries the PlantUML engine compiled to JavaScript, so it needs no
 Java, no Graphviz installation and no server, and it works offline.
 
-![VS Code with the extension: the Markdown preview of a PlantUML block, code completion, formatting, the preview of a PlantUML file in the same tab and to the side, and its rendered Git diff](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/demo.gif)
+![VS Code with the extension: the Markdown preview of a PlantUML block, code completion, formatting, the preview of a PlantUML file in the same tab and to the side, and its rendered Git diff; a blue band above the window names each scene, and a label at the bottom names each pressed key and its command](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/demo.gif)
 
 ## What the extension does on your computer
 
@@ -77,8 +77,6 @@ describes each step and where its protection ends.
 
 The extension shows diagrams only; it does not export them to image files.
 
-![A Markdown file with a PlantUML block, and the Markdown preview with its diagram](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/markdown-preview.png)
-
 ## Usage
 
 In a Markdown file, write a fenced code block with the language `plantuml`:
@@ -104,8 +102,6 @@ Then open the preview:
 On macOS, use Cmd instead of Ctrl, and Shift+Option+F for Format Document.
 The [user guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md)
 describes every feature.
-
-![A PlantUML file with a class diagram, and its preview to the side](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/plantuml-preview.png)
 
 ## Files
 
@@ -154,6 +150,6 @@ list every bundled component and its license.
 
 ---
 
-[Change log](https://github.com/nimblescape/nimblescape-plantuml/blob/main/CHANGELOG.md) · [Contributing](https://github.com/nimblescape/nimblescape-plantuml/blob/main/CONTRIBUTING.md) · [Support](https://github.com/nimblescape/nimblescape-plantuml/blob/main/SUPPORT.md) · [Issues](https://github.com/nimblescape/nimblescape-plantuml/issues) · [Source](https://github.com/nimblescape/nimblescape-plantuml)
+[Change log](https://github.com/nimblescape/nimblescape-plantuml/blob/main/CHANGELOG.md) · [Contributing](https://github.com/nimblescape/nimblescape-plantuml/blob/main/CONTRIBUTING.md) · [User guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md) · [Support](https://github.com/nimblescape/nimblescape-plantuml/blob/main/SUPPORT.md) · [Issues](https://github.com/nimblescape/nimblescape-plantuml/issues) · [Source](https://github.com/nimblescape/nimblescape-plantuml)
 
 © 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](https://github.com/nimblescape/nimblescape-plantuml/blob/main/LICENSE).

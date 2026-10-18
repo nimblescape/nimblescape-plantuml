@@ -295,7 +295,32 @@ detail, the highlighting colors:
   `note`, `title` or `skinparam`;
 - strings in double quotes, stereotypes such as `<<Entity>>`, colors such as
   `#pink`, the visibility of members, and modifiers such as `{static}`;
-- arrows, for example `->`, `-->`, `<|--`, `..>` or `-[#red]->`.
+- arrows, for example `->`, `-->`, `<|--`, `..>` or `-[#red]->`;
+- the members in the body `{ … }` of a class, an interface, an enum or
+  another classifier, with the colors that the theme gives the same parts of
+  code: the name of an attribute as a property, the name of an operation as
+  a function or method, a parameter as a parameter, a type as a type, and a
+  value of an enum as an enum member.
+
+The members follow the notation of UML, which does not depend on a
+programming language. The highlighting colors only the parts that this
+notation defines:
+
+| Member | Colored parts |
+| --- | --- |
+| `- title : String` | the attribute `title`, the type `String` |
+| `# pages : int = 0` | the attribute `pages`, the type `int` |
+| `+ area(scale : double) : double` | the operation `area`, the parameter `scale`, the types `double` |
+| `count`, `name = "Dummy"` | the attribute `count` or `name` |
+| `RED` in an `enum` | the value `RED` |
+| `void print()` | only the operation `print` |
+| `int count` | nothing |
+
+Without a colon, two words do not tell which one is the name and which one
+is the type: `int count` puts the type first, as in Java, and
+`count int` puts the name first, as in Go. PlantUML itself keeps such a
+member as one text. So the highlighting does not guess, and these words keep
+the color of plain text.
 
 The text of a note, a legend or a title of several lines keeps the color of
 plain text. In a Markdown file, only the text inside a PlantUML block gets

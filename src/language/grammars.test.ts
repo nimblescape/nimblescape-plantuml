@@ -135,6 +135,95 @@ describe('source.plantuml', () => {
     expect(scopeOf(lines, '{static}')).toBe('storage.modifier.plantuml');
   });
 
+  test('colors the members of a classifier by the notation of UML, as the grammars of programming languages do', async () => {
+    const lines = await tokenize(
+      'source.plantuml',
+      [
+        'abstract class Book<T> extends Item {',
+        '  - title : String',
+        '  # pages : int = 0',
+        '  + {static} create(title : String, in size : int = 1) : Book',
+        '  print()',
+        '  /age : Integer',
+        '  items : Map<String, List<Book>>',
+        '  count',
+        '  void close()',
+        '  .. Getters ..',
+        "  ' a comment",
+        '}',
+        'enum Color {',
+        '  RED',
+        '  + label() : String',
+        '}',
+        'object user {',
+        '  name = "Dummy"',
+        '}',
+      ].join('\n'),
+    );
+    const scope = (line: number, text: string) => lines[line].find((token) => token.text.trim() === text)?.scopes.at(-1);
+    expect(scope(0, 'Book')).toBe('entity.name.type.plantuml');
+    expect(scope(0, 'extends')).toBe('keyword.other.plantuml');
+    expect([scope(1, '-'), scope(1, 'title'), scope(1, 'String')]).toEqual([
+      'storage.modifier.visibility.plantuml',
+      'variable.other.property.plantuml',
+      'entity.name.type.plantuml',
+    ]);
+    expect([scope(2, 'pages'), scope(2, 'int')]).toEqual(['variable.other.property.plantuml', 'entity.name.type.plantuml']);
+    expect([scope(3, '{static}'), scope(3, 'create'), scope(3, 'title'), scope(3, 'in'), scope(3, 'size'), scope(3, 'Book')]).toEqual([
+      'storage.modifier.plantuml',
+      'entity.name.function.plantuml',
+      'variable.parameter.plantuml',
+      'storage.modifier.plantuml',
+      'variable.parameter.plantuml',
+      'entity.name.type.plantuml',
+    ]);
+    expect(lines[3].filter((token) => token.text === 'String' || token.text === 'int').map((token) => token.scopes.at(-1))).toEqual([
+      'entity.name.type.plantuml',
+      'entity.name.type.plantuml',
+    ]);
+    expect(scope(4, 'print')).toBe('entity.name.function.plantuml');
+    expect(scope(5, 'age')).toBe('variable.other.property.plantuml');
+    expect(lines[6].filter((token) => token.scopes.at(-1) === 'entity.name.type.plantuml').map((token) => token.text)).toEqual([
+      'Map',
+      'String',
+      'List',
+      'Book',
+    ]);
+    expect(scope(7, 'count')).toBe('variable.other.property.plantuml');
+    // Words before the name of an operation are not in UML order: they keep the color of plain text.
+    expect([scope(8, 'void'), scope(8, 'close')]).toEqual(['meta.body.class.plantuml', 'entity.name.function.plantuml']);
+    expect(scope(9, '.. Getters ..')).toBe('meta.separator.plantuml');
+    expect(scope(10, "' a comment")).toBe('comment.line.single-quote.plantuml');
+    expect(scope(13, 'RED')).toBe('variable.other.enummember.plantuml');
+    expect([scope(14, 'label'), scope(14, 'String')]).toEqual(['entity.name.function.plantuml', 'entity.name.type.plantuml']);
+    expect([scope(17, 'name'), scope(17, '"Dummy"')]).toEqual(['variable.other.property.plantuml', 'string.quoted.double.plantuml']);
+  });
+
+  test('colors no member that is not in UML notation, and nothing outside the body of a classifier', async () => {
+    const lines = await tokenize(
+      'source.plantuml',
+      [
+        'class Book {',
+        '  int count',
+        '  Radius float64',
+        '  {field} A field (with parentheses)',
+        '  -- encrypted --',
+        '}',
+        'class Empty {}',
+        'title : String',
+        'Alice -> Bob : print()',
+        'state Idle : count',
+      ].join('\n'),
+    );
+    const member = /^(variable\.(other\.property|parameter|other\.enummember)|entity\.name\.function)\.|^entity\.name\.type\.plantuml$/;
+    // The lines with a declaration color the name of the element, as before.
+    for (const [index, line] of lines.entries()) {
+      const colored = line.filter((token) => member.test(token.scopes.at(-1) ?? '')).map((token) => token.text);
+      expect(colored, `line ${index + 1}`).toEqual({ 0: ['Book'], 6: ['Empty'], 9: ['Idle'] }[index] ?? []);
+    }
+    expect(lines[3].find((token) => token.text === '{field}')?.scopes.at(-1)).toBe('storage.modifier.plantuml');
+  });
+
   test('colors the rules of a style up to its end, where a rule for notes starts no note', async () => {
     const lines = await tokenize('source.plantuml', ['<style>', 'note {', '  BackGroundColor #ffffcc', '}', '</style>', 'class B'].join('\n'));
     expect(scopeOf(lines, '<style>')).toBe('entity.name.tag.style.plantuml');
@@ -214,6 +303,16 @@ describe('markdown.nimblescape.plantuml.codeblock', () => {
     expect(isPlantUmlInfo('plantuml:a.puml')).toBe(false);
     expect(md.render('~~~plantuml `x`\nclass A\n~~~')).toContain(`class="${blockClass}"`);
     expect(md.render('```plantuml `x`\nclass A\n```')).not.toContain(`class="${blockClass}"`);
+  });
+
+  test('colors the members of a class in a PlantUML block, and ends the body of the class with the block', async () => {
+    const lines = await tokenize(
+      'text.html.markdown',
+      ['```plantuml', 'class Book {', '  title : String', '```', 'title : String', '```plantuml', 'class A', '```'].join('\n'),
+    );
+    expect(lines[2].find((token) => token.text === 'title')?.scopes.at(-1)).toBe('variable.other.property.plantuml');
+    expect(lines[4].every((token) => token.scopes.at(-1) === 'meta.paragraph.markdown')).toBe(true);
+    expect(lines[6].find((token) => token.text === 'class')?.scopes.at(-1)).toBe('storage.type.plantuml');
   });
 
   test('leaves fenced code blocks of other languages to the Markdown grammar', async () => {

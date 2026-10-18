@@ -23,6 +23,17 @@
  * theme colors them: `comment`, `string`, `keyword.control`, `storage.type`,
  * `entity.name.type`, `entity.other.attribute-name`, `variable` and
  * `constant`.
+ *
+ * In the body of a class, an interface, an enum or another classifier, the
+ * members get the scopes that the grammars of programming languages give
+ * them: `entity.name.function` for an operation, `variable.other.property`
+ * for an attribute, `variable.parameter` for a parameter, `entity.name.type`
+ * for a type and `variable.other.enummember` for a value of an enum. So a
+ * color theme colors them as in code, whatever language the diagram
+ * describes. The grammar takes the parts of a member only from the notation
+ * of UML, `name : Type` and `name(param : Type) : Type`, and does not guess:
+ * a member in another order, for example `int count`, keeps the color of
+ * plain text.
  */
 
 import { controlKeywords, diagramTypes, documentKeywords, elementKeywords, linkKeywords, preprocessorKeywords } from './keywords';
@@ -71,6 +82,50 @@ const rightHead = String.raw`\|?>>?(?:[ox](?!\w))?|[*#}{+^\\/]|(?<=[-.=~]{2})[ox
 /** name matches the name of an element without quotes. */
 const name = String.raw`[\p{L}\p{N}_.:$]+`;
 
+/**
+ * classifierKeywords declare an element whose body `{ … }` holds members: attributes, operations or the values of an
+ * enum.
+ */
+const classifierKeywords: readonly string[] = [
+  'class', 'interface', 'abstract', 'enum', 'annotation', 'protocol', 'struct', 'exception', 'metaclass', 'stereotype',
+  'record', 'dataclass', 'entity', 'object',
+];
+
+/** identifier matches the name of a member, a parameter or a type. */
+const identifier = String.raw`[\p{L}_$][\p{L}\p{N}_$]*`;
+
+/** modifier matches a modifier of a member, for example `{static}`. */
+const modifier = String.raw`\{(?:static|abstract|classifier|field|method)\}`;
+
+/**
+ * memberPrefix matches the visibility (`-`, `#`, `~` or `+`) and the modifiers at the start of a member, in any order.
+ * Two visibility characters, as in the separator `-- text --`, start no member.
+ */
+const memberPrefix = String.raw`((?:${modifier}\s*)*(?:[-#~+](?![-#~+])\s*)?(?:${modifier}\s*)*)`;
+
+/** typeText matches a type after a colon, for example `int`, `List<Book>` or `Map<String, List<Book>>`. */
+const typeText = String.raw`(?:[^,=(){}<>]|<[^<>]*(?:<[^<>]*>[^<>]*)*>)+`;
+
+/**
+ * classifierBody returns the rule of a classifier with a body of members, from its declaration, for example
+ * `class Book {`, up to the line with `}`.
+ * @param keywords - The keywords that declare the classifier.
+ * @param kind - The last part of the scope of the body, for example `class`.
+ * @param patterns - The rules of the lines of the body.
+ */
+const classifierBody = (keywords: readonly string[], kind: string, patterns: Rule[]): Rule => ({
+  begin: String.raw`^\s*(?:(abstract)\s+)?(${alternatives(keywords)})\b(?:\s+(${name}))?([^{]*)(\{)\s*$`,
+  end: String.raw`^\s*(\})`,
+  beginCaptures: {
+    1: { name: 'storage.modifier.plantuml' },
+    2: { name: 'storage.type.plantuml' },
+    3: { name: 'entity.name.type.plantuml' },
+    4: { patterns: [{ include: '#declaration-rest' }] },
+  },
+  contentName: `meta.body.${kind}.plantuml`,
+  patterns: [{ include: '#member-comments' }, { include: '#separator' }, ...patterns],
+});
+
 /** plantUmlGrammar colors PlantUML text. */
 export const plantUmlGrammar: Grammar = {
   scopeName: 'source.plantuml',
@@ -83,6 +138,7 @@ export const plantUmlGrammar: Grammar = {
     { include: '#style' },
     { include: '#text-block' },
     { include: '#skinparam' },
+    { include: '#classifier' },
     { include: '#declaration' },
     { include: '#compound-statement' },
     { include: '#statement' },
@@ -173,18 +229,97 @@ export const plantUmlGrammar: Grammar = {
       match: String.raw`^\s*(skinparam)\b\s*([\w.]+)?`,
       captures: { 1: { name: 'keyword.other.skinparam.plantuml' }, 2: { name: 'support.type.property-name.plantuml' } },
     },
+    classifier: {
+      // A class, an interface, an enum or another classifier with a body of members, from `class Book {` up to `}`.
+      patterns: [
+        classifierBody(['enum'], 'enum', [{ include: '#enum-value' }, { include: '#members' }]),
+        classifierBody(
+          classifierKeywords.filter((keyword) => keyword !== 'enum'),
+          'class',
+          [{ include: '#members' }],
+        ),
+      ],
+    },
+    'declaration-rest': {
+      patterns: [
+        { match: String.raw`\b(?:${alternatives(linkKeywords)})\b`, name: 'keyword.other.plantuml' },
+        { include: '#inline' },
+      ],
+    },
+    'member-comments': {
+      patterns: [{ include: '#block-comment' }, { include: '#line-comment' }],
+    },
+    separator: {
+      // A line that separates the members, with or without a title, for example `--`, `..`, `==`, `__` or `.. Getters ..`.
+      match: String.raw`^\s*(?:--|\.\.|==|__).*$`,
+      name: 'meta.separator.plantuml',
+    },
+    'enum-value': {
+      // A single word in the body of an enum is a value of the enum.
+      match: String.raw`^\s*${memberPrefix}(${identifier})\s*$`,
+      captures: {
+        1: { patterns: [{ include: '#member-prefix' }] },
+        2: { name: 'variable.other.enummember.plantuml' },
+      },
+    },
+    members: {
+      patterns: [
+        {
+          // An operation: `name(param : Type) : Type`, also without parameters or without the type of its result. The
+          // word before `(` is its name; words before the name, as in `void print()`, keep the color of plain text.
+          // `{field}` makes a member an attribute, also with parentheses.
+          match: String.raw`^(?!.*\{field\})\s*${memberPrefix}(?:([^():]*?)\s+)?(${identifier})\s*(\()([^()]*)(\))\s*(?:(:)\s*(${typeText}?))?\s*(\{.*)?$`,
+          captures: {
+            1: { patterns: [{ include: '#member-prefix' }] },
+            2: { patterns: [{ include: '#inline' }] },
+            3: { name: 'entity.name.function.plantuml' },
+            5: { patterns: [{ include: '#parameters' }] },
+            8: { patterns: [{ include: '#type' }] },
+            9: { patterns: [{ include: '#inline' }] },
+          },
+        },
+        {
+          // An attribute: `name : Type`, `name : Type = value`, `name = value` or only `name`. A `/` marks a derived
+          // attribute.
+          match: String.raw`^\s*${memberPrefix}(/?)(${identifier})(?:\s*(:)\s*(${typeText}))?\s*((?:=|\{).*)?$`,
+          captures: {
+            1: { patterns: [{ include: '#member-prefix' }] },
+            3: { name: 'variable.other.property.plantuml' },
+            5: { patterns: [{ include: '#type' }] },
+            6: { patterns: [{ include: '#inline' }] },
+          },
+        },
+        { include: '#visibility' },
+        { include: '#inline' },
+      ],
+    },
+    'member-prefix': {
+      patterns: [{ include: '#modifiers' }, { match: '[-#~+]', name: 'storage.modifier.visibility.plantuml' }],
+    },
+    parameters: {
+      // The parameters of an operation: `name : Type`, also with a direction (`in`, `out`, `inout`) or a default value.
+      patterns: [
+        {
+          match: String.raw`(?:\b(in|out|inout)\s+)?(${identifier})\s*(:)\s*(${typeText})`,
+          captures: {
+            1: { name: 'storage.modifier.plantuml' },
+            2: { name: 'variable.parameter.plantuml' },
+            4: { patterns: [{ include: '#type' }] },
+          },
+        },
+        { include: '#inline' },
+      ],
+    },
+    type: {
+      patterns: [{ match: identifier, name: 'entity.name.type.plantuml' }],
+    },
     declaration: {
       match: String.raw`^\s*(?:(abstract)\s+)?(${alternatives(elementKeywords)})\b(?:\s+(${name}))?(.*)$`,
       captures: {
         1: { name: 'storage.modifier.plantuml' },
         2: { name: 'storage.type.plantuml' },
         3: { name: 'entity.name.type.plantuml' },
-        4: {
-          patterns: [
-            { match: String.raw`\b(?:${alternatives(linkKeywords)})\b`, name: 'keyword.other.plantuml' },
-            { include: '#inline' },
-          ],
-        },
+        4: { patterns: [{ include: '#declaration-rest' }] },
       },
     },
     'compound-statement': {
@@ -233,7 +368,7 @@ export const plantUmlGrammar: Grammar = {
     },
     modifiers: {
       name: 'storage.modifier.plantuml',
-      match: String.raw`\{(?:static|abstract|classifier|field|method)\}`,
+      match: modifier,
     },
     colors: {
       name: 'constant.other.color.rgb-value.plantuml',

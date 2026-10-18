@@ -343,14 +343,17 @@ test('the documents of the package use full links, so that each link works in th
   }
 });
 
-test('the images of the README are PNG files of the repository, from its branch main, as the Marketplace requires', () => {
+test('the images of the README are GIF or PNG files of docs/images/ on the branch main, as the Marketplace requires', () => {
   // The Marketplace shows no SVG image and no image with a relative address.
   const base = 'https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/';
+  const signatures = { gif: 'GIF8', png: '\x89PNG' };
   const images = [...read('README.md').matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)].map((match) => match[1]);
   expect(images.length).toBeGreaterThan(0);
   for (const image of images) {
-    expect(image.startsWith(base) && image.endsWith('.png'), image).toBe(true);
-    expect(fs.existsSync(path.join(repository, image.slice(base.length))), image).toBe(true);
+    const match = /^https:\/\/raw\.githubusercontent\.com\/nimblescape\/nimblescape-plantuml\/main\/docs\/images\/[\w-]+\.(gif|png)$/.exec(image);
+    expect(match, image).not.toBe(null);
+    const file = fs.readFileSync(path.join(repository, image.slice(base.length)));
+    expect(file.subarray(0, 4).toString('latin1'), `${image} is no ${match![1]} file`).toBe(signatures[match![1] as 'gif' | 'png']);
   }
 });
 

@@ -5,7 +5,7 @@ Shows [PlantUML](https://plantuml.com) diagrams in VS Code: in the
 extension carries the PlantUML engine compiled to JavaScript, so it needs no
 Java, no Graphviz installation and no server, and it works offline.
 
-![A Markdown file with a PlantUML block, and the Markdown preview with its diagram](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/markdown-preview.png)
+![VS Code with the extension: the Markdown preview of a PlantUML block, code completion, formatting, the preview of a PlantUML file in the same tab and to the side, and its rendered Git diff](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/demo.gif)
 
 ## What the extension does on your computer
 
@@ -76,6 +76,8 @@ describes each step and where its protection ends.
   icons of PlantUML, for light and dark color themes.
 
 The extension shows diagrams only; it does not export them to image files.
+
+![A Markdown file with a PlantUML block, and the Markdown preview with its diagram](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/markdown-preview.png)
 
 ## Usage
 

@@ -249,5 +249,10 @@
         }
       }
     }
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "@vscode/vsce-sign": true,
+    "fsevents": false
   }
 }

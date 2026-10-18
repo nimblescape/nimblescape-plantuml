@@ -119,7 +119,7 @@ gives the same files.
 - The configuration defaults make the extension the default formatter of PlantUML files (`"[plantuml]": { "editor.defaultFormatter": … }`). A language-specific default of an extension wins over a general `editor.defaultFormatter` of the user, for example Prettier for every file, but not over a formatter that the user sets for the language `plantuml`. A test checks both.
 - The configuration contribution declares the settings of `src/settings.ts` in the section `nimblescape.plantuml`, with the scope `resource`, so that a folder of a workspace can have its own value. A test keeps the defaults equal to `src/settings.ts`, and a test checks that the README and the guide name every setting.
 - The untrusted-workspace and virtual-workspace capabilities state that the extension only reads.
-- The runtime dependency is the engine `@plantuml/core`, pinned to one version; the section [Engine](#engine) explains it. The development dependencies are the build, test and packaging tools.
+- The runtime dependency is the engine `@plantuml/core`, pinned to one version; the section [Engine](#engine) explains it. The development dependencies are the build, test and packaging tools. `allowScripts` lists the install scripts of dependencies that npm 11.19 and later may run: those of esbuild and `@vscode/vsce-sign` in every version, because the build and the packaging (`npm run package`) run the code of both packages anyway and Dependabot updates them, and not the one of fsevents, an optional package for macOS that already contains its built binary.
 
 `README.md` is the page of the Marketplace and `CHANGELOG.md` its tab
 "Changelog". vsce checks their images: an image must come from an `https`

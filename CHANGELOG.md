@@ -10,9 +10,10 @@ an enum or another classifier, the editor colors the members as the theme
 colors code: the name of an attribute as a property, the name of an
 operation as a function, a parameter as a parameter, a type as a type, and
 a value of an enum as an enum member. The colors follow the notation of
-UML, `name : Type` and `name(param : Type) : Type`, so they do not depend
-on the programming language that the diagram describes; a member in
-another order, for example `int count`, keeps the color of plain text.
+UML, for example `name : Type` and `name(param : Type) : Type`, so they do
+not depend on the programming language that the diagram describes; a
+member in another order, for example `int count`, keeps the color of plain
+text.
 This works in PlantUML files and in the PlantUML blocks of Markdown files.
 The diagram does not change.
 

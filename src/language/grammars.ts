@@ -31,9 +31,9 @@
  * for a type and `variable.other.enummember` for a value of an enum. So a
  * color theme colors them as in code, whatever language the diagram
  * describes. The grammar takes the parts of a member only from the notation
- * of UML, `name : Type` and `name(param : Type) : Type`, and does not guess:
- * a member in another order, for example `int count`, keeps the color of
- * plain text.
+ * of UML, for example `name : Type` and `name(param : Type) : Type`, and does
+ * not guess: a member in another order, for example `int count`, keeps the
+ * color of plain text.
  */
 
 import { controlKeywords, diagramTypes, documentKeywords, elementKeywords, linkKeywords, preprocessorKeywords } from './keywords';
@@ -103,8 +103,17 @@ const modifier = String.raw`\{(?:static|abstract|classifier|field|method)\}`;
  */
 const memberPrefix = String.raw`((?:${modifier}\s*)*(?:[-#~+](?![-#~+])\s*)?(?:${modifier}\s*)*)`;
 
-/** typeText matches a type after a colon, for example `int`, `List<Book>` or `Map<String, List<Book>>`. */
-const typeText = String.raw`(?:[^,=(){}<>]|<[^<>]*(?:<[^<>]*>[^<>]*)*>)+`;
+/**
+ * typeArguments matches the type arguments of a generic type, for example `<String, List<Map<K, V>>>`, nested three
+ * levels deep. `<<` starts a stereotype, not type arguments.
+ */
+const typeArguments = String.raw`<(?!<)(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>`;
+
+/**
+ * typeText matches a type after a colon, for example `int`, `List<Book>` or `Book[0..*]`. It stops before a comment
+ * `/'`. It is possessive, so that a long line does not make the regular expression try every split of its spaces.
+ */
+const typeText = String.raw`(?:[^,=(){}<>/]|/(?!')|${typeArguments})++`;
 
 /**
  * classifierBody returns the rule of a classifier with a body of members, from its declaration, for example
@@ -115,7 +124,8 @@ const typeText = String.raw`(?:[^,=(){}<>]|<[^<>]*(?:<[^<>]*>[^<>]*)*>)+`;
  */
 const classifierBody = (keywords: readonly string[], kind: string, patterns: Rule[]): Rule => ({
   begin: String.raw`^\s*(?:(abstract)\s+)?(${alternatives(keywords)})\b(?:\s+(${name}))?([^{]*)(\{)\s*$`,
-  end: String.raw`^\s*(\})`,
+  // A body that is not closed yet, while you type, ends at the end of the diagram.
+  end: String.raw`^\s*(\})|^(?=\s*@end)`,
   beginCaptures: {
     1: { name: 'storage.modifier.plantuml' },
     2: { name: 'storage.type.plantuml' },
@@ -123,7 +133,7 @@ const classifierBody = (keywords: readonly string[], kind: string, patterns: Rul
     4: { patterns: [{ include: '#declaration-rest' }] },
   },
   contentName: `meta.body.${kind}.plantuml`,
-  patterns: [{ include: '#member-comments' }, { include: '#separator' }, ...patterns],
+  patterns: [{ include: '#member-comments' }, { include: '#preprocessor' }, { include: '#separator' }, ...patterns],
 });
 
 /** plantUmlGrammar colors PlantUML text. */
@@ -251,12 +261,13 @@ export const plantUmlGrammar: Grammar = {
     },
     separator: {
       // A line that separates the members, with or without a title, for example `--`, `..`, `==`, `__` or `.. Getters ..`.
-      match: String.raw`^\s*(?:--|\.\.|==|__).*$`,
+      // A title ends with the same two characters as the start, so that `__str__()` is no separator.
+      match: String.raw`^\s*(--|\.\.|==|__)(?:.*\1)?\s*$`,
       name: 'meta.separator.plantuml',
     },
     'enum-value': {
-      // A single word in the body of an enum is a value of the enum.
-      match: String.raw`^\s*${memberPrefix}(${identifier})\s*$`,
+      // A single word in the body of an enum is a value of the enum, also with `,`, `;` or a value after `=`.
+      match: String.raw`^\s*${memberPrefix}(${identifier})\s*(?:[,;]\s*|=.*)?$`,
       captures: {
         1: { patterns: [{ include: '#member-prefix' }] },
         2: { name: 'variable.other.enummember.plantuml' },
@@ -268,7 +279,7 @@ export const plantUmlGrammar: Grammar = {
           // An operation: `name(param : Type) : Type`, also without parameters or without the type of its result. The
           // word before `(` is its name; words before the name, as in `void print()`, keep the color of plain text.
           // `{field}` makes a member an attribute, also with parentheses.
-          match: String.raw`^(?!.*\{field\})\s*${memberPrefix}(?:([^():]*?)\s+)?(${identifier})\s*(\()([^()]*)(\))\s*(?:(:)\s*(${typeText}?))?\s*(\{.*)?$`,
+          match: String.raw`^(?!.*\{field\})\s*${memberPrefix}(?:([^():=]*?)\s+)?(${identifier})\s*(\()([^()]*)(\))\s*+(?:(:)\s*+(${typeText}))?\s*+((?:\{|<<|/').*)?$`,
           captures: {
             1: { patterns: [{ include: '#member-prefix' }] },
             2: { patterns: [{ include: '#inline' }] },
@@ -280,8 +291,8 @@ export const plantUmlGrammar: Grammar = {
         },
         {
           // An attribute: `name : Type`, `name : Type = value`, `name = value` or only `name`. A `/` marks a derived
-          // attribute.
-          match: String.raw`^\s*${memberPrefix}(/?)(${identifier})(?:\s*(:)\s*(${typeText}))?\s*((?:=|\{).*)?$`,
+          // attribute. `{method}` makes a member an operation, also without parentheses.
+          match: String.raw`^(?!.*\{method\})\s*${memberPrefix}(/?)(${identifier})(?:\s*+(:)\s*+(${typeText})?)?\s*+((?:=|\{|<<|/').*)?$`,
           captures: {
             1: { patterns: [{ include: '#member-prefix' }] },
             3: { name: 'variable.other.property.plantuml' },

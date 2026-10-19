@@ -22,6 +22,12 @@ updates:
         update-types: ['version-update:semver-major', 'version-update:semver-minor']
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # markdown-it and its types stay at version 14, the version of the Markdown preview of VS Code (Hannes
+      # 2026-10-19).
+      - dependency-name: 'markdown-it'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/markdown-it'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:

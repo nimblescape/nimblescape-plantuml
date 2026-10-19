@@ -3,6 +3,10 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.1
+
+The Markdown preview of PlantUML diagrams uses markdown-it 14.3.3, the newest patch release of the Markdown parser.
+
 ## 0.2.0
 
 **Colors of class members.** In the body `{ … }` of a class, an interface,

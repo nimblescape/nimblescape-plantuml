@@ -214,6 +214,13 @@ text that the engine renders:
 
 ## Markdown preview
 
+The version of `markdown-it` and `@types/markdown-it` follows the version that
+the built-in Markdown preview of VS Code uses (the `markdown-it` dependency of
+[extensions/markdown-language-features/package.json](https://github.com/microsoft/vscode/blob/main/extensions/markdown-language-features/package.json),
+version 14 on 2026-10-19), so that the tests and `src/markdown/blocks.ts` parse
+as the preview does. Dependabot offers no major versions of them
+(`.github/dependabot.yml`); move to a new major version only when VS Code does.
+
 The built-in Markdown preview renders a document with markdown-it. The
 plugin `src/markdown/markdownIt.ts` writes a fenced code block with the info
 string `plantuml` as a `div` with the class `nimblescape-plantuml`, the

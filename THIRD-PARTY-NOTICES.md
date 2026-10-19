@@ -43,7 +43,7 @@ blocks of Markdown files with it, as the Markdown preview of VS Code does.
 
 | Package in `dist/extension.js` | Version | License |
 | --- | --- | --- |
-| [markdown-it](#markdown-it) | 14.3.2 | MIT |
+| [markdown-it](#markdown-it) | 14.3.3 | MIT |
 | [entities](#entities) | 4.5.0 | BSD-2-Clause |
 | [linkify-it](#linkify-it) | 5.0.2 | MIT |
 | [mdurl](#mdurl) | 2.1.0 | MIT |

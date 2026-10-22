@@ -50,7 +50,7 @@
     "uninstall-local": "node scripts/uninstall-local.mjs"
   },
   "dependencies": {
-    "@plantuml/core": "1.2026.8"
+    "@plantuml/core": "1.2026.9"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",

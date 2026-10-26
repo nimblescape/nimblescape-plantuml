@@ -25,7 +25,7 @@ links to its details.
   extension does not run in VS Code for the Web. See
   [Trust boundaries](#trust-boundaries).
 - **Rendering.** The diagrams render on your computer, in the webview of the
-  preview, with the engine `@plantuml/core` 1.2026.8 that the package
+  preview, with the engine `@plantuml/core` 1.2026.9 that the package
   contains. The extension uses no PlantUML server, starts no Java and no other
   program, and sends no diagram text and no file to the internet. No setting
   changes this. The security setting of the Markdown preview only selects the
@@ -88,7 +88,7 @@ of VS Code, as the text of an open file does.
 
 ## Rendering
 
-- **The engine.** The engine is the npm package `@plantuml/core` 1.2026.8:
+- **The engine.** The engine is the npm package `@plantuml/core` 1.2026.9:
   PlantUML compiled to JavaScript with TeaVM, with Viz.js (Graphviz compiled
   to WebAssembly). The build copies its scripts into `dist/engine/` of the
   package. A preview loads the engine from the folder of the extension
@@ -102,7 +102,7 @@ of VS Code, as the text of an open file does.
   it reads files and sends their text to the previews.
 - **Addresses in a diagram.** The extension does not read an include line
   with an address, for example `!include https://…` or `!includeurl https://…`,
-  and the preview shows a message at that line. With `@plantuml/core` 1.2026.8,
+  and the preview shows a message at that line. With `@plantuml/core` 1.2026.9,
   the engine sends no request for an address in `!include`, `!includeurl`,
   `!import`, `!theme … from`, `%load_json`, `sprite` or `<img:…>`: it shows an
   error or a placeholder text, and its SVG picture has no link and no image
@@ -215,7 +215,7 @@ of VS Code, stores no secret, and sends nothing to any address.
   shows only in the preview on your computer.
 - With the security setting "Disable" of the Markdown preview, VS Code sets no
   security policy, so the policy no longer blocks network requests or scripts
-  in the Markdown preview. The engine 1.2026.8 sends no request for the
+  in the Markdown preview. The engine 1.2026.9 sends no request for the
   addresses of a diagram (see [Rendering](#rendering)); that check covers this
   version of the engine only. Set "Disable" only for documents that you trust,
   as the [user guide](guide.md#layout-of-diagrams-in-the-markdown-preview)

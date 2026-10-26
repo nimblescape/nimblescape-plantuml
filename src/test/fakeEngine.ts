@@ -37,7 +37,7 @@ export function errorPicture(lines: readonly string[]): string {
   const line = lines.findIndex(failsAt) + 1;
   const path = localInclude.exec(lines[line - 1])?.[1];
   const message = path === undefined ? ' Syntax Error? (Assumed diagram type: class)' : ` cannot include ${path}`;
-  const texts = ['PlantUML version 1.2026.8', `[From textarea (line ${line}) ]`, ' ', ...lines.slice(0, line), message];
+  const texts = ['PlantUML version 1.2026.9', `[From textarea (line ${line}) ]`, ' ', ...lines.slice(0, line), message];
   return `<svg>${texts.map((text) => `<text>${escapeXml(text)}</text>`).join('')}</svg>`;
 }
 

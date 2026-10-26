@@ -6,12 +6,12 @@
  * The included files of a diagram ([R-GEN-008](../../docs/requirements.md#r-gen-008)). The engine of the previews
  * cannot read files, so the extension reads them, and the previews put the text of each included file into the copy
  * of the diagram text that the engine renders, in place of the include line. The module follows the preprocessor of
- * PlantUML 1.2026.8 (the classes `TContext`, `EaterInclude`, `DiagramExtractor` and `Sub` of PlantUML):
+ * PlantUML 1.2026.9 (the classes `TContext`, `EaterInclude`, `DiagramExtractor` and `Sub` of PlantUML):
  *
  * - The lines `!include`, `!include_many`, `!include_once` and `!includeurl` with the path of a file include the
  *   first diagram of the file without its `@start` and `@end` lines, or the whole file when it has no `@start` line.
  *   After the path, `!` and a number select another diagram, where `!0` is the first one, and `!` and a name select
- *   the diagram whose `@start` line contains `id=` and the name, for example `@startuml(id=STYLES)`. PlantUML 1.2026.8
+ *   the diagram whose `@start` line contains `id=` and the name, for example `@startuml(id=STYLES)`. PlantUML 1.2026.9
  *   includes a file at each include line, with each of the four lines.
  * - The line `!includesub` with a path, `!` and a name includes the lines between `!startsub` and `!endsub` with that
  *   name in the file.

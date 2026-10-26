@@ -105,10 +105,11 @@ const samples: Readonly<Record<string, string>> = {
   chart: 'bar "Sales" [1, 2]',
   nwdiag: 'nwdiag {\n  network lan {\n    server;\n  }\n}',
   packetdiag: 'packetdiag {\n  0-15: Source\n}',
+  salt: '{\n  Login | "name"\n  [Cancel] | [OK]\n}',
 };
 
 /** unsupportedTypes are diagram types of PlantUML that the engine does not render. */
-const unsupportedTypes = ['salt', 'ditaa', 'dot', 'math', 'latex', 'wire', 'files', 'chen', 'board', 'git', 'chronology', 'hcl'];
+const unsupportedTypes = ['ditaa', 'dot', 'math', 'latex', 'wire', 'files', 'chen', 'board', 'git', 'chronology', 'hcl'];
 
 beforeAll(() => {
   // happy-dom has no canvas; the engine measures each text with the context of one, and draws the sprites of C4 on it.

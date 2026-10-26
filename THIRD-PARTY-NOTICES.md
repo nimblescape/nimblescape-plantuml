@@ -8,7 +8,7 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 
 The package of nimblescape PlantUML contains the PlantUML engine of the npm
 package [`@plantuml/core`](https://www.npmjs.com/package/@plantuml/core)
-1.2026.8 in the folder `dist/engine/`. The build copies its files without a
+1.2026.9 in the folder `dist/engine/`. The build copies its files without a
 change. Next to the engine, the folder holds the library C4 of the standard
 library of PlantUML, which the PlantUML project builds for the engine; the
 build copies it from the folder `stdlib/` of the repository, also without a
@@ -22,7 +22,7 @@ project does not endorse it.
 
 | File in `dist/engine/` | Content | License |
 | --- | --- | --- |
-| `plantuml.js` | PlantUML 1.2026.8 by Arnaud Roques, compiled to JavaScript with TeaVM. The file also contains [Smetana](#smetana), the layout engine of PlantUML; the runtime and the Java class library of [TeaVM](#teavm) 0.14.1, with the locale data of the [Unicode CLDR](#unicode-cldr-data) and with [JZlib](#jzlib) 1.1.3; and, as parts of PlantUML, [minimal-json](#minimal-json) and [Base64Coder](#base64coder) | MIT (PlantUML, minimal-json, Base64Coder), Eclipse Public License 1.0 (Smetana), Apache License 2.0 (TeaVM), BSD-style (JZlib), Unicode License V3 (CLDR data) |
+| `plantuml.js` | PlantUML 1.2026.9 by Arnaud Roques, compiled to JavaScript with TeaVM. The file also contains [Smetana](#smetana), the layout engine of PlantUML; the runtime and the Java class library of [TeaVM](#teavm) 0.16.0, with the locale data of the [Unicode CLDR](#unicode-cldr-data) and with [JZlib](#jzlib) 1.1.3; and, as parts of PlantUML, [minimal-json](#minimal-json) and [Base64Coder](#base64coder) | MIT (PlantUML, minimal-json, Base64Coder), Eclipse Public License 1.0 (Smetana), Apache License 2.0 (TeaVM), BSD-style (JZlib), Unicode License V3 (CLDR data) |
 | `viz-global.js` | Viz.js 3.24.0 by Michael Daines, which contains Graphviz 14.1.1 and Expat in object code form | MIT (Viz.js), Eclipse Public License 1.0 (Graphviz), MIT (Expat) |
 | `themes.js` | The 44 themes of PlantUML (`!theme`) by several authors; the section [PlantUML themes](#plantuml-themes) names the author and the license of each theme | MIT (31 themes), Apache License 2.0 (3 themes), GNU General Public License 3.0 or later (1 theme), and the license of PlantUML, MIT (9 themes without a license statement) |
 | `emoji.js` | The emoji graphics of [Twemoji](https://github.com/twitter/twemoji) by Twitter, Inc and other contributors, as PlantUML ships them | CC BY 4.0 |
@@ -63,8 +63,8 @@ scalarion@nimblescape.com.
 ## PlantUML
 
 Source code:
-<https://github.com/plantuml/plantuml/tree/994060f34bc8cf9841dc67c9771fc5b2f2b1398f>,
-the commit from which the PlantUML project built the npm package 1.2026.8 (the
+<https://github.com/plantuml/plantuml/tree/18d0aae311a4f1eb3723bb4b0ad939185e22f166>,
+the commit from which the PlantUML project built the npm package 1.2026.9 (the
 field `gitHead` of the package in the npm registry). The license of the package
 `@plantuml/core`, which `dist/engine/LICENSE` also holds:
 
@@ -169,18 +169,18 @@ Contributors: See CVS logs. Details at http://www.graphviz.org/
 ```
 
 Source code: the folders
-[`src/main/java/gen`](https://github.com/plantuml/plantuml/tree/994060f34bc8cf9841dc67c9771fc5b2f2b1398f/src/main/java/gen) and
-[`src/main/java/smetana`](https://github.com/plantuml/plantuml/tree/994060f34bc8cf9841dc67c9771fc5b2f2b1398f/src/main/java/smetana) of PlantUML. The text of
+[`src/main/java/gen`](https://github.com/plantuml/plantuml/tree/18d0aae311a4f1eb3723bb4b0ad939185e22f166/src/main/java/gen) and
+[`src/main/java/smetana`](https://github.com/plantuml/plantuml/tree/18d0aae311a4f1eb3723bb4b0ad939185e22f166/src/main/java/smetana) of PlantUML. The text of
 the Eclipse Public License 1.0 is in the section [Graphviz](#graphviz). Any
 warranty and liability for Smetana are disclaimed as that license states.
 
 ## TeaVM
 
 `plantuml.js` is the output of the TeaVM compiler, which adds its runtime and
-the parts of its Java class library that PlantUML uses. TeaVM 0.14.1 is by
+the parts of its Java class library that PlantUML uses. TeaVM 0.16.0 is by
 Alexey Andreev and is under the Apache License 2.0; the section
 [Apache License 2.0](#apache-license-20) holds its text. Source code:
-<https://github.com/konsoletyper/teavm/tree/0.14.1>. The NOTICE file of TeaVM:
+<https://github.com/konsoletyper/teavm/tree/0.16.0>. The NOTICE file of TeaVM:
 
 ```text
 This product includes software developed by Alexey Andreev
@@ -290,7 +290,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 `plantuml.js` contains the JSON parser of minimal-json by EclipseSource, as a
 part of PlantUML
-([`src/main/java/net/sourceforge/plantuml/json`](https://github.com/plantuml/plantuml/tree/994060f34bc8cf9841dc67c9771fc5b2f2b1398f/src/main/java/net/sourceforge/plantuml/json)).
+([`src/main/java/net/sourceforge/plantuml/json`](https://github.com/plantuml/plantuml/tree/18d0aae311a4f1eb3723bb4b0ad939185e22f166/src/main/java/net/sourceforge/plantuml/json)).
 Source code: <https://github.com/ralfstx/minimal-json>. Its license, as the
 source files of PlantUML state it:
 
@@ -322,7 +322,7 @@ SOFTWARE.
 
 `plantuml.js` contains Base64Coder by Christian d'Heureuse, as a part of
 PlantUML
-([`Base64Coder.java`](https://github.com/plantuml/plantuml/blob/994060f34bc8cf9841dc67c9771fc5b2f2b1398f/src/main/java/net/sourceforge/plantuml/utils/Base64Coder.java)).
+([`Base64Coder.java`](https://github.com/plantuml/plantuml/blob/18d0aae311a4f1eb3723bb4b0ad939185e22f166/src/main/java/net/sourceforge/plantuml/utils/Base64Coder.java)).
 Its author offers it under several licenses, among them the MIT License, under
 which PlantUML and nimblescape PlantUML use it. Source code:
 <http://www.source-code.biz/base64coder/java/>.
@@ -623,7 +623,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 `themes.js` holds the 44 themes of PlantUML for the directive `!theme`. Each
 theme names its author and its license in its first lines. The source of each
 theme is the file `puml-theme-<name>.puml` in the folder
-[`src/main/resources/themes`](https://github.com/plantuml/plantuml/tree/994060f34bc8cf9841dc67c9771fc5b2f2b1398f/src/main/resources/themes) of PlantUML.
+[`src/main/resources/themes`](https://github.com/plantuml/plantuml/tree/18d0aae311a4f1eb3723bb4b0ad939185e22f166/src/main/resources/themes) of PlantUML.
 
 | Themes | Author | License |
 | --- | --- | --- |
@@ -697,7 +697,7 @@ later version, as a separate work in the collection of themes. The section
 [GNU General Public License 3.0](#gnu-general-public-license-30) holds the text
 of the license. The source code of the theme is its text in `themes.js` and the
 file
-[`puml-theme-sunlust.puml`](https://github.com/plantuml/plantuml/blob/994060f34bc8cf9841dc67c9771fc5b2f2b1398f/src/main/resources/themes/puml-theme-sunlust.puml)
+[`puml-theme-sunlust.puml`](https://github.com/plantuml/plantuml/blob/18d0aae311a4f1eb3723bb4b0ad939185e22f166/src/main/resources/themes/puml-theme-sunlust.puml)
 of PlantUML. The license of this theme does not apply to the other themes or to
 the other parts of the extension: section 5 of the license states that the
 inclusion of a covered work in an aggregate does not cause the license to apply

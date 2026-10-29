@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+# © 2026 Hannes Stauss (scalarion@nimblescape.com)
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
+# Keep the line breaks of the text files as \n in every checkout, also on Windows, where Git would else write \r\n:
+# the tests compare texts of the repository, and the package holds the files as they are.
+* text=auto eol=lf

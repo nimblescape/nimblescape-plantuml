@@ -6,3 +6,6 @@
 node_modules/
 dist/
 *.vsix
+
+# Keep the downloads and the user data of the tests in VS Code out of Git.
+.vscode-test/

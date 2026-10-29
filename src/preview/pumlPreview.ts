@@ -22,7 +22,9 @@
  *
  * A diagram is never wider than its column. A click on a diagram that the
  * column makes smaller shows it in its original size, and the column then
- * scrolls; a second click fits it to the column again.
+ * scrolls; a second click fits it to the column again. A click on a link of a
+ * diagram (`[[…]]`) opens the link, as VS Code opens the links of a webview,
+ * and keeps the size.
  *
  * The script reuses the blocks from one message to the next, so that the page
  * keeps its scroll position and shows the unchanged diagrams at once while
@@ -31,7 +33,7 @@
 
 import { diagramsOf } from '../diagram/diagramRanges';
 import { expandWith, IncludedFiles } from '../diagram/includes';
-import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesClass, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
 import { isDefault, Settings } from '../settings';
 import { pageRenderer } from './renderer';
 
@@ -175,6 +177,29 @@ function setAttribute(element: HTMLElement, name: string, value: string | undefi
 }
 
 /**
+ * showIncludes writes the included files of a block into its hidden child element, as the markdown-it plugin writes
+ * them, or removes that element.
+ * @param block - The element of the block.
+ * @param includes - The included files as JSON text, or undefined for none.
+ */
+function showIncludes(block: HTMLElement, includes: string | undefined): void {
+  let element = block.querySelector<HTMLElement>(`:scope > .${includesClass}`);
+  if (includes === undefined) {
+    element?.remove();
+    return;
+  }
+  if (!element) {
+    element = block.ownerDocument.createElement('div');
+    element.className = includesClass;
+    element.hidden = true;
+    block.append(element);
+  }
+  if (element.textContent !== includes) {
+    element.textContent = includes;
+  }
+}
+
+/**
  * showBlock writes a diagram, its included files and the settings into a block, and the text of the diagram into
  * the element that the renderer shows below the message of an error.
  * @param block - The element of the block.
@@ -185,7 +210,7 @@ function setAttribute(element: HTMLElement, name: string, value: string | undefi
 function showBlock(block: HTMLElement, source: string, settings: Settings, includes: string | undefined): void {
   block.setAttribute(sourceAttribute, source);
   setAttribute(block, settingsAttribute, isDefault(settings) ? undefined : JSON.stringify(settings));
-  setAttribute(block, includesAttribute, includes);
+  showIncludes(block, includes);
   const code = block.querySelector(`:scope > .${contentClass} > .${textClass} > code`);
   if (code && code.textContent !== source) {
     code.textContent = source;
@@ -338,6 +363,12 @@ function diagramOf(event: Event): Element | undefined {
 }
 
 /**
+ * isOnLink tells whether an event of the pointer happened on a link, for example a link of a diagram (`[[…]]`).
+ * @param event - The event.
+ */
+const isOnLink = (event: Event): boolean => event.composedPath().some((target) => target instanceof Element && target.localName === 'a');
+
+/**
  * blockOf returns the block of the image of a diagram: the block of the content element that holds its shadow root.
  * @param diagram - The image of the diagram.
  */
@@ -358,8 +389,8 @@ function isWide(diagram: Element): boolean {
 
 /**
  * zoomOnClick lets a click on a diagram that is wider than its column switch its block between the width of the
- * column and the original size. A block keeps its size while its diagram changes, because the page reuses the
- * blocks.
+ * column and the original size. A click on a link of the diagram changes nothing, because it opens the link. A block
+ * keeps its size while its diagram changes, because the page reuses the blocks.
  * @param container - The element of the blocks.
  */
 export function zoomOnClick(container: HTMLElement): void {
@@ -371,6 +402,9 @@ export function zoomOnClick(container: HTMLElement): void {
     }
   });
   container.addEventListener('click', (event) => {
+    if (isOnLink(event)) {
+      return;
+    }
     const diagram = diagramOf(event);
     const block = diagram && blockOf(diagram);
     if (block && (block.classList.contains(originalSizeClass) || isWide(diagram))) {

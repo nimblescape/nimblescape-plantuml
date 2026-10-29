@@ -6,8 +6,8 @@
  * These tests check the reading of the included files of the previews (R-GEN-008) with a fake of the API of VS Code
  * and of the file system: the files of the disk, which the extension reads at once, the files of other file systems,
  * for which a diagram waits, the paths relative to the document and to an included file, the versions of Git, the
- * folders that the extension reads from, the problems of a file, the event after a reading and after a change of an
- * included file, and the end of the watchers.
+ * folders that the extension reads from, also through symbolic links, the problems of a file, the event after a
+ * reading and after a change of an included file, and the end of the watchers.
  */
 
 import * as posix from 'node:path/posix';
@@ -93,6 +93,8 @@ class FakeWatcher {
 
 /** files holds the files of the fake file systems by their address: a text, `folder`, or `locked` for a file without the right to read it. */
 let files: Map<string, string>;
+/** links holds the symbolic links of the disk: the path of each link and the path of its target. */
+let links: Map<string, string>;
 /** reads records the addresses of the files that the extension read. */
 let reads: string[];
 /** workspaceFolders are the workspace folders of the fake. */
@@ -107,12 +109,22 @@ beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
   files = new Map();
+  links = new Map();
   reads = [];
   workspaceFolders = [{ uri: FakeUri.file('/work') }];
   watchers = [];
   const fileNotFound = () => Object.assign(new Error('not found'), { code: 'FileNotFound' });
   // The file system of the disk: the path of a file of the disk is the path of its address.
   vi.doMock('node:fs', () => ({
+    // A path whose start is a link continues in the target of the link.
+    realpathSync: (path: string) => {
+      for (const [link, target] of links) {
+        if (path === link || path.startsWith(`${link}/`)) {
+          return target + path.slice(link.length);
+        }
+      }
+      return path;
+    },
     statSync: (path: string) => {
       const file = files.get(`file://${path}`);
       if (file === undefined) {
@@ -235,8 +247,27 @@ test('loads the files of another file system that the included files include, an
   await settle();
   expect(await loading).toEqual({ 'lib/a.puml': { text: '!include ../../shared/b.puml' }, '../shared/b.puml': { text: 'B' } });
   expect(includes.load(virtual('/repo/docs/design.md') as never, text)).toEqual(await loading);
-  // The extension watches only the files of the disk.
-  expect(watchers).toEqual([]);
+  // The files of a virtual workspace can change, so the extension watches them too.
+  expect(watchers.map((watcher) => [watcher.pattern.base.toString(), watcher.pattern.pattern])).toEqual([
+    ['vscode-vfs://github/repo/docs/lib', 'a.puml'],
+    ['vscode-vfs://github/repo/shared', 'b.puml'],
+  ]);
+});
+
+test('reads a watched file of a virtual workspace again when it changes, and tells the previews', async () => {
+  const virtual = (path: string) => new FakeUri('vscode-vfs', 'github', path);
+  workspaceFolders = [{ uri: virtual('/repo') }];
+  files.set(virtual('/repo/docs/styles.puml').toString(), 'old');
+  const { includes, changes } = await includeFiles();
+  const text = '!include styles.puml';
+  expect(await includes.load(virtual('/repo/docs/design.md') as never, text)).toEqual({ 'styles.puml': { text: 'old' } });
+  await settle();
+  expect(changes()).toBe(1);
+  files.set(virtual('/repo/docs/styles.puml').toString(), 'new');
+  watchers[0].changed();
+  await settle();
+  expect(changes()).toBe(2);
+  expect(includes.filesOf(virtual('/repo/docs/design.md') as never, text)).toEqual({ 'styles.puml': { text: 'new' } });
 });
 
 test('names the problem of a file that does not exist, of a folder, of a large file, of a file that it cannot read and of a file outside the folders', async () => {
@@ -268,6 +299,30 @@ test('names the problem of a file that does not exist, of a folder, of a large f
     },
   });
   expect(reads).toEqual(['file:///work/docs/locked.puml']);
+});
+
+test('reads no file whose symbolic links lead outside the workspace folders and the folder of the document', async () => {
+  files.set('file:///home/user/.ssh/id_rsa', 'secret');
+  files.set('file:///work/shared/styles.puml', 'S');
+  files.set('file:///real/work/docs/own.puml', 'O');
+  links.set('/work/docs/key.puml', '/home/user/.ssh/id_rsa');
+  links.set('/work/docs/lib', '/home/user/.ssh');
+  links.set('/work/docs/styles.puml', '/work/shared/styles.puml');
+  const { includes } = await includeFiles();
+  const text = ['!include key.puml', '!include lib/id_rsa', '!include styles.puml'].join('\n');
+  const problem = (path: string) =>
+    `The file ${path} is a symbolic link to a file outside the workspace folders and the folder of the document. The extension reads included files only from these folders.`;
+  expect(includes.load(document, text)).toEqual({
+    'key.puml': { problem: problem('key.puml') },
+    'lib/id_rsa': { problem: problem('lib/id_rsa') },
+    // A link to a file in a workspace folder is fine.
+    'styles.puml': { text: 'S' },
+  });
+
+  // A workspace folder that is a symbolic link holds the targets of its links.
+  links.clear();
+  links.set('/work', '/real/work');
+  expect(includes.load(document, '!include own.puml')).toEqual({ 'own.puml': { text: 'O' } });
 });
 
 test('reads the files of the folder of a document outside the workspace folders, and no file without a saved document', async () => {

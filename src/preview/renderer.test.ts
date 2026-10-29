@@ -21,7 +21,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { IncludedFiles, mayInclude } from '../diagram/includes';
 import { umlCommands } from '../diagram/umlNotation';
-import { blockClass, contentClass, includesAttribute, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesClass, textClass } from '../markdown/markdownIt';
 import { defaultSettings } from '../settings';
 import { errorPicture, escapeXml, FakeEngine } from '../test/fakeEngine';
 import { fence, renderMarkdown } from '../test/markdownPreview';
@@ -180,6 +180,12 @@ describe('StoredResults', () => {
     const none = new StoredResults(undefined, 'v1');
     none.set(['A'], false, '<svg></svg>');
     expect(none.get(['A'], false)).toBeUndefined();
+
+    // A result with a long text, for example with large included files, is not kept, and removes no other result.
+    const count = storage.items.size;
+    stored.set(['x'.repeat(500_000)], false, '<svg></svg>');
+    expect(storage.items.size).toBe(count);
+    expect(stored.get(['D60'], false)).toBe('<svg>60</svg>');
   });
 });
 
@@ -453,11 +459,14 @@ describe('PreviewRenderer with included files', () => {
     await renderer.whenIdle();
     expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
 
-    // A new include line names a file that the extension reads now: the block keeps its diagram.
+    // A new include line names a file that the extension reads now: the block keeps its diagram. The Markdown preview
+    // changes the attributes and the included files of the block in place.
     const block = root.querySelector<HTMLElement>(`.${blockClass}`)!;
     const replace = (files: IncludedFiles) => {
       const next = includingPage(fence('A\n!include b.puml'), files).querySelector(`.${blockClass}`)!;
       next.getAttributeNames().forEach((name) => block.setAttribute(name, next.getAttribute(name)!));
+      block.querySelector(`:scope > .${includesClass}`)?.remove();
+      block.append(next.querySelector(`:scope > .${includesClass}`)!);
       renderer.update();
     };
     replace({});
@@ -477,7 +486,7 @@ describe('PreviewRenderer with included files', () => {
 
   test('shows the note in a new block whose included files the extension still reads', () => {
     const root = includingPage(fence('!include a.puml'), {});
-    expect(root.querySelector(`.${blockClass}`)?.getAttribute(includesAttribute)).toBe('{}');
+    expect(root.querySelector(`.${blockClass} > .${includesClass}`)?.textContent).toBe('{}');
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     expect(shown(root)).toEqual([['pending Rendering the diagram…']]);

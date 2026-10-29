@@ -13,7 +13,13 @@
  *
  * The element also carries the texts of the files that the diagrams of the
  * block include ([R-GEN-008](../../docs/requirements.md#r-gen-008)), which
- * the extension reads, because the preview script cannot read files.
+ * the extension reads, because the preview script cannot read files. They are
+ * the text of a hidden child element, not the value of an attribute: the
+ * Markdown preview allows the styles of the document and images from the
+ * internet, and a style rule can select an element by the start of the value
+ * of an attribute and load an image for it, so that the value of an attribute
+ * could reach an address of the internet character by character. A style rule
+ * cannot select an element by its text.
  *
  * The element keeps the attributes that the preview gives to the token of the
  * block, among them `data-line` and the class `code-line`. The preview needs
@@ -61,11 +67,11 @@ export const sourceAttribute = 'data-plantuml-source';
 export const settingsAttribute = 'data-plantuml-settings';
 
 /**
- * includesAttribute is the attribute that carries the files that the diagrams of a PlantUML block include
- * ([R-GEN-008](../../docs/requirements.md#r-gen-008)) to the preview script, as JSON text. A block whose diagrams
- * include no file has no such attribute.
+ * includesClass is the class of the hidden child element of a PlantUML block whose text carries the files that the
+ * diagrams of the block include ([R-GEN-008](../../docs/requirements.md#r-gen-008)) to the preview script, as JSON
+ * text. A block whose diagrams include no file has no such element.
  */
-export const includesAttribute = 'data-plantuml-includes';
+export const includesClass = `${blockClass}-includes`;
 
 /**
  * diffMarker matches an empty element that the rendered diff of VS Code inserts into the Markdown text at the
@@ -153,15 +159,13 @@ export function extendMarkdownIt(
       attributes.set(settingsAttribute, JSON.stringify(values));
     }
     const files = includes(rendering, source);
-    if (files) {
-      attributes.set(includesAttribute, JSON.stringify(files));
-    }
+    const included = files ? `<div class="${includesClass}" hidden>${md.utils.escapeHtml(JSON.stringify(files))}</div>` : '';
     // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute. The preview script
     // hides the text before the page shows it; the text stays when the preview runs no scripts.
     const element = { attrs: [...attributes] } as Token;
     return (
       `<div${self.renderAttrs(element)}><div class="${contentClass}">` +
-      `<pre class="${textClass}"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`
+      `<pre class="${textClass}"><code>${md.utils.escapeHtml(source)}</code></pre></div>${included}</div>\n`
     );
   };
   return md;

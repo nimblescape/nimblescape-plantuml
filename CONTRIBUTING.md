@@ -40,7 +40,6 @@ describes its security model.
 | `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
 | `test/vscode/index.cjs`, `test/vscode/workspace/` | The tests in VS Code itself (`npm run test:vscode`) and the folder that VS Code opens for them: the activation, the markdown-it plugin in the Markdown extension, the commands, the code completion, the formatting, and the custom editor of PlantUML files with its toggle. |
 | `scripts/vscode-test.mjs` | Downloads VS Code with [`@vscode/test-electron`](https://github.com/microsoft/vscode-test) and runs the tests of `test/vscode/` in it. |
-| `.oxlintrc.json` | The settings of the linter [oxlint](https://oxc.rs/docs/guide/usage/linter): the rules of the category "correctness" and the rules that need the types. |
 | `.gitattributes` | Keeps the line breaks `\n` in every checkout, also on Windows. |
 | `stdlib/` | The libraries of the standard library of PlantUML that the package contains: `c4.min.js`, the library C4, as the PlantUML project builds it for the engine. The section [Engine](#engine) explains it. |
 | `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
@@ -52,17 +51,18 @@ describes its security model.
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
 | `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. The editor API stays outside the bundle. The bundles are readable JavaScript, not minified (see [Reviewing the package](#reviewing-the-package)); a production build (`--production`) has no source maps. |
-| `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
+| `tsconfig.json` | The TypeScript settings of the type check with TypeScript 6.0: strict, and no output, because esbuild builds the bundle. They are the same in every nimblescape extension, except the files they include. |
+| `eslint.config.mjs` | The rules of `npm run lint`: the recommended rules of ESLint and of typescript-eslint, and the rules that find promises that nobody waits for, with the types of `tsconfig.json`. The file is the same in every nimblescape extension, except its lists of the ignored files and of the scripts of webviews. |
 | `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` and `scripts/**/*.test.mjs` on Node; a test file that needs a page (the preview scripts and the real engine) selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked engine and development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
 | `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/pumlPreview.js`, `dist/engine/`, `dist/syntaxes/`, `media/markdownPreview.css`, `media/pumlPreview.css`, `resources/icon.png`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `SUPPORT.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
-| `.github/workflows/ci.yml` | Checks the types, runs the linter and the tests, packages, and runs the tests in VS Code with the package for every push to `main`, every pull request and the commit of every release; a second job runs the tests and the tests in VS Code on Windows. The release publishes the VSIX of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
+| `.github/workflows/ci.yml` | Checks the types and the code (ESLint), runs the tests, packages, and runs the tests in VS Code with the package for every push to `main`, every pull request and the commit of every release; a second job runs the tests and the tests in VS Code on Windows. The release publishes the VSIX of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/release-dry-run.yml` | Fails on a pull request that changes the release process (`release.yml`, `ci.yml` or `scripts/release-checks.mjs`) until a dry run on its branch tested the change (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
-| `.github/dependabot.yml` | Proposes weekly updates of the development tools, of the engine and of the pinned actions. |
+| `.github/dependabot.yml` | Proposes weekly updates of the development tools, of the engine and of the pinned actions. TypeScript stays at 6.0.3, as in every nimblescape extension. |
 | `scripts/install-local.mjs`, `scripts/uninstall-local.mjs` | Install the built package into every profile of the VS Code of this computer, and remove it again. |
 | `scripts/marketplace-setup.sh` | Sets up the Marketplace publishing of the repository. The section [Setup of a repository](#setup-of-a-repository) explains it. |
 | `scripts/release-checks.mjs`, `scripts/release-checks.test.mjs` | The check of rule 4 of the [release rules](#release-rules), which the workflows run, and its test. |
@@ -70,7 +70,8 @@ describes its security model.
 
 ## Development
 
-The development tools are TypeScript, esbuild, vitest and
+The development tools are TypeScript 6.0, ESLint with typescript-eslint,
+esbuild, vitest and
 [`@vscode/vsce`](https://github.com/microsoft/vscode-vsce), the Microsoft tool
 that packages and publishes extensions. Everything runs on Node.js 24: the
 release in `.node-version` for the tools and CI, and the runtime of VS Code
@@ -80,7 +81,7 @@ release in `.node-version` for the tools and CI, and the runtime of VS Code
 | --- | --- |
 | `npm ci --ignore-scripts` | Installs the locked engine and development tools and runs no install script of a dependency. |
 | `npm run typecheck` | Checks the types with `tsc`. esbuild does not check them. |
-| `npm run lint` | Runs the linter oxlint with the rules that need the types, for example `no-floating-promises` for a promise that nobody awaits. ESLint with typescript-eslint does not fit here, because typescript-eslint supports TypeScript only below 6.1, and the repository uses TypeScript 7; oxlint runs these rules with tsgolint, which is built on TypeScript 7. |
+| `npm run lint` | Checks the code with ESLint (`eslint.config.mjs`). `npm run lint -- --fix` corrects what ESLint can correct itself. |
 | `npm test` | Runs the tests with vitest. The tests touch no installed editor. |
 | `npm run build` | Bundles `dist/extension.js` with a source map and copies the engine into `dist/engine/`. |
 | `npm run test:vscode` | Runs the tests of `test/vscode/` in VS Code, with the built extension of `dist/` (run `npm run build` first). It downloads VS Code into `.vscode-test/`, by default the oldest version that `engines.vscode` allows; `VSCODE_TEST_VERSION=stable` tests the newest one. On Linux without a display, run it with `xvfb-run -a`. |

@@ -38,7 +38,7 @@ const read = (file: string): string => fs.readFileSync(path.join(repository, fil
  * readJsonWithComments parses a JSON file whose leading lines may be `//` comments, as VS Code allows them.
  * @param file - The path of the file, relative to the repository.
  */
-const readJsonWithComments = (file: string): any =>
+const readJsonWithComments = (file: string): Record<string, unknown> =>
   JSON.parse(
     read(file)
       .split('\n')
@@ -159,7 +159,7 @@ test('the extension is the default formatter of PlantUML files, and the command 
 
 test('the manifest contributes the settings of src/settings.ts with their defaults', () => {
   const properties = manifest.contributes.configuration.properties;
-  const contributed = Object.fromEntries(Object.entries<any>(properties).map(([key, value]) => [key, value.default]));
+  const contributed = Object.fromEntries(Object.entries<{ default?: unknown }>(properties).map(([key, value]) => [key, value.default]));
   const expected = Object.fromEntries(Object.entries(defaultSettings).map(([key, value]) => [`${settingsSection}.${key}`, value]));
   expect(contributed).toEqual(expected);
 });

@@ -4,7 +4,7 @@
 
 # Check and test the extension and build its package for every push to main
 # and every pull request. The job "Test and package" installs the locked
-# development tools, checks the types, runs the linter and the tests,
+# development tools, checks the types and the code (ESLint), runs the tests,
 # packages the VSIX with vsce, which first bundles the extension with esbuild
 # and also validates the manifest and the README, and then runs the tests in
 # VS Code with that bundle. The VSIX stays a workflow artifact for inspection.
@@ -57,7 +57,7 @@ jobs:
       - name: Check the types
         run: npm run typecheck
 
-      - name: Check the code with the linter
+      - name: Check the code with ESLint
         run: npm run lint
 
       - name: Run the tests

@@ -14,12 +14,14 @@
 
 import MarkdownIt from 'markdown-it';
 import { describe, expect, test } from 'vitest';
+import { IncludedFiles } from '../diagram/includes';
 import { defaultSettings } from '../settings';
 import {
   blockClass,
   contentClass,
   extendMarkdownIt,
   includesClass,
+  pageIncludesClass,
   isPlantUmlInfo,
   settingsAttribute,
   sourceAttribute,
@@ -115,27 +117,35 @@ describe('extendMarkdownIt', () => {
     expect(preview(true).render('```plantuml\nA\n```\n')).not.toContain(settingsAttribute);
   });
 
-  test('adds the included files of the text of a PlantUML block, as the escaped JSON text of a hidden element, to that block only', () => {
+  test('adds the included files of all PlantUML blocks, each once, as the escaped JSON text of one hidden element after the last block', () => {
     const calls: unknown[][] = [];
-    const md = extendMarkdownIt(new MarkdownIt(), undefined, (rendering, source) => {
+    const md = extendMarkdownIt(new MarkdownIt(), undefined, (rendering, source): IncludedFiles | undefined => {
       calls.push([rendering.env, source]);
+      if (source.includes('!include b.puml')) {
+        return { 'a "b".puml': { text: 'A <&x>' }, 'b.puml': { text: 'B' } };
+      }
       return source.includes('!include') ? { 'a "b".puml': { text: 'A <&x>' } } : undefined;
     });
     const env = { currentDocument: 'a.md' };
-    const html = md.render('```plantuml\n!include a "b".puml\n```\n\n```plantuml\nA\n```\n\n```js\n!include x\n```\n', env);
+    const text = '```plantuml\n!include a "b".puml\n```\n\n```plantuml\nA\n```\n\n```plantuml\n!include a "b".puml\n!include b.puml\n```\n\n```js\n!include x\n```\n';
+    const html = md.render(text, env);
     expect(html).toContain(
-      `</pre></div><div class="${includesClass}" hidden>{&quot;a \\&quot;b\\&quot;.puml&quot;:{&quot;text&quot;:&quot;A &lt;&amp;x&gt;&quot;}}</div></div>`,
+      `</pre></div></div>\n<div class="${pageIncludesClass}" hidden>{&quot;a \\&quot;b\\&quot;.puml&quot;:{&quot;text&quot;:&quot;A &lt;&amp;x&gt;&quot;},&quot;b.puml&quot;:{&quot;text&quot;:&quot;B&quot;}}</div>\n<pre><code class="language-js">`,
     );
-    expect(html.match(new RegExp(includesClass, 'g'))).toHaveLength(1);
+    expect(html.match(new RegExp(pageIncludesClass, 'g'))).toHaveLength(1);
+    expect(html).not.toContain(`${includesClass}"`);
     // No attribute carries the texts of the files: a style rule of the document can select an element by an attribute.
     expect(html).not.toContain('data-plantuml-includes');
-    const text = /hidden>([^<]*)<\/div>/.exec(html)![1];
-    const unescaped = text.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-    expect(JSON.parse(unescaped)).toEqual({ 'a "b".puml': { text: 'A <&x>' } });
+    const hidden = /hidden>([^<]*)<\/div>/.exec(html)![1];
+    const unescaped = hidden.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    expect(JSON.parse(unescaped)).toEqual({ 'a "b".puml': { text: 'A <&x>' }, 'b.puml': { text: 'B' } });
     expect(calls).toEqual([
       [env, '!include a "b".puml\n'],
       [env, 'A\n'],
+      [env, '!include a "b".puml\n!include b.puml\n'],
     ]);
+    // A page whose diagrams include no file has no such element.
+    expect(md.render('```plantuml\nA\n```\n', env)).not.toContain(pageIncludesClass);
   });
 
   test('gives the callbacks the Markdown text of the rendering, without the marks of the rendered diff', () => {

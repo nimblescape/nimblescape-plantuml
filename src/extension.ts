@@ -114,7 +114,8 @@ export function activate(context: vscode.ExtensionContext): Api {
   // Each kind of preview has a reader of its own, so that a change of an included file refreshes only the kind that
   // includes it: the Markdown preview renders again only as a whole, with a new page.
   const markdownIncludes = new IncludeFiles();
-  const pumlIncludes = new IncludeFiles();
+  // A preview of a PlantUML file waits for its files, so its reader reads every file in the background.
+  const pumlIncludes = new IncludeFiles({ diskAtOnce: false });
   // The log shows the problems that no diagram shows, in the Output view of VS Code.
   const log = vscode.window.createOutputChannel('nimblescape PlantUML', { log: true });
   const previews = new PumlPreviews(context.extensionUri, readSettings, (document, text) => pumlIncludes.load(document, text), log);

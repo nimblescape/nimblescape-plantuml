@@ -15,7 +15,7 @@
 
 import MarkdownIt from 'markdown-it';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { includesClass, settingsAttribute } from './markdown/markdownIt';
+import { pageIncludesClass, settingsAttribute } from './markdown/markdownIt';
 import { settingsSection } from './settings';
 
 /** FakeUri stands for a vscode.Uri; the extension only passes it on. */
@@ -384,11 +384,11 @@ test('the export reads the settings of a version of a file in Git from the works
 test('the export adds the included files of a block, and a change of a file that it includes refreshes the Markdown previews', async () => {
   const { api } = await activate();
   const md = api.extendMarkdownIt(new MarkdownIt());
-  expect(md.render(block)).not.toContain(includesClass);
+  expect(md.render(block)).not.toContain(pageIncludesClass);
   // A text without a document has no folder for the paths of its included files.
   const problem = 'The document is not saved in a folder, so the extension cannot find the included file a.puml.';
   expect(md.render('```plantuml\n!include a.puml\nclass A\n```\n')).toContain(
-    `<div class="${includesClass}" hidden>{&quot;a.puml&quot;:{&quot;problem&quot;:&quot;${problem}&quot;}}</div>`,
+    `<div class="${pageIncludesClass}" hidden>{&quot;a.puml&quot;:{&quot;problem&quot;:&quot;${problem}&quot;}}</div>`,
   );
   // The Markdown previews and the previews of PlantUML files each have a reader of included files, in this order.
   const [markdownReader, pumlReader] = emitters;

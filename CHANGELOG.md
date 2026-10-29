@@ -48,4 +48,4 @@ The first version.
 ---
 
 © 2026 Hannes Stauss (scalarion@nimblescape.com) ·
-[MIT License](https://github.com/nimblescape/nimblescape-plantuml/blob/main/LICENSE).
+[MIT License](https://github.com/nimblescape/plantuml-vscode/blob/main/LICENSE).

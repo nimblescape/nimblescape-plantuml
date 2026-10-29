@@ -5,7 +5,7 @@ Shows [PlantUML](https://plantuml.com) diagrams in VS Code: in the
 extension carries the PlantUML engine compiled to JavaScript, so it needs no
 Java, no Graphviz installation and no server, and it works offline.
 
-![VS Code with the extension: the Markdown preview of a PlantUML block, code completion, formatting, the preview of a PlantUML file in the same tab and to the side, and its rendered Git diff; a blue band above the window names each scene, and a label at the bottom names each pressed key and its command](https://raw.githubusercontent.com/nimblescape/nimblescape-plantuml/main/docs/images/demo.gif)
+![VS Code with the extension: the Markdown preview of a PlantUML block, code completion, formatting, the preview of a PlantUML file in the same tab and to the side, and its rendered Git diff; a blue band above the window names each scene, and a label at the bottom names each pressed key and its command](https://raw.githubusercontent.com/nimblescape/plantuml-vscode/main/docs/images/demo.gif)
 
 ## What the extension does on your computer
 
@@ -49,7 +49,7 @@ Java, no Graphviz installation and no server, and it works offline.
   features in Restricted Mode and in virtual workspaces, because it only reads
   the files of the workspace and runs no program of the workspace.
 
-[Security](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/security.md#what-the-extension-does-on-your-computer)
+[Security](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/security.md#what-the-extension-does-on-your-computer)
 describes each step and where its protection ends.
 
 ## Features
@@ -103,7 +103,7 @@ Then open the preview:
 | PlantUML: Format PlantUML Blocks | | Formats the PlantUML blocks of a Markdown file when another extension formats Markdown files. |
 
 On macOS, use Cmd instead of Ctrl, and Shift+Option+F for Format Document.
-The [user guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md)
+The [user guide](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/guide.md)
 describes every feature.
 
 ## Files
@@ -149,11 +149,11 @@ PlantUML project does not endorse it. It renders with the npm package
 official JavaScript build of PlantUML by Arnaud Roques under the MIT License.
 The emoji graphics come from [Twemoji](https://github.com/twitter/twemoji)
 (CC BY 4.0). The
-[third-party notices](https://github.com/nimblescape/nimblescape-plantuml/blob/main/THIRD-PARTY-NOTICES.md)
+[third-party notices](https://github.com/nimblescape/plantuml-vscode/blob/main/THIRD-PARTY-NOTICES.md)
 list every bundled component and its license.
 
 ---
 
-[Change log](https://github.com/nimblescape/nimblescape-plantuml/blob/main/CHANGELOG.md) · [Contributing](https://github.com/nimblescape/nimblescape-plantuml/blob/main/CONTRIBUTING.md) · [User guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md) · [Support](https://github.com/nimblescape/nimblescape-plantuml/blob/main/SUPPORT.md) · [Issues](https://github.com/nimblescape/nimblescape-plantuml/issues) · [Source](https://github.com/nimblescape/nimblescape-plantuml)
+[Change log](https://github.com/nimblescape/plantuml-vscode/blob/main/CHANGELOG.md) · [Contributing](https://github.com/nimblescape/plantuml-vscode/blob/main/CONTRIBUTING.md) · [User guide](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/guide.md) · [Support](https://github.com/nimblescape/plantuml-vscode/blob/main/SUPPORT.md) · [Issues](https://github.com/nimblescape/plantuml-vscode/issues) · [Source](https://github.com/nimblescape/plantuml-vscode)
 
-© 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](https://github.com/nimblescape/nimblescape-plantuml/blob/main/LICENSE).
+© 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](https://github.com/nimblescape/plantuml-vscode/blob/main/LICENSE).

@@ -46,7 +46,9 @@ links to its details.
   only in the workspace folders and in the folder of the document, up to 1 MB
   each, and watches them. It writes no file, except the formatting of the file
   that you format or save. The previews keep the pictures of the 50 most
-  recently rendered diagrams, with their text, in the storage of the webviews.
+  recently rendered diagrams, with their text, in the storage of the webviews,
+  up to 1,000,000 characters together. Warnings go to the log "nimblescape
+  PlantUML" in the Output view, which VS Code also writes into its log files.
   See [Included files](#included-files) and [Stored data](#stored-data).
 - **Network.** The extension connects to no address and collects no
   telemetry. See [Rendering](#rendering).
@@ -71,7 +73,10 @@ A diagram text from a stranger can still:
   October 2026). A rendering fails after 60 seconds when the engine pauses
   in that time, and the next diagram of the preview then waits up to 60 more
   seconds for the engine; a rendering without a pause keeps the page busy
-  until it ends;
+  until it ends. A web worker, which runs beside the page and can be
+  stopped, cannot run the engine 1.2026.9: the engine builds its pictures
+  with the elements of the page (`document`, `window`), which a worker does
+  not have (checked in Chromium on 29 October 2026);
 - show the text of an included file in a preview, when that file is in a
   workspace folder or in the folder of the document (see
   [Included files](#included-files)).
@@ -82,7 +87,7 @@ A diagram text from a stranger can still:
 | --- | --- | --- |
 | The extension (`dist/extension.js`) | Your user, in the extension host of VS Code, where the workspace is | VS Code. It reads documents and included files only as text. |
 | The Markdown preview with the script `dist/markdownPreview.js` and the engine | The webview of the Markdown preview of VS Code, with the security policy of the Markdown preview | The page that the Markdown extension of VS Code writes |
-| A preview of a PlantUML file or a rendered diff, with `dist/pumlPreview.js` and the engine | A webview of the extension, with its own security policy | The messages of the extension |
+| A preview of a PlantUML file or a rendered diff, with `dist/pumlPreview.js` and the engine | A webview of the extension, with its own security policy | The messages of the extension. The extension accepts only two messages from the page: `ready`, and `log`, whose text (up to 2,000 characters) goes into the log of the extension. |
 | The engine (`dist/engine/`) | The webview of the preview | Nothing: the diagram text and the texts of the included files are data that it renders into SVG |
 
 In a remote window (SSH, WSL, a container), the extension runs where the
@@ -164,9 +169,9 @@ sends their text to the preview:
   for example `key.iuml` that links to `~/.ssh/id_rsa` or to
   `/proc/self/environ`, shows a message, and the extension does not send the
   text of that file to a preview.
-- The Markdown preview receives the texts of the included files of a block
-  as the text of a hidden element of the block, not as the value of an
-  attribute. The Markdown preview allows the style rules of a document and
+- The Markdown preview receives the texts of the included files of all
+  PlantUML blocks of a page as the text of one hidden element after the last
+  block, each file once, not as the value of an attribute. The Markdown preview allows the style rules of a document and
   images from `https:` addresses, and a style rule can select an element by
   the start of the value of an attribute and then load an image from an
   address of its own. A Markdown file could so send the value of an attribute
@@ -176,7 +181,10 @@ sends their text to the preview:
   message.
 - It reads a file of the disk with the file system of Node.js, and a file of
   another file system, for example a version in Git or a file of a virtual
-  workspace, through the file system of VS Code.
+  workspace, through the file system of VS Code. Only the first reading of a
+  file for the Markdown preview waits for the file, because the Markdown
+  preview renders a document in one step; every other reading runs in the
+  background.
 - It watches each included file for changes, and forgets a file that no
   diagram included for ten minutes. It does not watch a version of a file in
   Git, which does not change. A file of a virtual workspace reports its
@@ -188,7 +196,7 @@ sends their text to the preview:
 - **Markdown files at save.** VS Code formats at save only with the default
   formatter of Markdown files, which is often another extension. So the
   extension formats the PlantUML blocks itself before each save of a Markdown
-  file (`onWillSaveTextDocument` in `src/extension.ts`), when these conditions
+  file (`onWillSaveTextDocument` in `src/formattingProvider.ts`), when these conditions
   hold: `editor.formatOnSave` is on for the file, `editor.formatOnSaveMode` is
   `file` (the default), and the save is not an automatic save after a delay.
   The edits change the indentation and the spaces of the lines of the
@@ -234,13 +242,15 @@ extension of a remote repository, may download a file to read it.
 
 | Data | Where | How long |
 | --- | --- | --- |
-| The SVG pictures of the 50 most recently rendered diagrams, each with the version of the extension, the layout engine, the color theme and the text that the engine rendered, with the texts of the included files, up to 500,000 characters for each diagram | The local storage of the webviews (`localStorage`), which VS Code keeps on your computer for each kind of preview | Until 50 newer diagrams replace them. The extension has no command that removes them. |
+| The SVG pictures of the 50 most recently rendered diagrams, each with the version of the extension, the layout engine, the color theme and the text that the engine rendered, with the texts of the included files, up to 200,000 characters for each diagram and 1,000,000 characters for all of them. The preview scripts of other extensions in the Markdown preview share this storage, so the limit leaves room for them. | The local storage of the webviews (`localStorage`), which VS Code keeps on your computer for each kind of preview | Until newer diagrams replace them. The extension has no command that removes them. |
+| Warnings: a failed refresh of the Markdown previews, a preview of a PlantUML file that VS Code cannot restore, with the address of its file, and a problem that the page of such a preview reports, such as a failed load of Graphviz | The log "nimblescape PlantUML" in the Output view, which VS Code also writes into the log folder of the window | As long as VS Code keeps the logs of the window |
 | The address of the file of a preview of a PlantUML file, and of the original file of a rendered diff | The state of the webview, which VS Code keeps for a restart | Until the preview closes, also across a restart of VS Code |
 | The texts of the included files | The memory of the extension host | Until no diagram included the file for ten minutes, or VS Code closes |
 | The setting `nimblescape.plantuml.umlNotation` | The settings of VS Code, when you change it | Until you change it |
 
-The extension writes no file, uses neither `globalState` nor `workspaceState`
-of VS Code, stores no secret, and sends nothing to any address.
+The extension writes no file of its own (VS Code writes the log), uses
+neither `globalState` nor `workspaceState` of VS Code, stores no secret, and
+sends nothing to any address.
 
 ## Known limits
 

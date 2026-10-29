@@ -15,7 +15,9 @@ A report helps most when it contains:
 - where the problem shows: in the Markdown preview, in the preview of a
   PlantUML file, in a rendered diff, or in the editor;
 - what you expected, and what you see instead, for example a screenshot or
-  the error message.
+  the error message;
+- the lines of the log "nimblescape PlantUML" in the Output view (View:
+  Toggle Output), when it has lines.
 
 The
 [user guide](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/guide.md)

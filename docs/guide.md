@@ -75,6 +75,12 @@ about a second, and the preview does not react in that time. A diagram that
 takes longer than 60 seconds to render shows the message "The rendering of the
 diagram took too long."
 
+Problems that no diagram shows, for example a preview that VS Code cannot
+restore after a restart, or a failed load of Graphviz in the preview of a
+PlantUML file, go to the log "nimblescape PlantUML". To see it, open the
+Output view (View: Toggle Output) and select "nimblescape PlantUML" in its
+list. Add these lines to a report of a problem.
+
 ### Layout
 
 PlantUML arranges most diagram types with Graphviz. The extension contains

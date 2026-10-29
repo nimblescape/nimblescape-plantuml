@@ -75,6 +75,12 @@ interface Preview {
  */
 export type IncludesLoader = (document: vscode.Uri, text: string) => IncludedFiles | undefined | Promise<IncludedFiles | undefined>;
 
+/** Log is the part of the log channel of the extension that the previews write to. */
+export type Log = Pick<vscode.LogOutputChannel, 'warn'>;
+
+/** logMessageLimit is the length of the longest message of a page that the log keeps. */
+const logMessageLimit = 2000;
+
 /** DiffState is the state that the page of a rendered diff keeps for a restart of VS Code. */
 interface DiffState {
   uri?: unknown;
@@ -100,6 +106,7 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
   readonly #extensionUri: vscode.Uri;
   readonly #settings: (document: vscode.Uri) => Settings;
   readonly #includes: IncludesLoader;
+  readonly #log: Log;
   readonly #previews = new Set<Preview>();
   readonly #diffs = new Map<vscode.WebviewPanel, Preview>();
   #side: { panel: vscode.WebviewPanel; preview: Preview } | undefined;
@@ -110,11 +117,19 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
    * @param extensionUri - The folder of the extension, which holds the scripts and the styles of the page.
    * @param settings - Reads the settings of the extension for a document.
    * @param includes - Reads the files that the diagrams of a text include.
+   * @param log - Receives the problems that no diagram shows: a preview that cannot be restored, and the problems
+   *   that the pages report.
    */
-  constructor(extensionUri: vscode.Uri, settings: (document: vscode.Uri) => Settings, includes: IncludesLoader = () => undefined) {
+  constructor(
+    extensionUri: vscode.Uri,
+    settings: (document: vscode.Uri) => Settings,
+    includes: IncludesLoader = () => undefined,
+    log: Log = { warn: () => undefined },
+  ) {
     this.#extensionUri = extensionUri;
     this.#settings = settings;
     this.#includes = includes;
+    this.#log = log;
   }
 
   /** register registers the custom editor, the panel serializers, the commands and the listeners. */
@@ -160,13 +175,16 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
     const { uri, original, label } = (state ?? {}) as DiffState;
     const diff = panel.viewType === diffPreviewViewType;
     if (typeof uri !== 'string' || (diff && (typeof original !== 'string' || typeof label !== 'string'))) {
+      this.#log.warn('A PlantUML preview could not be restored: its saved state is not valid.');
       panel.dispose();
       return;
     }
     const uris = [vscode.Uri.parse(uri), ...(diff ? [vscode.Uri.parse(original as string)] : [])];
     try {
       await Promise.all(uris.map((address) => vscode.workspace.openTextDocument(address)));
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.#log.warn(`The PlantUML preview of ${uris[0].toString(true)} could not be restored: ${reason}`);
       panel.dispose();
       return;
     }
@@ -316,11 +334,14 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
     const preview: Preview = { webview, uri, diff, ready: false, version: 0 };
     this.#previews.add(preview);
     const subscriptions = [
-      // A hidden webview loses its page; the page then sends `ready` again when it shows.
-      webview.onDidReceiveMessage((message: { type?: unknown } | undefined) => {
+      // A hidden webview loses its page; the page then sends `ready` again when it shows. A page reports a problem
+      // that no diagram shows with `log`; the log keeps only its text.
+      webview.onDidReceiveMessage((message: { type?: unknown; message?: unknown } | undefined) => {
         if (message?.type === 'ready') {
           preview.ready = true;
           this.#send(preview);
+        } else if (message?.type === 'log' && typeof message.message === 'string') {
+          this.#log.warn(`The PlantUML preview of ${uri.toString(true)}: ${message.message.slice(0, logMessageLimit)}`);
         }
       }),
       panel.onDidDispose(() => {

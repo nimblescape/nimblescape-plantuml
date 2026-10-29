@@ -422,12 +422,14 @@ interface VsCodeApi {
 /**
  * start renders the diagrams of the messages of the extension, and renders again when the color theme changes.
  * The page tells the extension that it is ready, so that the extension sends the first text only when the page
- * can receive it.
+ * can receive it, and sends it the problems that no diagram shows.
  */
 function start(): void {
   const vscode = (globalThis as unknown as { acquireVsCodeApi(): VsCodeApi }).acquireVsCodeApi();
   const container = document.getElementById('diagrams') ?? document.body;
-  const renderer = pageRenderer(container, new URL('./engine/', import.meta.url).href);
+  // The problems that no diagram shows go to the log of the extension.
+  const report = (message: string) => vscode.postMessage({ type: 'log', message });
+  const renderer = pageRenderer(container, new URL('./engine/', import.meta.url).href, undefined, report);
   zoomOnClick(container);
   window.addEventListener('message', (event: MessageEvent<UpdateMessage>) => {
     if (event.data?.type === 'update') {

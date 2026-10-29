@@ -160,6 +160,8 @@ let disposables: { dispose(): void }[];
 let markdownActive: boolean;
 /** refreshFails makes the command `markdown.preview.refresh` fail. */
 let refreshFails: boolean;
+/** logged are the warnings in the log channel of the extension. */
+let logged: string[];
 
 /** disposable returns a new registration of the fake API and records it. */
 const disposable = () => {
@@ -207,6 +209,7 @@ beforeEach(() => {
   disposables = [];
   markdownActive = true;
   refreshFails = false;
+  logged = [];
   emitters = [];
   openDocuments = [];
   workspaceFolders = [];
@@ -254,6 +257,7 @@ beforeEach(() => {
       registerCustomEditorProvider: disposable,
       registerWebviewPanelSerializer: disposable,
       onDidChangeActiveTextEditor: disposable,
+      createOutputChannel: () => Object.assign(disposable(), { warn: (message: string) => logged.push(message) }),
     },
     extensions: {
       getExtension: (id: string) => (id === 'vscode.markdown-language-features' ? { isActive: markdownActive } : undefined),
@@ -298,7 +302,7 @@ beforeEach(() => {
 
 /** activate imports the extension with the fake API and activates it. */
 const activate = async () => {
-  const extension = await import('./extension');
+  const extension = { ...(await import('./extension')), ...(await import('./formattingProvider')) };
   const context = { subscriptions: [] as { dispose(): void }[], extensionUri: { scheme: 'file', path: '/extension' } };
   return { api: extension.activate(context as never), context, extension };
 };
@@ -419,7 +423,7 @@ test('a change of a setting of the extension refreshes the Markdown previews, a 
   expect(commands).toEqual(['markdown.preview.refresh']);
 });
 
-test('a change of a setting does not start the Markdown extension, and a failed refresh is no error', async () => {
+test('a change of a setting does not start the Markdown extension, and a failed refresh is no error but a warning', async () => {
   await activate();
   markdownActive = false;
   changeSetting(settingsSection);
@@ -431,6 +435,7 @@ test('a change of a setting does not start the Markdown extension, and a failed 
   changeSetting(settingsSection);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(commands).toEqual(['markdown.preview.refresh']);
+  expect(logged).toEqual(['The Markdown previews could not render again: command not found']);
 });
 
 /**

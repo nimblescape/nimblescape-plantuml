@@ -21,7 +21,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { IncludedFiles, mayInclude } from '../diagram/includes';
 import { umlCommands } from '../diagram/umlNotation';
-import { blockClass, contentClass, includesClass, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, pageIncludesClass, textClass } from '../markdown/markdownIt';
 import { defaultSettings } from '../settings';
 import { errorPicture, escapeXml, FakeEngine } from '../test/fakeEngine';
 import { fence, renderMarkdown } from '../test/markdownPreview';
@@ -455,15 +455,19 @@ describe('PreviewRenderer with included files', () => {
       'missing.puml': { problem: 'The file missing.puml does not exist.' },
       'parts.puml': { text: 'C' },
     });
-    root.innerHTML += renderMarkdown(fence('!include other.puml'));
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     await renderer.whenIdle();
     expect(shown(root)).toEqual([
       ['error Line 2: The file missing.puml does not exist.', 'text'],
       ['error Line 2: The file parts.puml has no lines between !startsub PART and !endsub.', 'text'],
-      ['error Line 1: The preview did not receive the included file other.puml.', 'text'],
     ]);
+    // A page without the element of the included files, for example without the extension in the host, names them.
+    const without = page(fence('!include other.puml'));
+    const other = new PreviewRenderer(without, async () => new FakeEngine(), () => false);
+    other.update();
+    await other.whenIdle();
+    expect(shown(without)).toEqual([['error Line 1: The preview did not receive the included file other.puml.', 'text']]);
   });
 
   test('waits for the included files that the extension still reads, and renders when they come', async () => {
@@ -475,13 +479,14 @@ describe('PreviewRenderer with included files', () => {
     expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
 
     // A new include line names a file that the extension reads now: the block keeps its diagram. The Markdown preview
-    // changes the attributes and the included files of the block in place.
+    // changes the attributes of the block and the element of the included files in place.
     const block = root.querySelector<HTMLElement>(`.${blockClass}`)!;
     const replace = (files: IncludedFiles) => {
-      const next = includingPage(fence('A\n!include b.puml'), files).querySelector(`.${blockClass}`)!;
+      const nextPage = includingPage(fence('A\n!include b.puml'), files);
+      const next = nextPage.querySelector(`.${blockClass}`)!;
       next.getAttributeNames().forEach((name) => block.setAttribute(name, next.getAttribute(name)!));
-      block.querySelector(`:scope > .${includesClass}`)?.remove();
-      block.append(next.querySelector(`:scope > .${includesClass}`)!);
+      root.querySelector(`.${pageIncludesClass}`)?.remove();
+      root.append(nextPage.querySelector(`.${pageIncludesClass}`)!);
       renderer.update();
     };
     replace({});
@@ -501,7 +506,7 @@ describe('PreviewRenderer with included files', () => {
 
   test('shows the note in a new block whose included files the extension still reads', () => {
     const root = includingPage(fence('!include a.puml'), {});
-    expect(root.querySelector(`.${blockClass} > .${includesClass}`)?.textContent).toBe('{}');
+    expect(root.querySelector(`.${blockClass} + .${pageIncludesClass}`)?.textContent).toBe('{}');
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     expect(shown(root)).toEqual([['pending Rendering the diagram…']]);

@@ -26,8 +26,9 @@
  * by their part names: `diagram`, `pending`, `error`, and `following` for each
  * element after the first.
  *
- * A block can carry the texts of the files that its diagrams include
- * ([R-GEN-008](../../docs/requirements.md#r-gen-008)). The renderer puts them
+ * A block of a PlantUML file carries the texts of the files that its diagrams
+ * include ([R-GEN-008](../../docs/requirements.md#r-gen-008)); a Markdown page
+ * carries the files of all its blocks in one element. The renderer puts them
  * into the copy of each diagram text that the engine renders, and an error in
  * an included line names the line of the block and the line of the included
  * file. A block whose included files the extension still reads waits for
@@ -52,7 +53,7 @@
 import { diagramLines } from '../diagram/diagramLines';
 import { Diagram, diagramsOf } from '../diagram/diagramRanges';
 import { Expansion, expandWith, IncludedFiles, parseIncludedFiles } from '../diagram/includes';
-import { blockClass, contentClass, includesClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesClass, pageIncludesClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { parseSettings, Settings } from '../settings';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
@@ -563,8 +564,10 @@ export class PreviewRenderer {
    */
   #blocks(): Block[] {
     const dark = this.#isDark();
+    // A Markdown page carries the included files of all blocks in one element, a block of a PlantUML file its own.
+    const pageIncludes = this.#root.querySelector(`.${pageIncludesClass}`)?.textContent ?? null;
     return [...this.#root.querySelectorAll<HTMLElement>(`.${blockClass}[${sourceAttribute}]`)].map((element) => {
-      const values = [element.getAttribute(sourceAttribute), element.getAttribute(settingsAttribute), includesOf(element)];
+      const values = [element.getAttribute(sourceAttribute), element.getAttribute(settingsAttribute), includesOf(element) ?? pageIncludes];
       const parsed = this.#parsed.get(element);
       if (parsed && parsed.dark === dark && parsed.values.every((value, index) => value === values[index])) {
         return parsed.block;

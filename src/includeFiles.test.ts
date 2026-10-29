@@ -115,30 +115,38 @@ beforeEach(() => {
   watchers = [];
   const fileNotFound = () => Object.assign(new Error('not found'), { code: 'FileNotFound' });
   // The file system of the disk: the path of a file of the disk is the path of its address.
+  // A path whose start is a link continues in the target of the link.
+  const realpathSync = (path: string) => {
+    for (const [link, target] of links) {
+      if (path === link || path.startsWith(`${link}/`)) {
+        return target + path.slice(link.length);
+      }
+    }
+    return path;
+  };
+  const statSync = (path: string) => {
+    const file = files.get(`file://${path}`);
+    if (file === undefined) {
+      throw Object.assign(new Error(`ENOENT: no such file or directory, stat '${path}'`), { code: 'ENOENT' });
+    }
+    return { isDirectory: () => file === 'folder', size: new TextEncoder().encode(file).length };
+  };
+  const readFileSync = (path: string) => {
+    reads.push(`file://${path}`);
+    const file = files.get(`file://${path}`);
+    if (file === 'locked') {
+      throw Object.assign(new Error(locked), { code: 'EACCES' });
+    }
+    return file;
+  };
   vi.doMock('node:fs', () => ({
-    // A path whose start is a link continues in the target of the link.
-    realpathSync: (path: string) => {
-      for (const [link, target] of links) {
-        if (path === link || path.startsWith(`${link}/`)) {
-          return target + path.slice(link.length);
-        }
-      }
-      return path;
-    },
-    statSync: (path: string) => {
-      const file = files.get(`file://${path}`);
-      if (file === undefined) {
-        throw Object.assign(new Error(`ENOENT: no such file or directory, stat '${path}'`), { code: 'ENOENT' });
-      }
-      return { isDirectory: () => file === 'folder', size: new TextEncoder().encode(file).length };
-    },
-    readFileSync: (path: string) => {
-      reads.push(`file://${path}`);
-      const file = files.get(`file://${path}`);
-      if (file === 'locked') {
-        throw Object.assign(new Error(locked), { code: 'EACCES' });
-      }
-      return file;
+    realpathSync,
+    statSync,
+    readFileSync,
+    promises: {
+      realpath: async (path: string) => realpathSync(path),
+      stat: async (path: string) => statSync(path),
+      readFile: async (path: string) => readFileSync(path),
     },
   }));
   vi.doMock('vscode', () => ({
@@ -181,10 +189,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** includeFiles imports the module with the fakes and returns a new reader. */
-async function includeFiles() {
+/**
+ * includeFiles imports the module with the fakes and returns a new reader.
+ * @param diskAtOnce - Whether the reader reads a file of the disk at once, as for the Markdown preview.
+ */
+async function includeFiles(diskAtOnce = true) {
   const { IncludeFiles } = await import('./includeFiles');
-  const includes = new IncludeFiles();
+  const includes = new IncludeFiles({ diskAtOnce });
   let changes = 0;
   includes.onDidChange(() => changes++);
   return { includes, changes: () => changes };
@@ -220,6 +231,25 @@ test('reads a file of the disk at once, and returns it from then on without read
   await settle();
   expect(changes()).toBe(0);
   expect(reads).toEqual(['file:///work/docs/styles.puml', 'file:///work/docs/lib/a.puml', 'file:///work/shared/b.puml']);
+});
+
+test('reads a file of the disk in the background for the previews of PlantUML files, which wait for it', async () => {
+  files.set('file:///work/docs/styles.puml', 'skinparam a 1');
+  files.set('file:///work/docs/key.iuml', 'secret');
+  links.set('/work/docs/key.iuml', '/home/user/.ssh/id_rsa');
+  files.set('file:///home/user/.ssh/id_rsa', 'secret');
+  const { includes, changes } = await includeFiles(false);
+  const text = '@startuml\n!include styles.puml\n!include key.iuml\n@enduml';
+  const loading = includes.load(document, text);
+  expect(loading).toBeInstanceOf(Promise);
+  expect(reads).toEqual([]);
+  await settle();
+  const problem = 'The file key.iuml is a symbolic link to a file outside the workspace folders and the folder of the document. The extension reads included files only from these folders.';
+  expect(await loading).toEqual({ 'styles.puml': { text: 'skinparam a 1' }, 'key.iuml': { problem } });
+  expect(changes()).toBe(1);
+  // From then on, the reader returns the files without a promise, and watches them.
+  expect(includes.load(document, text)).toEqual(await loading);
+  expect(watchers.map((watcher) => watcher.pattern.pattern)).toEqual(['styles.puml', 'key.iuml']);
 });
 
 test('reads a file of another file system later, tells the previews, and returns it from then on', async () => {

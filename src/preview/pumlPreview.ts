@@ -113,7 +113,7 @@ export function diffRows<Item = string>(
   const [originalKeys, modifiedKeys] = [original.map(keyOf), modified.map(keyOf)];
   const equal = (i: number, j: number) => originalKeys[i] === modifiedKeys[j];
   // common[i][j] is the length of the longest common sequence of original.slice(i) and modified.slice(j).
-  const common = Array.from({ length: original.length + 1 }, () => new Array<number>(modified.length + 1).fill(0));
+  const common = Array.from({ length: original.length + 1 }, () => Array.from({ length: modified.length + 1 }, () => 0));
   for (let i = original.length - 1; i >= 0; i--) {
     for (let j = modified.length - 1; j >= 0; j--) {
       common[i][j] = equal(i, j) ? common[i + 1][j + 1] + 1 : Math.max(common[i + 1][j], common[i][j + 1]);

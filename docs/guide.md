@@ -71,8 +71,9 @@ computer. A preview that opens again shows these diagrams at once, also after
 a restart of VS Code.
 
 A diagram has no largest size. A large diagram can keep the preview busy for
-about a second. A diagram that takes longer than 60 seconds to render shows
-the message "The rendering of the diagram took too long."
+about a second, and the preview does not react in that time. A diagram that
+takes longer than 60 seconds to render shows the message "The rendering of the
+diagram took too long."
 
 ### Layout
 
@@ -106,7 +107,10 @@ Java. With `@plantuml/core` 1.2026.9:
   `chronology`. A network diagram renders with `@startnwdiag`, and a wireframe
   with `@startsalt`, but not inside `@startuml`.
 - A diagram with `newpage` shows its first page only.
-- A link (`[[…]]`) is not clickable.
+- A link (`[[…]]`) opens when you click it, as the other links of a preview
+  do: VS Code opens web addresses, mail addresses and `vscode:` addresses, and
+  asks before it opens a website that is not one of its trusted domains. It
+  opens no other kind of address, for example `file:` or `command:`.
 - An image (`<img:…>`) does not show; a placeholder text shows in its place.
 
 ### Included files
@@ -129,7 +133,9 @@ class Car
   `@startuml(id=MY_ID)`. Without a selection, the first diagram of the file is
   included, or the whole file when it has no `@start` line.
 - The extension reads files only in the workspace folders and in the folder of
-  the document, up to 1 MB per file.
+  the document, up to 1 MB per file. When an included file is a symbolic link,
+  or is in a linked folder, the target of the link must be in these folders
+  too.
 - The previews use the saved file. When you save, create or delete an included
   file, the previews that include it render again; the Markdown preview loads
   its page again for this.

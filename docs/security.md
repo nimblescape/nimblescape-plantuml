@@ -65,9 +65,13 @@ an address through the extension.
 
 A diagram text from a stranger can still:
 
-- keep the engine of a preview busy: a rendering fails after 60 seconds, and
-  the next diagram of the preview then waits up to 60 more seconds for the
-  engine;
+- keep the engine of a preview busy. The engine runs in the page of the
+  preview, and the page does not react while the engine works without a
+  pause (a class diagram with 400 classes took 1.7 seconds in Chromium on 29
+  October 2026). A rendering fails after 60 seconds when the engine pauses
+  in that time, and the next diagram of the preview then waits up to 60 more
+  seconds for the engine; a rendering without a pause keeps the page busy
+  until it ends;
 - show the text of an included file in a preview, when that file is in a
   workspace folder or in the folder of the document (see
   [Included files](#included-files)).
@@ -105,28 +109,44 @@ of VS Code, as the text of an open file does.
   and the preview shows a message at that line. With `@plantuml/core` 1.2026.9,
   the engine sends no request for an address in `!include`, `!includeurl`,
   `!import`, `!theme … from`, `%load_json`, `sprite` or `<img:…>`: it shows an
-  error or a placeholder text, and its SVG picture has no link and no image
-  that names an address (checked on 17 October 2026, with the engine in a page
-  of happy-dom that recorded each call of `XMLHttpRequest` and `fetch`).
+  error or a placeholder text, and its SVG picture has no image that names an
+  address (checked on 17 October 2026, with the engine in a page of happy-dom
+  that recorded each call of `XMLHttpRequest` and `fetch`, and on 29 October
+  2026 in Chromium, which recorded each request of the page).
+- **Links in a diagram.** The engine writes a link of a diagram (`[[…]]`) as
+  a link of the SVG picture. A click on it opens the address the way VS Code
+  opens a link of any webview: VS Code opens only web addresses, mail
+  addresses and `vscode:` addresses, asks before it opens a website that is
+  not one of its trusted domains, and runs no `command:` address, because no
+  preview of the extension and not the Markdown preview allow command links.
+  A link sends nothing until you click it. In a preview of a PlantUML file, a
+  click on a link does not change the size of the diagram.
 - **The preview of PlantUML files.** Its page (`src/preview/previewHtml.ts`)
   has the security policy `default-src 'none'`, with the scripts of the
   extension by a nonce, WebAssembly for Graphviz, the styles, fonts and images
   of the extension, inline styles and `data:` images. The policy allows no
-  network request, no frame and no worker. The webview can load only the files
-  of `dist/` and `media/` of the extension (`localResourceRoots`).
+  network request, no frame, no worker, no form and no base address
+  (`base-uri 'none'`, `form-action 'none'`), and the webview forbids forms
+  (`enableForms: false`). The webview can load only the files of `dist/` and
+  `media/` of the extension (`localResourceRoots`).
 - **The Markdown preview.** VS Code sets the security policy of the Markdown
   preview by its security setting ("Markdown: Change Preview Security
-  Settings"). With the default "Strict", it allows the scripts with its nonce
-  and images from `https:` addresses, and no network request and no
-  WebAssembly. PlantUML then arranges the diagrams with its own layout engine
-  Smetana. With "Disable", VS Code sets no security policy, and the extension
-  uses Graphviz. The extension does not change this setting. The Markdown
+  Settings"). With the default "Strict", it allows the scripts with its nonce,
+  the style rules of the document, and images, style sheets and fonts from
+  `https:` addresses, and no other network request and no WebAssembly.
+  PlantUML then arranges the diagrams with its own layout engine Smetana. With
+  "Disable", VS Code sets no security policy, and the extension uses
+  Graphviz. The extension does not change this setting. The Markdown
   preview itself shows the images that the Markdown text names, also from the
   internet, as it does without the extension.
 - **The pictures.** The engine writes each diagram as an SVG text. The
   preview puts it into a shadow root of the block. The security policy of the
   preview does not let a script in a picture run (see [Known limits](#known-limits)
-  for the setting "Disable").
+  for the setting "Disable"). The engine 1.2026.9 escapes the text of a
+  diagram and writes no script, no event handler and no `<foreignObject>`
+  into a picture, also not for the pragma `svginteractive`; it does not
+  render an inline SVG sprite, and it writes a link to a `javascript:`
+  address with an empty address (checked on 29 October 2026 in Chromium).
 
 ## Included files
 
@@ -139,13 +159,28 @@ sends their text to the preview:
   inside the folder of the document. A path outside these folders, a path with
   a variable or a function (`$` or `%`), and an address of the internet show a
   message instead.
+- For a file of the disk, the target of its symbolic links must be inside
+  these folders too (`fs.realpathSync`). So a symbolic link in a workspace,
+  for example `key.iuml` that links to `~/.ssh/id_rsa` or to
+  `/proc/self/environ`, shows a message, and the extension does not send the
+  text of that file to a preview.
+- The Markdown preview receives the texts of the included files of a block
+  as the text of a hidden element of the block, not as the value of an
+  attribute. The Markdown preview allows the style rules of a document and
+  images from `https:` addresses, and a style rule can select an element by
+  the start of the value of an attribute and then load an image from an
+  address of its own. A Markdown file could so send the value of an attribute
+  to the internet, one character after the other. A style rule cannot select
+  an element by its text.
 - It reads files up to 1 MB. A folder, a larger file and a missing file show a
   message.
 - It reads a file of the disk with the file system of Node.js, and a file of
   another file system, for example a version in Git or a file of a virtual
   workspace, through the file system of VS Code.
-- It watches each included file of the disk for changes, and forgets a file
-  that no diagram included for ten minutes.
+- It watches each included file for changes, and forgets a file that no
+  diagram included for ten minutes. It does not watch a version of a file in
+  Git, which does not change. A file of a virtual workspace reports its
+  changes when the extension of its file system watches files.
 - It reads nothing for a document that is not saved in a folder.
 
 ## Formatting and editing
@@ -199,7 +234,7 @@ extension of a remote repository, may download a file to read it.
 
 | Data | Where | How long |
 | --- | --- | --- |
-| The SVG pictures of the 50 most recently rendered diagrams, each with the version of the extension, the layout engine, the color theme and the text that the engine rendered, with the texts of the included files | The local storage of the webviews (`localStorage`), which VS Code keeps on your computer for each kind of preview | Until 50 newer diagrams replace them. The extension has no command that removes them. |
+| The SVG pictures of the 50 most recently rendered diagrams, each with the version of the extension, the layout engine, the color theme and the text that the engine rendered, with the texts of the included files, up to 500,000 characters for each diagram | The local storage of the webviews (`localStorage`), which VS Code keeps on your computer for each kind of preview | Until 50 newer diagrams replace them. The extension has no command that removes them. |
 | The address of the file of a preview of a PlantUML file, and of the original file of a rendered diff | The state of the webview, which VS Code keeps for a restart | Until the preview closes, also across a restart of VS Code |
 | The texts of the included files | The memory of the extension host | Until no diagram included the file for ten minutes, or VS Code closes |
 | The setting `nimblescape.plantuml.umlNotation` | The settings of VS Code, when you change it | Until you change it |
@@ -209,10 +244,15 @@ of VS Code, stores no secret, and sends nothing to any address.
 
 ## Known limits
 
-- The check of the folders compares the path of an included file, not the
-  target of a symbolic link: a symbolic link inside a workspace folder can
-  link to a file outside it, and the extension then reads that file. Its text
-  shows only in the preview on your computer.
+- A diagram text can show the text of any file in a workspace folder or in
+  the folder of the document, for example `!include ../.git/config` in a
+  repository that you cloned. Its text shows in the preview on your computer.
+  The style rules of a Markdown file cannot read it (see
+  [Included files](#included-files)), but a font of a style rule can still
+  tell an address which characters a hidden text contains, not their order.
+  The check of a symbolic link applies to the files of the disk; a file of
+  another file system, for example of a virtual workspace, has its own
+  rules.
 - With the security setting "Disable" of the Markdown preview, VS Code sets no
   security policy, so the policy no longer blocks network requests or scripts
   in the Markdown preview. The engine 1.2026.9 sends no request for the

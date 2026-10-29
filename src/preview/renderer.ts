@@ -52,7 +52,7 @@
 import { diagramLines } from '../diagram/diagramLines';
 import { Diagram, diagramsOf } from '../diagram/diagramRanges';
 import { Expansion, expandWith, IncludedFiles, parseIncludedFiles } from '../diagram/includes';
-import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
 import { parseSettings, Settings } from '../settings';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
@@ -98,7 +98,11 @@ const storageIndex = `${storagePrefix}index`;
 /** storageLimit is the number of results that the local storage keeps. */
 const storageLimit = 50;
 
-/** storedSizeLimit is the length of the longest SVG text that the local storage keeps. */
+/**
+ * storedSizeLimit is the length of the longest result that the local storage keeps: the SVG text with the text that
+ * the engine rendered, which can hold large included files. A longer result would take a large part of the storage,
+ * which all previews of one kind share, and could make it remove every other result.
+ */
 const storedSizeLimit = 500_000;
 
 /**
@@ -187,12 +191,16 @@ export class StoredResults {
       return;
     }
     const key = JSON.stringify([this.#version, dark, lines]);
+    const item = JSON.stringify({ key, svg });
+    if (item.length > storedSizeLimit) {
+      return;
+    }
     const id = hash(key);
     try {
       const ids = this.#use(id);
       for (;;) {
         try {
-          storage.setItem(storagePrefix + id, JSON.stringify({ key, svg }));
+          storage.setItem(storagePrefix + id, item);
           return;
         } catch {
           const oldest = ids.find((other) => other !== id);
@@ -345,9 +353,9 @@ interface Block {
   key: string;
 }
 
-/** ParsedBlock is a block with the attributes of its element that it was read from. */
+/** ParsedBlock is a block with the values of its element that it was read from: its attributes and its included files. */
 interface ParsedBlock {
-  attributes: readonly (string | null)[];
+  values: readonly (string | null)[];
   dark: boolean;
   block: Block;
 }
@@ -508,22 +516,22 @@ export class PreviewRenderer {
   /**
    * #blocks returns the PlantUML blocks of the page, each with its settings, the theme, its diagrams, and the key of
    * what it shows: the results of its diagrams, and the first line of each diagram in the block, which the message of
-   * an error names. It reads a block element again only when its attributes or the theme changed.
+   * an error names. It reads a block element again only when its attributes, its included files or the theme changed.
    */
   #blocks(): Block[] {
     const dark = this.#isDark();
     return [...this.#root.querySelectorAll<HTMLElement>(`.${blockClass}[${sourceAttribute}]`)].map((element) => {
-      const attributes = [sourceAttribute, settingsAttribute, includesAttribute].map((name) => element.getAttribute(name));
+      const values = [element.getAttribute(sourceAttribute), element.getAttribute(settingsAttribute), includesOf(element)];
       const parsed = this.#parsed.get(element);
-      if (parsed && parsed.dark === dark && parsed.attributes.every((value, index) => value === attributes[index])) {
+      if (parsed && parsed.dark === dark && parsed.values.every((value, index) => value === values[index])) {
         return parsed.block;
       }
-      const [source, settingsText, includesText] = attributes;
+      const [source, settingsText, includesText] = values;
       const settings = parseSettings(settingsText);
       const files = parseIncludedFiles(includesText);
       const diagrams = diagramsOf(source ?? '').map((diagram) => blockDiagram(diagram, files, settings, dark));
       const block = { element, settings, dark, diagrams, key: JSON.stringify(diagrams.map(({ key, line }) => [key, line])) };
-      this.#parsed.set(element, { attributes, dark, block });
+      this.#parsed.set(element, { values, dark, block });
       return block;
     });
   }
@@ -546,7 +554,8 @@ export class PreviewRenderer {
   /**
    * #render renders one diagram. A rendering that runs past the time limit fails; the engine keeps working on it, so
    * the next rendering waits until the engine has ended it, for one more time limit at most, and its late result is
-   * dropped.
+   * dropped. The engine runs in the page, so the timer runs only when the engine pauses: a rendering without a pause
+   * keeps the page busy until it ends.
    * @param lines - The lines that the engine renders.
    * @param origins - For each line, the index of the line of the diagram text that it comes from.
    * @param dark - Whether the diagram is for a dark background.
@@ -591,6 +600,13 @@ export class PreviewRenderer {
     }
   }
 }
+
+/**
+ * includesOf returns the JSON text of the files that the diagrams of a block include: the text of its hidden child
+ * element, or null when the block has none.
+ * @param element - The element of the block.
+ */
+const includesOf = (element: HTMLElement): string | null => element.querySelector(`:scope > .${includesClass}`)?.textContent ?? null;
 
 /**
  * contentOf returns the content element of a block, and adds it when the block has none.

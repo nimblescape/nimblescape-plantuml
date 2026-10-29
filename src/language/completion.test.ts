@@ -207,6 +207,17 @@ describe('complete', () => {
     expect(performance.now() - started).toBeLessThan(1000);
   });
 
+  test('completes after a long word that a character ends in a short time', () => {
+    // A search for the word at the cursor from each start of the line takes seconds here.
+    const line = `class ${'A'.repeat(50_000)}<`;
+    const started = performance.now();
+    expect(complete([line], 0, line.length).start).toBe(line.length);
+    expect(performance.now() - started).toBeLessThan(1000);
+    // A word up to the limit counts as a whole.
+    const word = 'B'.repeat(1000);
+    expect(complete([`A -> ${word}`], 0, word.length + 5).start).toBe(5);
+  });
+
   test('does not propose the name that the line of the cursor declares', () => {
     expect(at('class Ca|').labels).not.toContain('Ca');
     expect(at('Alice -> Bo|').labels).not.toContain('Alice');

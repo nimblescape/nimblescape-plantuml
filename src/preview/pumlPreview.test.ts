@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { blockClass, contentClass, includesAttribute, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesClass, settingsAttribute, sourceAttribute, textClass } from '../markdown/markdownIt';
 import { FakeEngine } from '../test/fakeEngine';
 import {
   diagramSources,
@@ -32,6 +32,12 @@ import {
 } from './pumlPreview';
 import { previewHtml } from './previewHtml';
 import { PreviewRenderer } from './renderer';
+
+/**
+ * includesOf returns the included files of a block as JSON text: the text of its hidden child element.
+ * @param block - The element of the block.
+ */
+const includesOf = (block: Element): string | undefined => block.querySelector(`:scope > .${includesClass}`)?.textContent ?? undefined;
 
 describe('diagramSources', () => {
   test('splits a file into its diagrams and ignores the text between them', () => {
@@ -75,13 +81,14 @@ describe('showDiagrams', () => {
     expect(content.querySelector(`:scope > .${textClass}`)?.textContent).toBe('@startuml\nfail\n@enduml');
   });
 
-  test('writes the included files into each block, and renders each diagram with them', async () => {
+  test('writes the included files into a hidden element of each block, and renders each diagram with them', async () => {
     const container = document.createElement('main');
     const includes = { 'styles.puml': { text: 'skinparam a 1' } };
     const text = '@startuml\n!include styles.puml\nA\n@enduml\n@startuml\nB\n@enduml';
     showDiagrams(container, { type: 'update', text, includes, settings: { umlNotation: false } });
     const blocks = [...container.children];
-    expect(blocks.map((block) => block.getAttribute(includesAttribute))).toEqual([JSON.stringify(includes), JSON.stringify(includes)]);
+    expect(blocks.map(includesOf)).toEqual([JSON.stringify(includes), JSON.stringify(includes)]);
+    expect(blocks.map((block) => block.querySelector<HTMLElement>(`:scope > .${includesClass}`)?.hidden)).toEqual([true, true]);
     const engine = new FakeEngine();
     const renderer = new PreviewRenderer(container, async () => engine, () => false);
     renderer.update();
@@ -92,7 +99,7 @@ describe('showDiagrams', () => {
     ]);
 
     showDiagrams(container, { type: 'update', text, settings: { umlNotation: false } });
-    expect(blocks.map((block) => block.hasAttribute(includesAttribute))).toEqual([false, false]);
+    expect(blocks.map(includesOf)).toEqual([undefined, undefined]);
   });
 
   test('shows a message for a file without a diagram', () => {
@@ -178,7 +185,7 @@ describe('showDiff', () => {
       [`${rowClass} ${rowClass}-unchanged`, b, b],
     ]);
     const [left, right] = [...container.querySelectorAll(`.${rowClass}`)[0].querySelectorAll(`.${blockClass}`)];
-    expect([left.getAttribute(includesAttribute), right.getAttribute(includesAttribute)]).toEqual([
+    expect([includesOf(left), includesOf(right)]).toEqual([
       JSON.stringify(originalIncludes),
       JSON.stringify(includes),
     ]);
@@ -229,6 +236,16 @@ describe('zoomOnClick', () => {
     // A click beside the diagrams changes nothing.
     content.dispatchEvent(new Event('click', { bubbles: true }));
     expect(classes()).toEqual([wideClass]);
+
+    // A click on a link of the diagram opens the link and changes nothing here.
+    const link = document.createElementNS('http://www.w3.org/2000/svg', 'a');
+    link.setAttribute('href', 'https://example.com/');
+    link.append(document.createElementNS('http://www.w3.org/2000/svg', 'text'));
+    diagram().append(link);
+    link.firstElementChild!.dispatchEvent(new Event('click', { bubbles: true, composed: true }));
+    expect(classes()).toEqual([wideClass]);
+    send('click');
+    expect(classes()).toEqual([wideClass, originalSizeClass]);
     container.remove();
   });
 });
@@ -238,7 +255,7 @@ describe('previewHtml', () => {
     const html = previewHtml({ cspSource: 'https://webview', nonce: 'abc', script: 'https://webview/dist/pumlPreview.js', style: 'https://webview/media/pumlPreview.css' });
     const policy = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html)?.[1];
     expect(policy).toBe(
-      "default-src 'none'; img-src https://webview data:; style-src https://webview 'unsafe-inline'; font-src https://webview; script-src 'nonce-abc' 'wasm-unsafe-eval'",
+      "default-src 'none'; img-src https://webview data:; style-src https://webview 'unsafe-inline'; font-src https://webview; script-src 'nonce-abc' 'wasm-unsafe-eval'; base-uri 'none'; form-action 'none'",
     );
     expect(html).toContain('<script type="module" nonce="abc" src="https://webview/dist/pumlPreview.js"></script>');
     expect(html).toContain('<main id="diagrams"></main>');

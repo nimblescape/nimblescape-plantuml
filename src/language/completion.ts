@@ -206,6 +206,16 @@ export function declarations(lines: readonly string[], skip = -1): Proposal[] {
 const keywordProposals = (words: readonly string[], prefix = ''): Proposal[] =>
   [...new Set(words)].map((word) => ({ label: `${prefix}${word}`, kind: 'Keyword' }));
 
+/** wordAtEnd matches the word at the end of a text: a name, with the parts of a qualified name and a leading `@` or `!`. */
+const wordAtEnd = /[@!]?(?:[\p{L}\p{N}_$]+(?:\.|::))*[\p{L}\p{N}_$]*$/u;
+
+/**
+ * maxWordLength is the length of the longest word before the cursor that the completion replaces. The search of a
+ * word at the end of a text tries each start of the text, so a limit keeps a long line from a long search on each
+ * typed character.
+ */
+const maxWordLength = 1000;
+
 /**
  * wordRange returns the columns of the word at the cursor. A word is a name, with a leading `@` or `!`. A quoted
  * name, a component or a use case that is still open before the cursor counts from its opening character, and
@@ -215,7 +225,8 @@ const keywordProposals = (words: readonly string[], prefix = ''): Proposal[] =>
  */
 function wordRange(text: string, character: number): { start: number; end: number } {
   const before = text.slice(0, character);
-  let start = /[@!]?(?:[\p{L}\p{N}_$]+(?:\.|::))*[\p{L}\p{N}_$]*$/u.exec(before)?.index ?? character;
+  const searched = Math.max(0, character - maxWordLength);
+  let start = searched + (wordAtEnd.exec(before.slice(searched))?.index ?? character - searched);
   const openings: Record<string, string> = { '"': '"', '[': ']', '(': ')' };
   let closing: string | undefined;
   const quote = before.lastIndexOf('"');

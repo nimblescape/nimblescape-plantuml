@@ -305,7 +305,8 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
     const dist = vscode.Uri.joinPath(this.#extensionUri, 'dist');
     const media = vscode.Uri.joinPath(this.#extensionUri, 'media');
     const webview = panel.webview;
-    webview.options = { enableScripts: true, localResourceRoots: [dist, media] };
+    // VS Code allows forms in a webview with scripts unless the options forbid them; the page has no form.
+    webview.options = { enableScripts: true, enableForms: false, localResourceRoots: [dist, media] };
     webview.html = previewHtml({
       cspSource: webview.cspSource,
       nonce: randomBytes(16).toString('base64'),

@@ -265,6 +265,7 @@ test('a preview gets the text and the settings when its page is ready, and again
   instance.resolveCustomTextEditor(document as never, panel as never);
   expect(panel.webview.html).toContain("script-src 'nonce-");
   expect(panel.webview.html).toContain('file:/extension/dist/pumlPreview.js');
+  expect(panel.webview.options).toMatchObject({ enableScripts: true, enableForms: false });
   change(document, 'A1');
   expect(panel.webview.posted).toEqual([]);
 

@@ -7,8 +7,8 @@
  * script of the extension only, by a nonce, and allows WebAssembly
  * (`'wasm-unsafe-eval'`) for the Graphviz layout of Viz.js. It allows the
  * styles and the images of the extension and inline styles, which the SVG
- * images of PlantUML use, and no network requests, frames or workers. The
- * module uses no API of VS Code.
+ * images of PlantUML use, and no network requests, frames, workers, forms or
+ * base address. The module uses no API of VS Code.
  */
 
 /** PageResources are the addresses and the security values of the page. */
@@ -42,6 +42,8 @@ export function previewHtml(resources: PageResources): string {
     `style-src ${cspSource} 'unsafe-inline'`,
     `font-src ${cspSource}`,
     `script-src 'nonce-${nonce}' 'wasm-unsafe-eval'`,
+    `base-uri 'none'`,
+    `form-action 'none'`,
   ].join('; ');
   return `<!DOCTYPE html>
 <html lang="en">

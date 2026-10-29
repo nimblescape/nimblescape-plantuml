@@ -103,7 +103,14 @@ const storageLimit = 50;
  * the engine rendered, which can hold large included files. A longer result would take a large part of the storage,
  * which all previews of one kind share, and could make it remove every other result.
  */
-const storedSizeLimit = 500_000;
+const storedSizeLimit = 200_000;
+
+/**
+ * storedTotalLimit is the length of all results in the local storage together. The preview scripts of other
+ * extensions in the Markdown preview share this storage and its quota of a few megabytes, so the results keep to
+ * a part of it.
+ */
+const storedTotalLimit = 1_000_000;
 
 /**
  * hash returns the 32-bit FNV-1a hash of a text, as a short text.
@@ -117,6 +124,15 @@ function hash(text: string): string {
   }
   return (value >>> 0).toString(36);
 }
+
+/**
+ * Report receives a problem of a page that no diagram shows. By default the renderer writes it to the console of
+ * the page; the preview of PlantUML files sends it to the log of the extension.
+ */
+export type Report = (message: string) => void;
+
+/** consoleReport writes a problem to the console of the page. */
+const consoleReport: Report = (message) => console.error(message);
 
 /**
  * messageOf returns the message of an error.
@@ -136,9 +152,10 @@ export function pageStorage(): Storage | undefined {
 /**
  * StoredResults keeps the SVG texts of rendered diagrams in the local storage of a preview. VS Code gives all
  * webviews of one kind, for example all Markdown previews, the same origin, and keeps their local storage across
- * previews and restarts. The storage keeps the most recently used results, up to a limit; each result carries its
- * whole key, so that two keys with the same hash do not mix. A full or blocked storage only means that results are
- * not kept.
+ * previews and restarts. The storage keeps the most recently used results, up to a number and a total length, so
+ * that the preview scripts of other extensions that share the storage keep room; each result carries its whole
+ * key, so that two keys with the same hash do not mix. A full or blocked storage only means that results are not
+ * kept.
  */
 export class StoredResults {
   readonly #storage: Storage | undefined;
@@ -198,6 +215,7 @@ export class StoredResults {
     const id = hash(key);
     try {
       const ids = this.#use(id);
+      this.#keepTotal(ids, id, item.length);
       for (;;) {
         try {
           storage.setItem(storagePrefix + id, item);
@@ -214,6 +232,28 @@ export class StoredResults {
       }
     } catch {
       // A blocked storage keeps nothing.
+    }
+  }
+
+  /**
+   * #keepTotal removes the least recently used results until all results with a new one keep to their total length.
+   * @param ids - The list of the stored results, which ends with the new one; it loses the removed results.
+   * @param id - The hash of the key of the new result.
+   * @param length - The length of the new result.
+   */
+  #keepTotal(ids: string[], id: string, length: number): void {
+    const storage = this.#storage!;
+    const lengthOf = (other: string) => storage.getItem(storagePrefix + other)?.length ?? 0;
+    let total = length + ids.reduce((sum, other) => sum + (other === id ? 0 : lengthOf(other)), 0);
+    let removed = false;
+    while (total > storedTotalLimit && ids[0] !== id) {
+      const oldest = ids.shift()!;
+      total -= lengthOf(oldest);
+      storage.removeItem(storagePrefix + oldest);
+      removed = true;
+    }
+    if (removed) {
+      storage.setItem(storageIndex, JSON.stringify(ids));
     }
   }
 
@@ -388,6 +428,7 @@ export class PreviewRenderer {
   readonly #loadEngine: () => Promise<Engine>;
   readonly #isDark: () => boolean;
   readonly #stored: StoredResults | undefined;
+  readonly #report: Report;
   readonly #results = new Map<string, Result>();
   readonly #pending = new Set<string>();
   /** #shown holds for each content element the key of the results that it shows, or `pending` for the note. */
@@ -403,12 +444,14 @@ export class PreviewRenderer {
    * @param loadEngine - Loads the engine; the renderer calls it before each rendering.
    * @param isDark - Tells whether the diagrams are for a dark background.
    * @param stored - Keeps the results in the local storage of the preview; undefined keeps them in memory only.
+   * @param report - Receives a failed update of the page.
    */
-  constructor(root: ParentNode, loadEngine: () => Promise<Engine>, isDark: () => boolean, stored?: StoredResults) {
+  constructor(root: ParentNode, loadEngine: () => Promise<Engine>, isDark: () => boolean, stored?: StoredResults, report = consoleReport) {
     this.#root = root;
     this.#loadEngine = loadEngine;
     this.#isDark = isDark;
     this.#stored = stored;
+    this.#report = report;
   }
 
   /**
@@ -493,7 +536,7 @@ export class PreviewRenderer {
         this.update();
       })
       // An error of the update must not stop the queue.
-      .catch((error: unknown) => console.error(error));
+      .catch((error: unknown) => this.#report(`The preview could not show a diagram: ${messageOf(error)}`));
   }
 
   /**
@@ -772,8 +815,9 @@ export function pageLayout(): Layout {
  * @param layout - The layout engine: with Graphviz, the function loads Viz.js first.
  * @param loadClassicScript - Loads a classic script of the engine; by default with a script element that carries the
  *   nonce of the page. The tests with the real engine (`src/engine.test.ts`) run the scripts in Node.js instead.
+ * @param report - Receives a failed load of Viz.js.
  */
-export function engineLoader(folder: string, layout: Layout, loadClassicScript = loadScript): () => Promise<Engine> {
+export function engineLoader(folder: string, layout: Layout, loadClassicScript = loadScript, report = consoleReport): () => Promise<Engine> {
   let viz: Promise<void> | undefined;
   let engine: Promise<Engine> | undefined;
   const load = async (): Promise<Engine> => {
@@ -791,7 +835,9 @@ export function engineLoader(folder: string, layout: Layout, loadClassicScript =
     };
     if (layout === 'graphviz') {
       // Without Viz.js, PlantUML uses Smetana, so a failed load only changes the layout engine.
-      viz ??= loadClassicScript(`${folder}viz-global.js`).catch(() => undefined);
+      viz ??= loadClassicScript(`${folder}viz-global.js`).catch((error: unknown) =>
+        report(`Graphviz (Viz.js) could not be loaded, so the diagrams use the layout engine Smetana: ${messageOf(error)}`),
+      );
       await viz;
     }
     return (await import(`${folder}plantuml.js`)) as Engine;
@@ -812,13 +858,15 @@ export function engineLoader(folder: string, layout: Layout, loadClassicScript =
  * @param root - The node whose PlantUML blocks the renderer renders.
  * @param folder - The address of the folder of the engine, with a final slash.
  * @param loadEngine - Loads the engine; by default, from the folder.
+ * @param report - Receives the problems of the page that no diagram shows.
  */
-export function pageRenderer(root: ParentNode, folder: string, loadEngine?: () => Promise<Engine>): PreviewRenderer {
+export function pageRenderer(root: ParentNode, folder: string, loadEngine?: () => Promise<Engine>, report = consoleReport): PreviewRenderer {
   const layout = pageLayout();
   return new PreviewRenderer(
     root,
-    loadEngine ?? engineLoader(folder, layout),
+    loadEngine ?? engineLoader(folder, layout, loadScript, report),
     () => isDarkTheme(document.body),
     new StoredResults(pageStorage(), `${folder} ${layout}`),
+    report,
   );
 }

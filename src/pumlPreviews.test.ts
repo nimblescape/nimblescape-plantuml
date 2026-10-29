@@ -219,9 +219,11 @@ beforeEach(() => {
  */
 const previews = async (includes?: IncludesLoader) => {
   const module = await import('./pumlPreviews');
-  const instance = new module.PumlPreviews(new FakeUri('file', '/extension') as never, () => defaultSettings, includes);
+  const logged: string[] = [];
+  const log = { warn: (message: string) => logged.push(message) };
+  const instance = new module.PumlPreviews(new FakeUri('file', '/extension') as never, () => defaultSettings, includes, log as never);
   instance.register();
-  return { module, instance };
+  return { module, instance, logged };
 };
 
 /**
@@ -394,7 +396,7 @@ test('a second press of the toggle while the first switch runs switches the tab 
 });
 
 test('a rendered diff and the preview to the side come back after a restart, and a panel without a valid state closes', async () => {
-  const { module, instance } = await previews();
+  const { module, instance, logged } = await previews();
   addDocument('git:/a.puml', 'A');
   addDocument('file:/a.puml', 'A2');
   const diff = new FakePanel(module.diffPreviewViewType, 'Preview a.puml', 1);
@@ -415,12 +417,32 @@ test('a rendered diff and the preview to the side come back after a restart, and
   const deleted = new FakePanel(module.sidePreviewViewType, 'Preview gone.puml', 2);
   await instance.deserializeWebviewPanel(deleted as never, { uri: 'file:/gone.puml' });
   expect(deleted.disposed).toBe(true);
+  // The log tells why a preview did not come back.
+  expect(logged).toEqual([
+    'A PlantUML preview could not be restored: its saved state is not valid.',
+    'The PlantUML preview of file:/gone.puml could not be restored: cannot open file:/gone.puml',
+  ]);
 
   // There is one preview to the side: a second restored one replaces the first.
   const second = new FakePanel(module.sidePreviewViewType, 'Preview a.puml', 2);
   await instance.deserializeWebviewPanel(second as never, { uri: 'file:/a.puml' });
   expect(side.disposed).toBe(true);
   expect(second.disposed).toBe(false);
+});
+
+test('the log keeps the problems that a page reports, and only their text', async () => {
+  const { instance, logged } = await previews();
+  const document = addDocument('file:/a.puml', 'A');
+  const panel = new FakePanel('nimblescape.plantuml.preview', 'a.puml', 1);
+  instance.resolveCustomTextEditor(document as never, panel as never);
+  const send = (message: unknown) => panel.webview.listeners.forEach((listener) => listener(message));
+  send({ type: 'log', message: 'Graphviz (Viz.js) could not be loaded' });
+  send({ type: 'log', message: { text: 'not a text' } });
+  send({ type: 'log', message: 'x'.repeat(5000) });
+  expect(logged).toEqual([
+    'The PlantUML preview of file:/a.puml: Graphviz (Viz.js) could not be loaded',
+    `The PlantUML preview of file:/a.puml: ${'x'.repeat(2000)}`,
+  ]);
 });
 
 test('a preview gets the included files of its text, at once when they are read, and else after the reading', async () => {

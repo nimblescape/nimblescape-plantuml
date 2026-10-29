@@ -183,9 +183,24 @@ describe('StoredResults', () => {
 
     // A result with a long text, for example with large included files, is not kept, and removes no other result.
     const count = storage.items.size;
-    stored.set(['x'.repeat(500_000)], false, '<svg></svg>');
+    stored.set(['x'.repeat(200_000)], false, '<svg></svg>');
     expect(storage.items.size).toBe(count);
     expect(stored.get(['D60'], false)).toBe('<svg>60</svg>');
+  });
+
+  test('keeps all results within a total length, so that the other scripts of a preview keep room in the storage', () => {
+    const storage = new FakeStorage();
+    const stored = new StoredResults(storage as unknown as Storage, 'v1');
+    for (let index = 0; index < 10; index++) {
+      stored.set([`D${index}`], false, `<svg>${'x'.repeat(150_000)}</svg>`);
+    }
+    // Six results of 150,000 characters fit into 1,000,000 characters; the least recently used ones are removed.
+    const total = [...storage.items.values()].reduce((sum, value) => sum + value.length, 0);
+    expect(total).toBeLessThanOrEqual(1_000_000 + 1000);
+    expect(stored.get(['D3'], false)).toBeUndefined();
+    expect(stored.get(['D4'], false)).toContain('<svg>');
+    expect(stored.get(['D9'], false)).toContain('<svg>');
+    expect(JSON.parse(storage.getItem('nimblescape-plantuml:index')!)).toHaveLength(6);
   });
 });
 
@@ -556,5 +571,16 @@ describe('engineLoader', () => {
     const second = load();
     expect(second).not.toBe(first);
     await expect(second).rejects.toThrow();
+  });
+
+  test('reports a failed load of Viz.js, which only changes the layout engine', async () => {
+    const reports: string[] = [];
+    const blocked = async () => {
+      throw new Error('blocked');
+    };
+    const load = engineLoader('file:///no/such/folder/', 'graphviz', blocked, (message) => reports.push(message));
+    // The folder has no engine either.
+    await expect(load()).rejects.toThrow();
+    expect(reports).toEqual(['Graphviz (Viz.js) could not be loaded, so the diagrams use the layout engine Smetana: blocked']);
   });
 });

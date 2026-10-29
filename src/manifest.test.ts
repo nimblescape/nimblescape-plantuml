@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import * as vm from 'node:vm';
 import * as esbuild from 'esbuild';
 import { expect, test, vi } from 'vitest';
-import { formatBlocksCommand } from './extension';
+import { formatBlocksCommand } from './formattingProvider';
 import { grammarFiles } from './language/grammars';
 import { bundledLibraries } from './preview/renderer';
 import { commands, diffPreviewViewType, previewViewType, sidePreviewViewType } from './pumlPreviews';

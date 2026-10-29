@@ -408,7 +408,7 @@ export class PumlPreviews implements vscode.CustomTextEditorProvider, vscode.Web
       });
     };
     if (includes.some((files) => files instanceof Promise)) {
-      Promise.all(includes).then(send, () => undefined);
+      Promise.all(includes.map((files) => Promise.resolve(files))).then(send, () => undefined);
     } else {
       send(includes as (IncludedFiles | undefined)[]);
     }

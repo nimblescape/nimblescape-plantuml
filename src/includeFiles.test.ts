@@ -405,9 +405,9 @@ test('forgets a file that no diagram has included for ten minutes, and stops its
   files.set('file:///work/docs/a.puml', 'A');
   files.set('file:///work/docs/b.puml', 'B');
   const { includes } = await includeFiles();
-  includes.load(document, '!include a.puml');
+  void includes.load(document, '!include a.puml');
   await vi.advanceTimersByTimeAsync(11 * 60_000);
-  includes.load(document, '!include b.puml');
+  void includes.load(document, '!include b.puml');
   expect(watchers.map((watcher) => [watcher.pattern.pattern, watcher.disposed])).toEqual([
     ['a.puml', true],
     ['b.puml', false],
@@ -419,6 +419,6 @@ test('forgets a file that no diagram has included for ten minutes, and stops its
 test('watches a file whose name holds characters with a meaning in patterns by that name', async () => {
   files.set('file:///work/docs/a[1]{x}.puml', 'A');
   const { includes } = await includeFiles();
-  includes.load(document, '!include a[1]{x}.puml');
+  void includes.load(document, '!include a[1]{x}.puml');
   expect(watchers.map((watcher) => watcher.pattern.pattern)).toEqual(['a[[]1[]][{]x[}].puml']);
 });

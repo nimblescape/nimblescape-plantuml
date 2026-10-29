@@ -1,0 +1,10 @@
+' SPDX-License-Identifier: MIT
+' © 2026 Hannes Stauss (scalarion@nimblescape.com)
+' Licensed under the MIT License. See LICENSE in the repository root for details.
+@startuml
+class Car {
+- wheels : int
+}
+class Wheel
+Car "1" *-- "4" Wheel
+@enduml

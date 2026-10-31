@@ -46,3 +46,15 @@ export function parseSettings(text: string | null): Settings {
   const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   return { umlNotation: typeof values.umlNotation === 'boolean' ? values.umlNotation : defaultSettings.umlNotation };
 }
+
+/**
+ * settingsOf reads the settings of the extension from settings of VS Code as a program without VS Code finds them, for
+ * example in the file `.vscode/settings.json` of a repository: the keys `nimblescape.plantuml.<name>`. A missing or
+ * invalid value gets its default.
+ * @param values - The settings of VS Code, as the parsed object of a file `settings.json`.
+ */
+export function settingsOf(values: unknown): Settings {
+  const record = typeof values === 'object' && values !== null ? (values as Record<string, unknown>) : {};
+  const umlNotation = record[`${settingsSection}.umlNotation`];
+  return { umlNotation: typeof umlNotation === 'boolean' ? umlNotation : defaultSettings.umlNotation };
+}

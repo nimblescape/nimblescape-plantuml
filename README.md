@@ -142,6 +142,16 @@ describes every feature.
   preview of PlantUML blocks. With both extensions installed, it is not
   defined which one renders and highlights a diagram. Use one of the two.
 
+## npm package
+
+The npm package
+[`@nimblescape/plantuml`](https://github.com/nimblescape/nimblescape-plantuml/blob/main/cli/README.md)
+holds the renderer of the extension for other programs, for example
+[nimblescape Markdown Paper](https://github.com/nimblescape/markdownpaper-vscode),
+which shows the PlantUML blocks of a Markdown file on its pages and in its
+PDF files as the Markdown preview shows them: the same engine, settings,
+included files and layout engine.
+
 ## About PlantUML
 
 nimblescape PlantUML is not a product of the PlantUML project, and the

@@ -5,7 +5,13 @@
 // Bundle the extension into dist/extension.js, the script of the Markdown
 // preview into dist/markdownPreview.js and the script of the preview of
 // PlantUML files into dist/pumlPreview.js, write the TextMate grammars into
-// dist/syntaxes/, and copy the PlantUML engine into dist/engine/. VS Code provides the module `vscode` at run time, so the bundle
+// dist/syntaxes/, and copy the PlantUML engine into dist/engine/. Then build
+// the npm package @nimblescape/plantuml of cli/ from the same sources: the
+// library for Node.js 22 or later (engines of cli/package.json) into
+// cli/dist/index.js, and the files of its page into cli/dist/page/: the script
+// of the Markdown preview, its style sheet and the engine; npm puts LICENSE and
+// THIRD-PARTY-NOTICES.md into cli/. The package of the extension holds no file
+// of cli/. VS Code provides the module `vscode` at run time, so the bundle
 // of the extension leaves it out. A preview loads its script as a module in
 // the browser of the webview; that script imports the engine from
 // ./engine/plantuml.js at run time. The three bundles are readable JavaScript:
@@ -114,3 +120,37 @@ for (const file of libraries) {
   fs.copyFileSync(path.join('stdlib', file), path.join(engineDir, file));
 }
 console.log(`Copied @plantuml/core ${engine.version} (${scripts.length} scripts and LICENSE) and ${libraries.join(', ')} to ${engineDir}/`);
+
+// The npm package @nimblescape/plantuml (docs/requirements.md, R-NPM-001). Its page script is the script of the
+// Markdown preview, without a source map, next to a copy of the engine folder, as in the package of the extension.
+const cliDir = 'cli/dist';
+const pageDir = `${cliDir}/page`;
+fs.rmSync(cliDir, { recursive: true, force: true });
+await esbuild.build({
+  entryPoints: ['src/cli/index.ts'],
+  outfile: `${cliDir}/index.js`,
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node22',
+  sourcemap: false,
+  minify: false,
+  logLevel: 'info',
+});
+await esbuild.build({
+  entryPoints: ['src/preview/markdownPreview.ts'],
+  outfile: `${pageDir}/markdownPreview.js`,
+  bundle: true,
+  platform: 'browser',
+  format: 'esm',
+  target: 'es2022',
+  sourcemap: false,
+  minify: false,
+  logLevel: 'info',
+});
+fs.copyFileSync('media/markdownPreview.css', `${pageDir}/markdownPreview.css`);
+fs.cpSync(engineDir, `${pageDir}/engine`, { recursive: true });
+fs.copyFileSync('LICENSE', 'cli/LICENSE');
+fs.copyFileSync('THIRD-PARTY-NOTICES.md', 'cli/THIRD-PARTY-NOTICES.md');
+console.log(`Built the npm package @nimblescape/plantuml in cli/: ${cliDir}/index.js and ${pageDir}/`);
+

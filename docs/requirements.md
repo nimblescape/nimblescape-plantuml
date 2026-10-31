@@ -19,6 +19,8 @@ comes first, the support of PlantUML files second.
 | 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007) to [R-GEN-013](#r-gen-013) |
 | 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-008](#r-puml-008), [R-GEN-007](#r-gen-007) to [R-GEN-013](#r-gen-013) |
 | 4 | Tests, README, icon, and a release workflow that is ready but not run | all |
+| 5 | The diagrams on the pages of other extensions, such as the pages and the PDF of nimblescape Markdown Paper | [R-MD-007](#r-md-007) |
+| 6 | The npm package `@nimblescape/plantuml` with the renderer for other programs, built and tested in CI and published by the release | [R-NPM-001](#r-npm-001), [R-GEN-006](#r-gen-006) |
 
 ## General
 
@@ -71,8 +73,10 @@ workflows and checks as the other extensions of the publisher (`release.yml`,
 extension ID never changes, no deletion, only versions that change something
 for the users and at most one version in 7 days, a dry run before a change of
 the release process reaches `main`, and publishing only from GitHub Actions
-with Microsoft Entra ID. Nobody publishes the extension until Hannes asks for
-it.
+with Microsoft Entra ID. The release also publishes the npm package
+([R-NPM-001](#r-npm-001)) to npmjs.com with trusted publishing, in the same
+version as the extension. Nobody publishes the extension or the npm package
+until Hannes asks for it.
 
 ### R-GEN-007
 
@@ -244,6 +248,62 @@ formatters of Markdown files: without another one, "Format Document" formats
 the PlantUML blocks; with another one and no default formatter of Markdown
 files, VS Code asks the user to set the default formatter. This is the only
 effect of the extension on Markdown files outside the PlantUML blocks.
+
+### R-MD-007
+
+**Pages of other extensions.** Another extension can show the PlantUML blocks
+of a Markdown file as the Markdown preview shows them, for example nimblescape
+Markdown Paper on its pages and in its PDF. Such an extension uses the
+markdown-it plugin of the extension (`extendMarkdownIt` of its export), the
+script of the Markdown preview and its style sheet on its own page, as the
+Markdown preview does. The diagrams then have the same engine, settings,
+included files and layout engine as in the Markdown preview:
+
+- The script renders the PlantUML blocks of any page that loads it, also of a
+  page that is not the Markdown preview of VS Code.
+- The diagrams use the light colors of PlantUML unless the body of the page has
+  the class of a dark theme of VS Code ([R-GEN-012](#r-gen-012)), and Graphviz
+  only when the page allows WebAssembly ([R-GEN-011](#r-gen-011)).
+- The inner element of each block (class `nimblescape-plantuml-content`) has
+  the attribute `data-plantuml-state`: `pending` while the block waits for the
+  diagrams of its text, settings, included files and color theme, and `drawn`
+  when it shows them, or the message of an error in their place. The diagrams
+  are in the open shadow root of that element, so that the page can copy them,
+  for example into its pages before it prints them.
+
+## npm package
+
+### R-NPM-001
+
+**The renderer as an npm package.** The repository also holds the npm package
+`@nimblescape/plantuml` in the folder `cli/`, with the renderer of the
+extension for other programs, such as nimblescape Markdown Paper, which shows
+the PlantUML blocks of a Markdown file on its pages and in its PDF files
+([R-MD-007](#r-md-007)). The extension and the package build from the same
+sources, so a diagram looks the same in the Markdown preview and on the pages
+of such a program.
+
+- The package holds the markdown-it plugin of the extension, the reading of
+  the settings `nimblescape.plantuml.*` from the settings of VS Code as a
+  program finds them in a file `settings.json`, also from the file
+  `.vscode/settings.json` of a folder as VS Code reads it (JSON with comments
+  and with commas after the last element), the reading of the included
+  files from the disk with the rules of [R-GEN-008](#r-gen-008), and the
+  files of the page: the script of the Markdown preview, its style sheet and
+  the engine with the library C4.
+- The package needs Node.js 22 or later and has no dependencies. Its types
+  are part of the package.
+- The package has the version of the extension. The CI builds and tests it,
+  and the release publishes it to npmjs.com with the extension
+  ([R-GEN-006](#r-gen-006)). The npm packages of the other extensions of the
+  publisher, such as `@nimblescape/typescript` and
+  `@nimblescape/markdownnotes`, have the same form: a folder `cli/` of the
+  repository of the extension, built by `esbuild.mjs`, tested by
+  `npm run test:cli`, and published by the job "Publish to npmjs.com" of the
+  release.
+- Before the package is on npmjs.com, a program installs it from the GitHub
+  repository: it clones a commit, builds the package and installs the file
+  of `npm pack ./cli`.
 
 ## PlantUML files
 

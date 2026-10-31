@@ -50,6 +50,14 @@ blocks of Markdown files with it, as the Markdown preview of VS Code does.
 | [punycode.js](#punycodejs) | 2.3.1 | MIT |
 | [uc.micro](#ucmicro) | 2.1.0 | MIT |
 
+The npm package `@nimblescape/plantuml` (the folder `cli/` of the repository,
+[R-NPM-001](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/requirements.md#r-npm-001))
+holds this file too. It contains the files of the table of `dist/engine/`
+above in its folder `dist/page/engine/`, without a change. Its files
+`dist/index.js` and `dist/page/markdownPreview.js` contain only the code of the
+extension: the package has neither the grammar nor markdown-it, which the
+program that uses the package brings.
+
 ## Source code
 
 The section of each component names the place of its source code. Graphviz

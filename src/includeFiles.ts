@@ -43,10 +43,8 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import { diagramsOf } from './diagram/diagramRanges';
+import { includeProblems, maxFileSize } from './diagram/includeProblems';
 import { expandIncludes, IncludedFile, IncludedFiles, maxDepth, mayInclude } from './diagram/includes';
-
-/** maxFileSize is the size in bytes of the largest file that the extension includes. */
-const maxFileSize = 1024 * 1024;
 
 /** idleTime is the time in milliseconds after which the extension forgets a file that no diagram has included. */
 const idleTime = 10 * 60_000;
@@ -143,7 +141,7 @@ function isInRealFolders(uri: vscode.Uri, real: string, folders: readonly vscode
  */
 function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.Uri; folders: vscode.Uri[] } | { problem: string } {
   if (!document || document.scheme === 'untitled') {
-    return { problem: `The document is not saved in a folder, so the extension cannot find the included file ${path}.` };
+    return { problem: includeProblems.unsaved(path) };
   }
   const folder = vscode.Uri.joinPath(document, '..');
   let uri: vscode.Uri;
@@ -154,14 +152,12 @@ function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.
       uri = vscode.Uri.joinPath(folder, path);
     }
   } catch {
-    return { problem: `The extension cannot find the included file ${path}.` };
+    return { problem: includeProblems.unknown(path) };
   }
   uri = withQueryPath(uri.with({ fragment: '' }));
   const folders = [folder, ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => workspaceFolder.uri)];
   if (!folders.some((root) => isInFolder(uri, root))) {
-    return {
-      problem: `The file ${path} is outside the workspace folders and the folder of the document. The extension reads included files only from these folders.`,
-    };
+    return { problem: includeProblems.outside(path) };
   }
   return { uri, folders };
 }
@@ -174,10 +170,10 @@ function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.
  */
 function checkStat(folder: boolean, size: number): Content | undefined {
   if (folder) {
-    return { problem: (path) => `The included path ${path} is a folder, not a file.` };
+    return { problem: includeProblems.folder };
   }
   if (size > maxFileSize) {
-    return { problem: (path) => `The file ${path} is larger than 1 MB, the largest file that the extension includes.` };
+    return { problem: includeProblems.tooLarge };
   }
   return undefined;
 }
@@ -189,10 +185,10 @@ function checkStat(folder: boolean, size: number): Content | undefined {
  */
 function readProblem(error: unknown, missing: boolean): Content {
   if (missing) {
-    return { problem: (path) => `The file ${path} does not exist.` };
+    return { problem: includeProblems.missing };
   }
   const message = error instanceof Error ? error.message : String(error);
-  return { problem: (path) => `The extension cannot read the file ${path}: ${message}` };
+  return { problem: (path) => includeProblems.unreadable(path, message) };
 }
 
 /**
@@ -391,9 +387,7 @@ export class IncludeFiles implements vscode.Disposable {
       return undefined;
     }
     if (entry.real !== undefined && !isInRealFolders(target.uri, entry.real, target.folders)) {
-      return {
-        problem: `The file ${path} is a symbolic link to a file outside the workspace folders and the folder of the document. The extension reads included files only from these folders.`,
-      };
+      return { problem: includeProblems.linkOutside(path) };
     }
     return 'text' in entry.content ? entry.content : { problem: entry.content.problem(path) };
   }

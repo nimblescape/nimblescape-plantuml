@@ -23,6 +23,7 @@ describes its security model.
 | `src/diagram/diagramLines.ts` | The lines that the engine renders for the text of one diagram: `@startuml` and `@enduml` around a body, the `@end` line of a diagram without one, and the settings applied, each line with the line of the text that it comes from. |
 | `src/diagram/diagramRanges.ts` | The diagrams of a PlantUML text, from a `@start` line to the next `@end` line, in small letters as the engine reads them, and the split of a text into the texts of its diagrams. The previews, the UML notation and the formatting use this one rule. |
 | `src/diagram/includes.ts` | The expansion of the include lines of a diagram with the texts of the included files, by the rules of the preprocessor of PlantUML, with the line and the file that each line comes from, and the problems of the include lines that stay. It uses no API of VS Code, so the preview scripts can use it. The section [Included files](#included-files) explains it. |
+| `src/diagram/includeProblems.ts` | The largest included file (1 MB) and the messages of the problems of an included file, which the reader of the extension and the reader of the npm package share. |
 | `src/includeFiles.ts` | The reading of the included files for the previews: the folders that it reads from, the watchers of the files, and the event that refreshes the previews. |
 | `src/diagram/umlNotation.ts` | The UML notation of the setting `umlNotation`: the commands `skinparam style strictuml` and `skinparam classAttributeIconSize 0` after each `@startuml` line, the UML keyword as a stereotype in each declaration of a class kind, and `{static}` and `{abstract}` for the modifiers `static` and `abstract` of members. It adds nothing that the diagram has already. |
 | `src/diagram/lineKinds.ts` | The kind of each line of a PlantUML text: statement, member of a class, an object, a map or JSON data, rule of a style, line comment, line of a block comment, or free text of a note, title, legend, header, footer, caption, reference or action of several lines. The UML notation, the code completion and the formatting use it. |
@@ -36,6 +37,11 @@ describes its security model.
 | `media/markdownPreview.css` | The styles of the PlantUML blocks in the Markdown preview. |
 | `media/pumlPreview.css` | The styles of the preview of PlantUML files and of the rendered diff. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
+| `src/cli/index.ts` | The library of the npm package `@nimblescape/plantuml` ([npm package](#npm-package)): the markdown-it plugin, the settings, the included files of the disk and the names of the elements of a page. |
+| `src/cli/diskIncludes.ts` | The reading of the included files from the disk for a program without VS Code, with the rules and the messages of the extension. |
+| `src/cli/diskSettings.ts` | The reading of the settings from the file `.vscode/settings.json` of a folder for a program without VS Code, as JSON with comments. |
+| `cli/` | The npm package `@nimblescape/plantuml`: `package.json`, `package-lock.json` without dependencies, the types `index.d.ts`, `README.md` (its page on npmjs.com), and the built `dist/`, `LICENSE` and `THIRD-PARTY-NOTICES.md`, which Git does not keep. |
+| `test/cli/`, `vitest.cli.config.mts` | The tests of the built npm package (`npm run test:cli`). |
 | `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the expansion of included files, the reading of included files with a fake of the editor API and of the file system, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the indentation rules and the folding markers of the language configuration against the formatting, the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
 | `src/test/` | Support for the tests: a fake of the engine, and the page of the Markdown preview with its update by morphdom, as VS Code changes the page. |
 | `test/vscode/index.cjs`, `test/vscode/workspace/` | The tests in VS Code itself (`npm run test:vscode`) and the folder that VS Code opens for them: the activation, the markdown-it plugin in the Markdown extension, the commands, the code completion, the formatting, and the custom editor of PlantUML files with its toggle. |
@@ -43,7 +49,7 @@ describes its security model.
 | `.oxlintrc.json` | The settings of the linter [oxlint](https://oxc.rs/docs/guide/usage/linter): the rules of the category "correctness" and the rules that need the types. |
 | `.gitattributes` | Keeps the line breaks `\n` in every checkout, also on Windows. |
 | `stdlib/` | The libraries of the standard library of PlantUML that the package contains: `c4.min.js`, the library C4, as the PlantUML project builds it for the engine. The section [Engine](#engine) explains it. |
-| `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. |
+| `dist/` | The bundles `dist/extension.js`, `dist/markdownPreview.js` and `dist/pumlPreview.js`, the grammars in `dist/syntaxes/` and the engine in `dist/engine/`, built by `esbuild.mjs` and kept out of Git. `cli/dist/` holds the library and the page of the npm package. |
 | `language-configuration.json` | The editing rules of the language PlantUML: comments, brackets, the pairs that the editor closes, the folding markers of the diagrams and of the preprocessor, and the indentation rules while typing, with the blocks of the formatting. |
 | `docs/guide.md` | The user guide: every feature, how to use it, and its state. |
 | `docs/requirements.md` | The requirements, each with an ID as its heading, and the plan of the steps. |
@@ -51,19 +57,20 @@ describes its security model.
 | `docs/images/` | The image of the README: `demo.gif`, a screen recording of VS Code that shows the Markdown preview, the completion, the formatting, the previews of a PlantUML file and its rendered Git diff. It has the style of the GIFs of nimblescape Mindbug and nimblescape Comment Links: a VS Code window of 1440 × 816 pixels at a zoom of 120 % in the theme Dark Modern, a blue band above it with the number and the caption of each scene, and for 1.6 s after each key press a label with the key and its command. `markdown-preview.png` and `plantuml-preview.png` are the screenshots of the README of the release 0.1.0, whose page on the Marketplace still shows them; delete them after the next release. GIF and PNG files only, because the Marketplace shows no SVG image. The README links its images with full addresses on the branch `main`, which the Marketplace requires; they are not part of the package. A test checks that each image of the README is a GIF or PNG file in this folder. |
 | `THIRD-PARTY-NOTICES.md` | The components of the bundled engine and of the library C4, their licenses and the places of their source code. |
 | `SUPPORT.md` | Where to ask questions and report problems, and what a report contains. |
-| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. The editor API stays outside the bundle. The bundles are readable JavaScript, not minified (see [Reviewing the package](#reviewing-the-package)); a production build (`--production`) has no source maps. |
+| `esbuild.mjs` | Bundles `src/extension.ts` into `dist/extension.js` for Node.js, and `src/preview/markdownPreview.ts` and `src/preview/pumlPreview.ts` into `dist/markdownPreview.js` and `dist/pumlPreview.js` for the browser of the previews, writes the grammars of `src/language/grammars.ts` into `dist/syntaxes/`, and copies the engine and the libraries of `stdlib/` into `dist/engine/`. It then builds the npm package of `cli/`: `src/cli/index.ts` into `cli/dist/index.js` for Node.js 22, the script of the Markdown preview into `cli/dist/page/` with its style sheet and the engine, and copies `LICENSE` and `THIRD-PARTY-NOTICES.md` into `cli/`. The editor API stays outside the bundle. The bundles are readable JavaScript, not minified (see [Reviewing the package](#reviewing-the-package)); a production build (`--production`) has no source maps. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundle. |
 | `vitest.config.mts` | The settings of the tests: the files `src/**/*.test.ts` and `scripts/**/*.test.mjs` on Node; a test file that needs a page (the preview scripts and the real engine) selects happy-dom in its first lines. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked engine and development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
 | `.vscodeignore` | Lists the files of the package: `dist/extension.js`, `dist/markdownPreview.js`, `dist/pumlPreview.js`, `dist/engine/`, `dist/syntaxes/`, `media/markdownPreview.css`, `media/pumlPreview.css`, `resources/icon.png`, `language-configuration.json`, `package.json`, `README.md`, `CHANGELOG.md`, `SUPPORT.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`. |
-| `.github/workflows/ci.yml` | Checks the types, runs the linter and the tests, packages, and runs the tests in VS Code with the package for every push to `main`, every pull request and the commit of every release; a second job runs the tests and the tests in VS Code on Windows. The release publishes the VSIX of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
-| `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
+| `.github/workflows/ci.yml` | Checks the types, runs the linter and the tests, packages, runs the tests in VS Code with the package and packs the npm package for every push to `main`, every pull request and the commit of every release; a second job runs the tests and the tests in VS Code on Windows, and the job "package" runs the tests of the npm package on Linux and macOS with Node.js 22 and 26. The release publishes the VSIX and the npm package of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
+| `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace and the npm package to npmjs.com. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/release-dry-run.yml` | Fails on a pull request that changes the release process (`release.yml`, `ci.yml` or `scripts/release-checks.mjs`) until a dry run on its branch tested the change (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
 | `.github/dependabot.yml` | Proposes weekly updates of the development tools, of the engine and of the pinned actions. |
 | `scripts/install-local.mjs`, `scripts/uninstall-local.mjs` | Install the built package into every profile of the VS Code of this computer, and remove it again. |
+| `scripts/npm-setup.sh` | Sets up the publishing of the npm package on npmjs.com. The section [npmjs.com setup](#npmjscom-setup) explains it. |
 | `scripts/marketplace-setup.sh` | Sets up the Marketplace publishing of the repository. The section [Setup of a repository](#setup-of-a-repository) explains it. |
 | `scripts/release-checks.mjs`, `scripts/release-checks.test.mjs` | The check of rule 4 of the [release rules](#release-rules), which the workflows run, and its test. |
 | `.vscode/launch.json`, `.vscode/tasks.json` | Build the bundle and start a VS Code window that loads the extension from this folder. |
@@ -82,6 +89,7 @@ release in `.node-version` for the tools and CI, and the runtime of VS Code
 | `npm run typecheck` | Checks the types with `tsc`. esbuild does not check them. |
 | `npm run lint` | Runs the linter oxlint with the rules that need the types, for example `no-floating-promises` for a promise that nobody awaits. ESLint with typescript-eslint does not fit here, because typescript-eslint supports TypeScript only below 6.1, and the repository uses TypeScript 7; oxlint runs these rules with tsgolint, which is built on TypeScript 7. |
 | `npm test` | Runs the tests with vitest. The tests touch no installed editor. |
+| `npm run test:cli` | Builds the extension and the npm package, and runs the tests of the built package in `cli/dist/`. |
 | `npm run build` | Bundles `dist/extension.js` with a source map and copies the engine into `dist/engine/`. |
 | `npm run test:vscode` | Runs the tests of `test/vscode/` in VS Code, with the built extension of `dist/` (run `npm run build` first). It downloads VS Code into `.vscode-test/`, by default the oldest version that `engines.vscode` allows; `VSCODE_TEST_VERSION=stable` tests the newest one. On Linux without a display, run it with `xvfb-run -a`. |
 | `npm run package` | Builds `nimblescape-plantuml-<version>.vsix` with vsce, which first runs the production build (`vscode:prepublish`). vsce also validates the manifest and the README. |
@@ -250,8 +258,11 @@ of the Markdown extension) affects the blocks in two ways:
 - Before it renders, it inserts empty elements `<span data-diff-start="N"></span>` and `<span data-diff-end="N"></span>` into the Markdown text around each changed part of a line. In a code block, they are text, so the plugin removes them from the diagram text and from the info string.
 - It marks a changed block with classes on the outer `div` and adds a bar to it as a child (`diff-modification-gutter`) left of the block. The script therefore changes only the shadow root of the inner `div`, and only the inner `div` scrolls, so that the bar is not cut off.
 
-The preview loads `dist/markdownPreview.js` as a module. Its security policy
-allows only scripts with the nonce of the page, no WebAssembly, no network
+The preview loads `dist/markdownPreview.js` as a module. The script starts
+in the Markdown preview, which it finds by its element
+`vscode-markdown-preview-data`, and on any other page that loads it with a
+PlantUML block, such as the page of a PDF of nimblescape Markdown Paper. The
+security policy of the Markdown preview allows only scripts with the nonce of the page, no WebAssembly, no network
 requests and no frames. The script therefore:
 
 - loads the engine with a dynamic import, which keeps the nonce, and only when the page has a PlantUML block;
@@ -264,6 +275,7 @@ requests and no frames. The script therefore:
 - shows the note "Rendering the diagram…" in a new block while its diagrams render, never its text. The note is a live region (`role="status"`), which screen readers announce. Each diagram is an image (`role="img"`) with the label "PlantUML diagram" and its title, which the engine writes into the group `g.title` of the SVG image;
 - shows an error with its message, and with the number of the line of the block text when the message names a line, above the text of the block (a `slot` of the shadow root). The engine draws an error in the text as a picture with the line number among the lines that it received, which hold the lines that the extension adds: `@startuml` and `@enduml` around a body, the commands of the UML notation, and a missing `@end` line. `src/diagram/diagramLines.ts` therefore keeps for each line the line of the text that it comes from, and the renderer reads the picture (`errorOf`) and shows its own message instead;
 - fails a rendering after 60 seconds. The engine then keeps working on it, so the next rendering waits until the engine has ended it, for 60 more seconds at most, and the late result is dropped. After a failed load of the engine, the next rendering loads it again. A diagram has no largest size: the renderer passes the option `maxSvgSize: 0`, without which the engine refuses images wider or higher than 8192 pixels;
+- marks the inner `div` of each block with the attribute `data-plantuml-state`: `pending` while the block waits for the diagrams of its text, settings, included files and theme, and `drawn` when it shows them or the message of an error. A page of another extension reads it ([R-MD-007](docs/requirements.md#r-md-007)), for example nimblescape Markdown Paper, which copies the diagrams out of the shadow roots into its pages before Paged.js lays them out and the PDF prints them. The attribute is not part of the HTML of markdown-it, so the preview removes it when it writes its content again (morphdom changes the element in place and keeps its shadow root), and the next update of the script sets it again;
 - keeps the SVG texts of the 50 most recently used diagrams in `localStorage`, by the address of the engine (which contains the version of the extension), the layout engine (Graphviz or Smetana, which the security setting decides), the theme and the rendered lines. VS Code gives all Markdown previews one origin and keeps their storage across previews and restarts (checked in VS Code 1.142), so a preview that opens again shows its diagrams without waiting for the engine, which needed about two seconds to start in a test. A full or blocked storage only keeps fewer results. VS Code gives each kind of webview its own origin, so each kind of preview of PlantUML files (the preview in the tab of the file, the preview to the side and the rendered diff) keeps its own storage with the same rules.
 
 The diagrams use the dark mode of PlantUML when the theme of VS Code is dark
@@ -384,6 +396,54 @@ list item became spaces, stays as it is. Format on save formats only when
 the changed lines only, which the extension does not know. A range formatter
 reads the whole context, so that the lines of a selection get their depth.
 
+## npm package
+
+`cli/` is the npm package `@nimblescape/plantuml`, in the scope of the
+organization `nimblescape` on npmjs.com, as the npm packages of the other
+extensions of the publisher (`@nimblescape/typescript`,
+`@nimblescape/markdownnotes`, `@nimblescape/markdownpaper`): a folder `cli/`
+of the repository of the extension, built by `esbuild.mjs`, tested by
+`npm run test:cli` and published by the release. It holds the renderer of the
+extension for other programs ([R-NPM-001](docs/requirements.md#r-npm-001)),
+for example nimblescape Markdown Paper, which shows the PlantUML blocks on its
+pages and in its PDF files as the Markdown preview shows them. Its manifest
+`cli/package.json` has these parts:
+
+- The name `@nimblescape/plantuml`. npm needs a scope for this name, because the name `plantuml` is not free on npmjs.com; the Marketplace has no scopes, so the extension keeps the form of [Naming](#naming).
+- The version, which the release sets to the version of the extension. A test checks that both manifests and `cli/package-lock.json` have one version.
+- `exports`: `.` is the library `dist/index.js` with its types `index.d.ts`, and `./page/*` names the files of the page in `dist/page/`: the script `markdownPreview.js`, the style sheet `markdownPreview.css` and the folder `engine/`, which the script loads next to it. `files` keeps these files and the notices; npm adds `package.json`, `README.md` and `LICENSE`.
+- `engines.node` is `>=22`, and the package has no dependencies: the library and the script are bundles, and the engine is a copy. The type of markdown-it in `index.d.ts` comes from `@types/markdown-it` of the program that uses markdown-it. A test checks the types against the library.
+- `repository.directory` is `cli`, and `publishConfig.access` is `public`, which a scoped package needs for its first version.
+
+The library holds the markdown-it plugin of the extension, `settingsOf`,
+which reads the settings `nimblescape.plantuml.*` from the parsed object of a
+file `settings.json`, `readSettings`, which reads them from the file
+`.vscode/settings.json` of a folder as VS Code reads it, with comments and
+with commas after the last element (`src/cli/diskSettings.ts`), and
+`readIncludedFiles`, which reads the included files
+from the disk with the rules and the messages of the extension
+(`src/diagram/includeProblems.ts`): relative to the folder of the document,
+only from that folder and the folders that the program names, which stand
+for the workspace folders, also as the target of a symbolic link, up to 1 MB
+each. The page script renders the blocks of any page that loads it, and marks
+each block with `data-plantuml-state` (see [Markdown preview](#markdown-preview)).
+
+`cli/README.md` is the page of the package on npmjs.com, with full
+`https://…` links only. The package of the extension holds no file of `cli/`.
+
+Before the package is on npmjs.com, a program installs it from the GitHub
+repository. npm cannot install a folder of a repository, so the program
+clones a commit, builds the package and installs its file:
+
+```sh
+git clone https://github.com/nimblescape/nimblescape-plantuml
+cd nimblescape-plantuml
+git checkout <commit>
+npm ci --ignore-scripts
+node esbuild.mjs --production
+npm pack ./cli
+```
+
 ## Naming
 
 Every extension of the publisher `nimblescape` uses one name,
@@ -408,19 +468,21 @@ publisher.
 ## Release
 
 A released version is a tag `v<version>` whose `<version>` equals the version
-in `package.json`. The workflow "Release" creates the version, its tag, its
-GitHub release and its Marketplace version in one run. To release a version,
+in `package.json` and in `cli/package.json`. The workflow "Release" creates
+the version, its tag, its GitHub release, its Marketplace version and its
+version on npmjs.com in one run. To release a version,
 follow these steps:
 
 1. Optional: add a section `## <version>` to `CHANGELOG.md` on `main`. The section describes the changes for the users (see [Release rules](#release-rules)).
 2. In the tab "Actions", choose the workflow "Release", then "Run workflow" on the branch `main`. Enter the version, for example `0.1.7`. When `CHANGELOG.md` has no section for the version, enter its notes too: they become the section. The GitHub website starts a workflow also in the browser of a phone.
 
-The run has four jobs:
+The run has five jobs:
 
-1. "Version commit" checks that the run starts from `main`, that the version has the form `<major>.<minor>.<patch>`, that it is not lower than the version in `package.json` and that its tag does not exist, and, in a release, that a dry run tested the files of the release process with `scripts/release-checks.mjs dry-run` (rule 4 of the [release rules](#release-rules)). It sets the version in `package.json` and `package-lock.json`, adds the section of the notes to `CHANGELOG.md` when the file has none, commits the change as "Release `<version>`" and pushes it to the temporary branch `release/run-<run ID>`, not to `main`. When `main` holds the version and its section already, it commits nothing. It also deletes the temporary branches of earlier runs that failed.
-2. "CI" runs the workflow `ci.yml` for the commit of the version, because a push with the token of a workflow starts no other workflow. The VSIX that this job tests and builds is the VSIX of the release, so the release repeats no test and no build.
-3. "Main, tag and GitHub release" runs only when CI passed. It moves `main` to the commit of the version as a fast-forward and deletes the temporary branch. When `main` changed during the run, it stops before the tag. Then it creates the tag `v<version>` on the commit and the release of the tag with the GitHub CLI `gh`. The section of the version in `CHANGELOG.md` becomes the notes, and the VSIX becomes the file of the release. A release that exists keeps its notes and receives the VSIX only when it holds none.
+1. "Version commit" checks that the run starts from `main`, that the version has the form `<major>.<minor>.<patch>`, that it is not lower than the version in `package.json` and that its tag does not exist, and, in a release, that a dry run tested the files of the release process with `scripts/release-checks.mjs dry-run` (rule 4 of the [release rules](#release-rules)). It sets the version in `package.json`, `package-lock.json`, `cli/package.json` and `cli/package-lock.json`, adds the section of the notes to `CHANGELOG.md` when the file has none, commits the change as "Release `<version>`" and pushes it to the temporary branch `release/run-<run ID>`, not to `main`. When `main` holds the version and its section already, it commits nothing. It also deletes the temporary branches of earlier runs that failed.
+2. "CI" runs the workflow `ci.yml` for the commit of the version, because a push with the token of a workflow starts no other workflow. The VSIX and the npm package that this job tests and builds are the files of the release, so the release repeats no test and no build.
+3. "Main, tag and GitHub release" runs only when CI passed. It moves `main` to the commit of the version as a fast-forward and deletes the temporary branch. When `main` changed during the run, it stops before the tag. Then it creates the tag `v<version>` on the commit and the release of the tag with the GitHub CLI `gh`. The section of the version in `CHANGELOG.md` becomes the notes, and the VSIX and the npm package (`nimblescape-plantuml-<version>.tgz`) become the files of the release. A release that exists keeps its notes and receives only a file that it does not hold.
 4. "Publish to the Visual Studio Marketplace" downloads the VSIX of the GitHub release, signs in to Microsoft Entra ID with the official [`azure/login`](https://github.com/Azure/login) action and publishes the VSIX with `vsce publish --azure-credential`.
+5. "Publish to npmjs.com" downloads the npm package of the GitHub release and publishes it with `npm publish --access public`, with [trusted publishing](https://docs.npmjs.com/trusted-publishers): npm exchanges the OpenID Connect token of the job for a token of npmjs.com that can publish only this package, and adds the provenance of the build. It skips a version that npmjs.com holds already, and it stops with a message when the package does not exist yet (see [npmjs.com setup](#npmjscom-setup)).
 
 `main` receives the version commit only after CI passed. When CI fails,
 `main`, the tags, the releases and the Marketplace stay unchanged, and the
@@ -537,6 +599,56 @@ Only when the publisher, the app or the variables are lost:
 3. Set the organization variables `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` to the application ID and the directory ID of the app. Organization variables reach private repositories only on a paid GitHub plan.
 4. Set up a repository with the script, and run its workflow "Marketplace identity".
 5. On the publisher management page, open the publisher `nimblescape`, then "Members", and add the member ID that the workflow printed with the role "Contributor".
+
+## npmjs.com setup
+
+The job "Publish to npmjs.com" publishes with
+[trusted publishing](https://docs.npmjs.com/trusted-publishers): npmjs.com
+trusts the workflow `release.yml` of this repository in the environment
+`npm`, and accepts the OpenID Connect token of its job instead of a token.
+No npm token is stored in GitHub.
+
+### What exists
+
+| Part | Where | Value |
+| --- | --- | --- |
+| Organization | [npmjs.com](https://www.npmjs.com/org/nimblescape) | `nimblescape`, the scope of the package |
+| Package | npmjs.com | `@nimblescape/plantuml`, public |
+| Trusted publisher | the settings of the package on npmjs.com, "Trusted Publisher" | GitHub Actions, the repository `nimblescape/nimblescape-plantuml`, the workflow `release.yml`, the environment `npm` |
+| Environment | the settings of the repository, "Environments" | `npm`, reachable from the tags `v*` and the branch `main` only |
+
+### Setup
+
+npmjs.com sets up a trusted publisher only for a package that exists, so
+the first version is published once by hand, from the GitHub release of
+that version. The script `scripts/npm-setup.sh` does all steps. It needs the
+GitHub CLI and npm 11.15.0 or newer, both signed in: npm with an account
+that may publish in the organization `nimblescape` and has two-factor
+authentication, because `npm trust` and the first `npm publish` ask for the
+second factor. It shows what it sets up and asks before it changes
+anything. It changes nothing that already exists, so it can run again. It
+shows the trusted publishers of the package and asks whether to add the
+trusted publisher: npm lists them only after the second factor, in the
+terminal, so the script cannot check them itself:
+
+```sh
+gh auth login
+npm login
+scripts/npm-setup.sh          # before the first release: the environment npm
+scripts/npm-setup.sh 0.2.0    # after the release 0.2.0: its first version and the trusted publisher
+```
+
+The order for the first version of the package:
+
+1. Run `scripts/npm-setup.sh` without a version, so the environment `npm` exists.
+2. Release the version with the workflow "Release". The job "Publish to npmjs.com" fails, because the package does not exist yet; the Marketplace and the GitHub release are not affected.
+3. Run `scripts/npm-setup.sh <version>`. It downloads the npm package of the GitHub release, publishes it, and adds the trusted publisher.
+4. Re-run the failed job "Publish to npmjs.com". It finds the version on npmjs.com and ends without a change.
+
+From the next version on, the release publishes to npmjs.com without a step
+by hand. Optionally, set "Publishing access" of the package on npmjs.com to
+"Require two-factor authentication and disallow tokens" after the setup:
+trusted publishing still works, and no token can publish.
 
 ---
 

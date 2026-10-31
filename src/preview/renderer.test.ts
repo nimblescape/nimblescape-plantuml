@@ -219,8 +219,9 @@ describe('PreviewRenderer', () => {
     expect(root.querySelector(`.${contentClass}`)!.shadowRoot!.firstElementChild).toBe(note);
     await renderer.whenIdle();
     expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
-    // The elements of the page stay as the page wrote them; the shadow root hides the text.
-    expect(root.innerHTML).toBe(written);
+    // The elements of the page stay as the page wrote them, apart from the state of the block (R-MD-007); the shadow
+    // root hides the text.
+    expect(root.innerHTML).toBe(written.replace(`class="${contentClass}"`, `class="${contentClass}" data-plantuml-state="drawn"`));
   });
 
   test('renders every diagram of a block, one at a time, and leaves the other elements of the page as they are', async () => {

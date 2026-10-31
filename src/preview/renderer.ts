@@ -53,7 +53,7 @@
 import { diagramLines } from '../diagram/diagramLines';
 import { Diagram, diagramsOf } from '../diagram/diagramRanges';
 import { Expansion, expandWith, IncludedFiles, parseIncludedFiles } from '../diagram/includes';
-import { blockClass, contentClass, includesClass, pageIncludesClass, settingsAttribute, sourceAttribute } from '../markdown/markdownIt';
+import { blockClass, contentClass, includesClass, pageIncludesClass, settingsAttribute, sourceAttribute, stateAttribute } from '../markdown/markdownIt';
 import { parseSettings, Settings } from '../settings';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
@@ -464,8 +464,11 @@ export class PreviewRenderer {
     for (const { element, settings, dark, diagrams, key } of this.#blocks()) {
       const content = contentOf(element);
       if (this.#shown.get(content) === key) {
+        // The Markdown preview removes the attribute when it writes its content again.
+        setState(content, 'drawn');
         continue;
       }
+      setState(content, 'pending');
       if (diagrams.some(isPending)) {
         if (!this.#shown.has(content)) {
           showPending(content);
@@ -477,6 +480,7 @@ export class PreviewRenderer {
       if (results.every((result): result is Result => result !== undefined)) {
         show(content, diagrams, results);
         this.#shown.set(content, key);
+        setState(content, 'drawn');
         continue;
       }
       if (!this.#shown.has(content)) {
@@ -666,6 +670,18 @@ function contentOf(element: HTMLElement): HTMLElement {
     element.prepend(content);
   }
   return content;
+}
+
+/**
+ * setState sets the state of a block for the scripts of other extensions
+ * ([R-MD-007](../../docs/requirements.md#r-md-007)), and changes the element only when the state changes.
+ * @param content - The content element of the block.
+ * @param state - `pending` while the block waits for its diagrams, `drawn` when it shows them.
+ */
+function setState(content: HTMLElement, state: 'pending' | 'drawn'): void {
+  if (content.getAttribute(stateAttribute) !== state) {
+    content.setAttribute(stateAttribute, state);
+  }
 }
 
 /**

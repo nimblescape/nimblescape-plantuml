@@ -30,6 +30,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | available | [R-MD-006](requirements.md#r-md-006) |
 | [UML notation](#uml-notation) | yes | yes | available | [R-GEN-007](requirements.md#r-gen-007) |
 | [Included files](#included-files) | yes | yes | available | [R-GEN-008](requirements.md#r-gen-008) |
+| [Diagrams on the pages of other extensions](#diagrams-on-the-pages-of-other-extensions) | yes | | available | [R-MD-007](requirements.md#r-md-007) |
 
 ## How the extension renders
 
@@ -225,6 +226,15 @@ selects whether both versions show next to each other or in one column.
 
 To open every Markdown diff in this way, add the preview to the setting
 `workbench.diffEditorAssociations`.
+
+### Diagrams on the pages of other extensions
+
+Another extension can show the PlantUML blocks of a Markdown file on its own
+pages with this extension, for example nimblescape Markdown Paper on its
+pages and in its PDF. The diagrams then look as in the Markdown preview: the
+same engine, the same settings, for example `nimblescape.plantuml.umlNotation`,
+the same included files and the same layout engine, in the light colors of
+PlantUML on a page with a light background.
 
 ## PlantUML files
 

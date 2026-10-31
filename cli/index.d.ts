@@ -26,6 +26,21 @@ export declare const defaultSettings: Readonly<Settings>;
  */
 export declare function settingsOf(values: unknown): Settings;
 
+/**
+ * readSettings reads the settings from the file `.vscode/settings.json` of a folder, as VS Code reads the settings of a
+ * workspace folder: JSON with comments and with commas after the last element. A missing file or a file that is no
+ * JSON object gives the default settings, and a missing or invalid value its default.
+ * @param folder - The path of the folder, for example the top folder of a repository.
+ */
+export declare function readSettings(folder: string): Settings;
+
+/**
+ * parseJsonWithComments parses JSON with comments and with commas after the last element of an object or an array, as
+ * VS Code reads its settings files.
+ * @throws When the text is no JSON without the comments and these commas.
+ */
+export declare function parseJsonWithComments(text: string): unknown;
+
 /** IncludedFile is the text of an included file, or the problem that keeps it from the diagram. */
 export type IncludedFile = { text: string } | { problem: string };
 

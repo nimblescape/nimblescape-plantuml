@@ -28,10 +28,10 @@ that shows the HTML:
 ```js
 const MarkdownIt = require('markdown-it');
 const fs = require('node:fs');
-const { extendMarkdownIt, readIncludedFiles, settingsOf } = require('@nimblescape/plantuml');
+const { extendMarkdownIt, readIncludedFiles, readSettings } = require('@nimblescape/plantuml');
 
 const document = '/work/paper/paper.md';
-const settings = settingsOf(JSON.parse(fs.readFileSync('/work/paper/.vscode/settings.json', 'utf8')));
+const settings = readSettings('/work/paper');
 const md = extendMarkdownIt(
   new MarkdownIt(),
   () => settings,
@@ -48,7 +48,9 @@ const html = md.render(fs.readFileSync(document, 'utf8'));
 | Export | Effect |
 | --- | --- |
 | `extendMarkdownIt(md, settings?, includes?)` | Writes each fenced code block with the info string `plantuml` as an element with the diagram text, the settings and the included files. Every other token keeps its output. |
-| `settingsOf(values)` | Reads the settings `nimblescape.plantuml.*` from the parsed object of a file `settings.json` of VS Code; a missing value gets its default. |
+| `readSettings(folder)` | Reads the settings `nimblescape.plantuml.*` from the file `.vscode/settings.json` of a folder, as VS Code reads the settings of a workspace folder: JSON with comments and with commas after the last element. A missing file gives the default settings, and a missing value its default. |
+| `settingsOf(values)` | Reads the settings `nimblescape.plantuml.*` from the parsed object of a file `settings.json` of VS Code, or from other values in that form; a missing value gets its default. |
+| `parseJsonWithComments(text)` | Parses JSON with comments and with commas after the last element, as VS Code reads its settings files. |
 | `readIncludedFiles(document, text, folders?)` | Reads the files that the diagrams of a block include (`!include`, `!includesub` and their forms), relative to the folder of the document, only from that folder and the given folders, also as the target of a symbolic link, up to 1 MB each. |
 | `@nimblescape/plantuml/page/markdownPreview.js` | The script of the page: renders the diagrams of each block one at a time into the open shadow root of its element `.nimblescape-plantuml-content`. It loads the engine from the folder `engine/` next to it. |
 | `@nimblescape/plantuml/page/markdownPreview.css` | The style sheet of the blocks. |

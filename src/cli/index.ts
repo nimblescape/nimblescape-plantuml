@@ -12,8 +12,9 @@
  *
  * - The markdown-it plugin writes a PlantUML block as an element with the
  *   diagram text, the settings and the included files (`extendMarkdownIt`).
- * - The settings come from the settings of VS Code (`settingsOf`), the
- *   included files from the disk (`readIncludedFiles`).
+ * - The settings come from the settings of VS Code (`settingsOf`), for
+ *   example of the file `.vscode/settings.json` of a folder (`readSettings`),
+ *   the included files from the disk (`readIncludedFiles`).
  * - The page that shows the diagrams loads the script, the style sheet and the
  *   engine of the folder `page/` of the package
  *   ([R-MD-007](../../docs/requirements.md#r-md-007)).
@@ -34,3 +35,4 @@ export {
 } from '../markdown/markdownIt';
 export { defaultSettings, type Settings, settingsOf, settingsSection } from '../settings';
 export { readIncludedFiles } from './diskIncludes';
+export { parseJsonWithComments, readSettings } from './diskSettings';

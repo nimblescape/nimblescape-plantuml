@@ -39,6 +39,7 @@ describes its security model.
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a class with two subclasses on the tile of the nimblescape extensions. |
 | `src/cli/index.ts` | The library of the npm package `@nimblescape/plantuml` ([npm package](#npm-package)): the markdown-it plugin, the settings, the included files of the disk and the names of the elements of a page. |
 | `src/cli/diskIncludes.ts` | The reading of the included files from the disk for a program without VS Code, with the rules and the messages of the extension. |
+| `src/cli/diskSettings.ts` | The reading of the settings from the file `.vscode/settings.json` of a folder for a program without VS Code, as JSON with comments. |
 | `cli/` | The npm package `@nimblescape/plantuml`: `package.json`, `package-lock.json` without dependencies, the types `index.d.ts`, `README.md` (its page on npmjs.com), and the built `dist/`, `LICENSE` and `THIRD-PARTY-NOTICES.md`, which Git does not keep. |
 | `test/cli/`, `vitest.cli.config.mts` | The tests of the built npm package (`npm run test:cli`). |
 | `src/**/*.test.ts` | The tests, with vitest: the manifest with its keys, the package contents, the bundled engine and the documents (`src/manifest.test.ts`), the real engine with the loader of the previews (`src/engine.test.ts`), the activation with a fake of the editor API, the settings, the diagram lines and the UML notation, the expansion of included files, the reading of included files with a fake of the editor API and of the file system, the grammars with the TextMate engine of VS Code (`vscode-textmate` and `vscode-oniguruma`), the indentation rules and the folding markers of the language configuration against the formatting, the markdown-it plugin, the commands of the previews of PlantUML files and the preview to the side with a fake of the editor API, and the preview scripts on a page of happy-dom with a fake engine. |
@@ -416,7 +417,10 @@ pages and in its PDF files as the Markdown preview shows them. Its manifest
 
 The library holds the markdown-it plugin of the extension, `settingsOf`,
 which reads the settings `nimblescape.plantuml.*` from the parsed object of a
-file `settings.json`, and `readIncludedFiles`, which reads the included files
+file `settings.json`, `readSettings`, which reads them from the file
+`.vscode/settings.json` of a folder as VS Code reads it, with comments and
+with commas after the last element (`src/cli/diskSettings.ts`), and
+`readIncludedFiles`, which reads the included files
 from the disk with the rules and the messages of the extension
 (`src/diagram/includeProblems.ts`): relative to the folder of the document,
 only from that folder and the folders that the program names, which stand

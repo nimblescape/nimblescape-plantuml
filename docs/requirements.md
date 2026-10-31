@@ -285,7 +285,9 @@ of such a program.
 
 - The package holds the markdown-it plugin of the extension, the reading of
   the settings `nimblescape.plantuml.*` from the settings of VS Code as a
-  program finds them in a file `settings.json`, the reading of the included
+  program finds them in a file `settings.json`, also from the file
+  `.vscode/settings.json` of a folder as VS Code reads it (JSON with comments
+  and with commas after the last element), the reading of the included
   files from the disk with the rules of [R-GEN-008](#r-gen-008), and the
   files of the page: the script of the Markdown preview, its style sheet and
   the engine with the library C4.

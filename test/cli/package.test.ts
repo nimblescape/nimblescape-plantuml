@@ -23,10 +23,13 @@ afterAll(() => {
   fs.rmSync(folder, { recursive: true, force: true });
 });
 
-test('the plugin writes a PlantUML block with its text, the settings of settings.json and the included files of the disk', () => {
+test('the plugin writes a PlantUML block with its text, the settings of .vscode/settings.json and the included files of the disk', () => {
   const document = path.join(folder, 'paper.md');
   fs.writeFileSync(path.join(folder, 'style.iuml'), 'skinparam monochrome true\n');
-  const settings = library.settingsOf({ 'nimblescape.plantuml.umlNotation': false });
+  fs.mkdirSync(path.join(folder, '.vscode'));
+  fs.writeFileSync(path.join(folder, '.vscode', 'settings.json'), '{\n  // The notation of PlantUML\n  "nimblescape.plantuml.umlNotation": false,\n}\n');
+  const settings = library.readSettings(folder);
+  expect(library.settingsOf({ 'nimblescape.plantuml.umlNotation': false })).toEqual(settings);
   const md = library.extendMarkdownIt(
     new MarkdownIt(),
     () => settings,

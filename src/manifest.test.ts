@@ -264,6 +264,7 @@ test('the third-party notices name every package that the build bundles into a s
     ['src/extension.ts', 'node'],
     ['src/preview/markdownPreview.ts', 'browser'],
     ['src/preview/pumlPreview.ts', 'browser'],
+    ['src/cli/index.ts', 'node'],
   ];
   const packages = new Set<string>();
   for (const [entry, platform] of bundles) {
@@ -335,8 +336,34 @@ test('the third-party notices name every library of PlantUML in stdlib/ with its
   }
 });
 
+test('the npm package @nimblescape/plantuml of cli/ has the version of the extension, its library, its page and its documents (R-NPM-001)', () => {
+  const npm = JSON.parse(read('cli/package.json'));
+  const lock = JSON.parse(read('cli/package-lock.json'));
+  expect(npm.name).toBe('@nimblescape/plantuml');
+  expect([npm.version, lock.version, lock.packages[''].version]).toEqual([manifest.version, manifest.version, manifest.version]);
+  expect(npm.license).toBe(manifest.license);
+  expect(npm.repository).toEqual({ type: 'git', url: `git+${manifest.repository.url}`, directory: 'cli' });
+  expect(npm.exports).toEqual({
+    '.': { types: './index.d.ts', default: './dist/index.js' },
+    './page/*': './dist/page/*',
+    './package.json': './package.json',
+  });
+  expect(npm.files).toEqual(['dist/index.js', 'dist/page/**', 'index.d.ts', 'THIRD-PARTY-NOTICES.md']);
+  expect(npm.engines).toEqual({ node: '>=22' });
+  expect(npm.publishConfig).toEqual({ access: 'public' });
+  // The package has no dependencies: the library and the page are bundles, and the engine is a copy.
+  expect(npm.dependencies).toBeUndefined();
+  expect(lock.packages['']).not.toHaveProperty('dependencies');
+  // The build writes the library and the page, and copies the license and the notices.
+  const build = read('esbuild.mjs');
+  for (const file of ["outfile: `${cliDir}/index.js`", "outfile: `${pageDir}/markdownPreview.js`", '`${pageDir}/markdownPreview.css`', '`${pageDir}/engine`', "'cli/LICENSE'", "'cli/THIRD-PARTY-NOTICES.md'"]) {
+    expect(build).toContain(file);
+  }
+  expect(read('.gitignore')).toContain('cli/LICENSE\ncli/THIRD-PARTY-NOTICES.md\n');
+});
+
 test('the documents of the package use full links, so that each link works in the repository, in the package and on the Marketplace', () => {
-  for (const file of ['README.md', 'CHANGELOG.md', 'SUPPORT.md']) {
+  for (const file of ['README.md', 'CHANGELOG.md', 'SUPPORT.md', 'cli/README.md']) {
     for (const target of markdownLinks(read(file))) {
       expect(target, `${file}: ${target}`).toMatch(/^https:\/\//);
     }

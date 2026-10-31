@@ -191,6 +191,15 @@ sends their text to the preview:
   changes when the extension of its file system watches files.
 - It reads nothing for a document that is not saved in a folder.
 
+The npm package `@nimblescape/plantuml` reads the included files for a
+program without VS Code (`src/cli/diskIncludes.ts`) with the same rules and
+messages: a path relative to the folder of the document, only in that folder
+and in the folders that the program names in place of the workspace folders,
+also as the target of a symbolic link, up to 1 MB each, and no path with a
+variable or a function. It reads the files of the disk at once and watches
+nothing. The program decides which folders it names, so it decides how far
+the reading reaches.
+
 ## Formatting and editing
 
 - **Markdown files at save.** VS Code formats at save only with the default

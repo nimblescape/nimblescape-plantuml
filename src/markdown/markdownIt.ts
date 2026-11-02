@@ -68,6 +68,14 @@ export const sourceAttribute = 'data-plantuml-source';
 export const settingsAttribute = 'data-plantuml-settings';
 
 /**
+ * stateAttribute is the attribute of the content element of a PlantUML block that tells the scripts of other
+ * extensions whether the block shows its diagrams ([R-MD-007](../../docs/requirements.md#r-md-007)): the preview
+ * script sets it to `pending` while the block waits for the diagrams of its text, its settings, its included files and
+ * the color theme, and to `drawn` when it shows them, or the message of an error in their place.
+ */
+export const stateAttribute = 'data-plantuml-state';
+
+/**
  * includesClass is the class of the hidden child element of a PlantUML block whose text carries the files that the
  * diagrams of the block include ([R-GEN-008](../../docs/requirements.md#r-gen-008)) to the preview script, as JSON
  * text. The preview of PlantUML files writes it; a block whose diagrams include no file has no such element.

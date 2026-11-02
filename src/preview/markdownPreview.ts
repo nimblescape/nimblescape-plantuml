@@ -24,8 +24,15 @@
  * renderer draws the diagrams into shadow roots and leaves the elements of the
  * blocks as markdown-it wrote them, so an unchanged block keeps its diagrams,
  * which the renderer neither renders nor draws again.
+ *
+ * The script also renders the blocks of another page that loads it with the
+ * elements of the markdown-it plugin, such as the page of a PDF of nimblescape
+ * Markdown Paper ([R-MD-007](../../docs/requirements.md#r-md-007)). The content
+ * element of each block tells the scripts of such a page in the attribute
+ * `data-plantuml-state` whether the block shows its diagrams.
  */
 
+import { blockClass } from '../markdown/markdownIt';
 import { pageRenderer, PreviewRenderer } from './renderer';
 
 /**
@@ -53,7 +60,9 @@ export function watchMarkdownPreview(page: Document, renderer: PreviewRenderer):
   schedule();
 }
 
-// The tests import this module without a preview page.
-if (typeof document !== 'undefined' && document.getElementById('vscode-markdown-preview-data')) {
+// The tests import this module without a page. Besides the Markdown preview, the script renders the blocks of any
+// other page that loads it and has a PlantUML block, such as the page of a PDF of nimblescape Markdown Paper
+// (R-MD-007).
+if (typeof document !== 'undefined' && (document.getElementById('vscode-markdown-preview-data') || document.querySelector(`.${blockClass}`))) {
   watchMarkdownPreview(document, pageRenderer(document, new URL('./engine/', import.meta.url).href));
 }

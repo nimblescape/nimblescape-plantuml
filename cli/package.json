@@ -1,0 +1,48 @@
+{
+  "name": "@nimblescape/plantuml",
+  "version": "0.2.1",
+  "description": "The renderer of the VS Code extension nimblescape PlantUML for other programs: the markdown-it plugin for PlantUML blocks, the settings, the reading of the files that the diagrams include, and the script, the style sheet and the PlantUML engine of the page that shows the diagrams, so that a diagram looks as in the Markdown preview of VS Code.",
+  "license": "MIT",
+  "author": {
+    "name": "nimblescape e.U.",
+    "url": "https://nimblescape.com"
+  },
+  "homepage": "https://github.com/nimblescape/nimblescape-plantuml#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nimblescape/nimblescape-plantuml.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/nimblescape/nimblescape-plantuml/issues"
+  },
+  "keywords": [
+    "plantuml",
+    "uml",
+    "diagram",
+    "markdown",
+    "markdown-it"
+  ],
+  "main": "dist/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./page/*": "./dist/page/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/page/**",
+    "index.d.ts",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

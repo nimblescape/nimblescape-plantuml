@@ -9,3 +9,7 @@ dist/
 
 # Keep the downloads and the user data of the tests in VS Code out of Git.
 .vscode-test/
+
+# The license and the notices that the build copies into the npm package.
+cli/LICENSE
+cli/THIRD-PARTY-NOTICES.md

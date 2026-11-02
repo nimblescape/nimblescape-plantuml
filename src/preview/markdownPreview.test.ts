@@ -9,12 +9,14 @@
  * happy-dom with a fake engine. The page changes as the Markdown preview of
  * VS Code changes it, with morphdom: the tests check the first rendering, the
  * rendering after a change of the document, that an unchanged block keeps its
- * diagram, which the renderer neither renders nor draws again, and the
- * rendering after a change of the color theme (R-GEN-012).
+ * diagram, which the renderer neither renders nor draws again, the
+ * rendering after a change of the color theme (R-GEN-012), the state of each
+ * block for the pages of other extensions, and the start of the script on such
+ * a page (R-MD-007).
  */
 
-import { expect, test } from 'vitest';
-import { contentClass } from '../markdown/markdownIt';
+import { expect, test, vi } from 'vitest';
+import { contentClass, stateAttribute } from '../markdown/markdownIt';
 import { FakeEngine } from '../test/fakeEngine';
 import { addCopyButtons, fence, renderMarkdown, updatePreview } from '../test/markdownPreview';
 import { watchMarkdownPreview } from './markdownPreview';
@@ -83,4 +85,41 @@ test('renders the blocks again for a dark background when the color theme change
   await settle();
   expect(engine.calls.map((call) => call.options?.dark)).toEqual([false, true]);
   expect(diagrams()[0]?.getAttribute('data-dark')).toBe('true');
+});
+
+test('marks each block as pending while its diagram renders and as drawn when it shows it, also after the preview wrote its content again', async () => {
+  const { root, settle } = open(`${fence('A -> B')}\n${fence('C -> D')}`);
+  const states = () => [...root.querySelectorAll(`.${contentClass}`)].map((content) => content.getAttribute(stateAttribute));
+  // The script updates the page in the next microtask.
+  await Promise.resolve();
+  expect(states()).toEqual(['pending', 'pending']);
+  await settle();
+  expect(states()).toEqual(['drawn', 'drawn']);
+
+  // The preview removes the attribute of an unchanged block when it writes its content again; the script sets it again.
+  updatePreview(root, renderMarkdown(`${fence('A -> B')}\n${fence('C -> E')}`));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(states()).toEqual(['drawn', 'pending']);
+  await settle();
+  expect(states()).toEqual(['drawn', 'drawn']);
+
+  // A new color theme needs new diagrams.
+  document.body.className = 'vscode-dark';
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(states()).toEqual(['pending', 'pending']);
+  await settle();
+  expect(states()).toEqual(['drawn', 'drawn']);
+});
+
+test('starts on a page that is not the Markdown preview when the page has a PlantUML block (R-MD-007)', async () => {
+  // The page allows no WebAssembly, as the page of a PDF of Markdown Paper, so the script loads no Viz.js.
+  document.head.innerHTML = `<meta http-equiv="Content-Security-Policy" content="script-src 'none'">`;
+  document.body.className = 'vscode-light';
+  document.body.innerHTML = `<main>${renderMarkdown(fence('A -> B'))}</main>`;
+  vi.resetModules();
+  await import('./markdownPreview');
+  await Promise.resolve();
+  const content = document.querySelector(`.${contentClass}`)!;
+  expect(content.getAttribute(stateAttribute)).toBe('pending');
+  expect(content.shadowRoot).not.toBeNull();
 });

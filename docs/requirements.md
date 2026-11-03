@@ -13,14 +13,11 @@ comes first, the support of PlantUML files second.
 
 ## Plan
 
-| Step | Content | Requirements |
-| --- | --- | --- |
-| 1 | Setup: manifest, build, the bundled engine, CI, release workflows, license notices | [R-GEN-001](#r-gen-001), [R-GEN-004](#r-gen-004), [R-GEN-005](#r-gen-005), [R-GEN-006](#r-gen-006), [R-PUML-001](#r-puml-001) |
-| 2 | Markdown: rendering, rendered diff, highlighting, code completion and formatting of PlantUML blocks | [R-MD-001](#r-md-001) to [R-MD-006](#r-md-006), [R-GEN-007](#r-gen-007) to [R-GEN-013](#r-gen-013) |
-| 3 | PlantUML files: the same features | [R-PUML-002](#r-puml-002) to [R-PUML-008](#r-puml-008), [R-GEN-007](#r-gen-007) to [R-GEN-013](#r-gen-013) |
-| 4 | Tests, README, icon, and a release workflow that is ready but not run | all |
-| 5 | The diagrams on the pages of other extensions, such as the pages and the PDF of nimblescape Markdown Paper | [R-MD-007](#r-md-007) |
-| 6 | The npm package `@nimblescape/plantuml` with the renderer for other programs, built and tested in CI and published by the release | [R-NPM-001](#r-npm-001), [R-GEN-006](#r-gen-006) |
+The plan of nimblescape PlantUML is a part of the
+[one plan of all products](https://github.com/nimblescape/markdown/blob/main/docs/plan.md) of nimblescape Markdown. All its steps,
+1 to 6, are built, and version 0.2.2 is released; they are in its
+[section 7.4](https://github.com/nimblescape/markdown/blob/main/docs/plan.md#74-nimblescape-plantuml). A new step of nimblescape
+PlantUML goes into [section 3](https://github.com/nimblescape/markdown/blob/main/docs/plan.md#3-open-steps) of that plan.
 
 ## General
 

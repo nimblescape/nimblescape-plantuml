@@ -1,6 +1,6 @@
 {
   "name": "@nimblescape/plantuml",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "The renderer of the VS Code extension nimblescape PlantUML for other programs: the markdown-it plugin for PlantUML blocks, the settings, the reading of the files that the diagrams include, and the script, the style sheet and the PlantUML engine of the page that shows the diagrams, so that a diagram looks as in the Markdown preview of VS Code.",
   "license": "MIT",
   "author": {

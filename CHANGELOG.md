@@ -3,6 +3,20 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.2
+
+**PlantUML 1.2026.9.** The extension renders with the engine 1.2026.9. Wireframes with `@startsalt` now render, and `salt` is a diagram type of the highlighting and the completion. The links of a diagram (`[[…]]`) are links of the picture: a click opens web, mail and `vscode:` addresses. In the preview of PlantUML files, a click on a link opens it and no longer changes the size of the diagram.
+
+**Included files through symbolic links.** The extension reads an included file through a symbolic link only when the target is in a workspace folder or in the folder of the document. Before, a link in a cloned repository, for example to a file in your home folder, showed that file in a preview. The Markdown preview keeps the texts of the included files in a hidden element, each file once for each page, and the preview of PlantUML files allows no forms.
+
+**Faster previews.** The previews read the included files in the background, so a slow drive blocks VS Code less. A saved change of an included file in a virtual workspace renders the previews again. The stored diagrams stay within 1,000,000 characters together, so they leave room for the stored data of other extensions in the Markdown preview. The completion stays fast on very long lines.
+
+**Log.** The log "nimblescape PlantUML" in the Output view shows the problems that no diagram shows, for example a preview that cannot be restored. Add it to a report of a problem.
+
+**Diagrams on the pages of other extensions.** The script of the Markdown preview also renders the PlantUML blocks on the page of another extension that loads it, and each block tells that page when its diagrams are drawn.
+
+**npm package.** The new npm package [`@nimblescape/plantuml`](https://github.com/nimblescape/plantuml-vscode/blob/main/cli/README.md) renders the PlantUML blocks of Markdown outside VS Code, with the same engine, the same included files and the settings of a folder.
+
 ## 0.2.1
 
 The Markdown preview of PlantUML diagrams uses markdown-it 14.3.3, the newest patch release of the Markdown parser.

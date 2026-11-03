@@ -15,7 +15,7 @@ build copies it from the folder `stdlib/` of the repository, also without a
 change. This file names the software in these files and in the other files of
 the package that contain software of others, its license and the place of its
 source code. The code of the extension itself is under the
-[MIT License](https://github.com/nimblescape/nimblescape-plantuml/blob/main/LICENSE).
+[MIT License](https://github.com/nimblescape/plantuml-vscode/blob/main/LICENSE).
 
 nimblescape PlantUML is not a product of the PlantUML project, and the PlantUML
 project does not endorse it.
@@ -51,7 +51,7 @@ blocks of Markdown files with it, as the Markdown preview of VS Code does.
 | [uc.micro](#ucmicro) | 2.1.0 | MIT |
 
 The npm package `@nimblescape/plantuml` (the folder `cli/` of the repository,
-[R-NPM-001](https://github.com/nimblescape/nimblescape-plantuml/blob/main/docs/requirements.md#r-npm-001))
+[R-NPM-001](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/requirements.md#r-npm-001))
 holds this file too. It contains the files of the table of `dist/engine/`
 above in its folder `dist/page/engine/`, without a change. Its files
 `dist/index.js` and `dist/page/markdownPreview.js` contain only the code of the
@@ -65,7 +65,7 @@ The section of each component names the place of its source code. Graphviz
 Public License 1.0, and the package contains them in object code form.
 nimblescape also gives a copy of their source code, as this package contains
 them, on request: open an issue at
-<https://github.com/nimblescape/nimblescape-plantuml/issues> or write to
+<https://github.com/nimblescape/plantuml-vscode/issues> or write to
 scalarion@nimblescape.com.
 
 ## PlantUML

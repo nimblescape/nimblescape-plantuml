@@ -26,10 +26,10 @@
   "homepage": "https://nimblescape.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nimblescape/nimblescape-plantuml.git"
+    "url": "https://github.com/nimblescape/plantuml-vscode.git"
   },
   "bugs": {
-    "url": "https://github.com/nimblescape/nimblescape-plantuml/issues"
+    "url": "https://github.com/nimblescape/plantuml-vscode/issues"
   },
   "pricing": "Free",
   "icon": "resources/icon.png",
@@ -38,7 +38,7 @@
     "theme": "light"
   },
   "preview": true,
-  "qna": "https://github.com/nimblescape/nimblescape-plantuml/issues",
+  "qna": "https://github.com/nimblescape/plantuml-vscode/issues",
   "main": "./dist/extension.js",
   "scripts": {
     "build": "node esbuild.mjs",

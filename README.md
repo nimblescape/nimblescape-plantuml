@@ -145,7 +145,7 @@ describes every feature.
 ## npm package
 
 The npm package
-[`@nimblescape/plantuml`](https://github.com/nimblescape/nimblescape-plantuml/blob/main/cli/README.md)
+[`@nimblescape/plantuml`](https://github.com/nimblescape/plantuml-vscode/blob/main/cli/README.md)
 holds the renderer of the extension for other programs, for example
 [nimblescape Markdown Paper](https://github.com/nimblescape/markdownpaper-vscode),
 which shows the PlantUML blocks of a Markdown file on its pages and in its

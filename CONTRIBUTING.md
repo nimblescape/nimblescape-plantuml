@@ -436,7 +436,7 @@ repository. npm cannot install a folder of a repository, so the program
 clones a commit, builds the package and installs its file:
 
 ```sh
-git clone https://github.com/nimblescape/nimblescape-plantuml
+git clone https://github.com/nimblescape/plantuml-vscode
 cd nimblescape-plantuml
 git checkout <commit>
 npm ci --ignore-scripts
@@ -462,8 +462,8 @@ The organization `nimblescape` is the namespace of the repository, as the
 scope `@nimblescape` is the namespace of an npm package, so the name of the
 repository does not repeat `nimblescape`. The suffix `-vscode` says that the
 repository holds a VS Code extension. When the `name` ends with a number
-`-<n>`, the name of the repository ends with the same number: the `name`
-`nimblescape-devspaces-2` has the repository `devspaces-vscode-2`.
+`-<n>`, the name of the repository leaves the number out: the `name`
+`nimblescape-<name>-<n>` has the repository `<name>-vscode`.
 
 The prefix `nimblescape-` keeps the `name` apart from the names of other
 publishers, because the Marketplace accepts a `name` only once. The
@@ -629,7 +629,7 @@ No npm token is stored in GitHub.
 | --- | --- | --- |
 | Organization | [npmjs.com](https://www.npmjs.com/org/nimblescape) | `nimblescape`, the scope of the package |
 | Package | npmjs.com | `@nimblescape/plantuml`, public |
-| Trusted publisher | the settings of the package on npmjs.com, "Trusted Publisher" | GitHub Actions, the repository `nimblescape/nimblescape-plantuml`, the workflow `release.yml`, the environment `npm` |
+| Trusted publisher | the settings of the package on npmjs.com, "Trusted Publisher" | GitHub Actions, the repository `nimblescape/plantuml-vscode`, the workflow `release.yml`, the environment `npm` |
 | Environment | the settings of the repository, "Environments" | `npm`, reachable from the tags `v*` and the branch `main` only |
 
 ### Setup
@@ -664,6 +664,13 @@ From the next version on, the release publishes to npmjs.com without a step
 by hand. Optionally, set "Publishing access" of the package on npmjs.com to
 "Require two-factor authentication and disallow tokens" after the setup:
 trusted publishing still works, and no token can publish.
+
+The trusted publisher names the repository, so after a rename of the
+repository the job "Publish to npmjs.com" fails until the trusted publisher
+has the new name. npmjs.com holds one trusted publisher per package: run
+`scripts/npm-setup.sh`, revoke the trusted publisher of the old name with
+`npm trust revoke @nimblescape/plantuml --id <id>` (the ID is in the list
+that the script shows), and run the script again to add the new one.
 
 ---
 

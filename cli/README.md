@@ -1,7 +1,7 @@
 # @nimblescape/plantuml
 
 The renderer of the VS Code extension
-[nimblescape PlantUML](https://github.com/nimblescape/nimblescape-plantuml)
+[nimblescape PlantUML](https://github.com/nimblescape/plantuml-vscode)
 for other programs. A program that shows Markdown files on its own pages, for
 example [nimblescape Markdown Paper](https://github.com/nimblescape/markdownpaper-vscode)
 in its PDF files, shows the ```` ```plantuml ```` blocks with it as the

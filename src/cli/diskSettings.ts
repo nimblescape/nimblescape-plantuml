@@ -48,7 +48,7 @@ function scanJson(text: string, other: (at: number) => { out: string; length: nu
  * @throws When the text is no JSON without the comments and these commas.
  */
 export function parseJsonWithComments(text: string): unknown {
-  const source = text.replace(/^﻿/, '');
+  const source = text.replace(/^\uFEFF/, '');
   // A comment becomes a space or the end of its line, so that it still separates what stands around it.
   const withoutComments = scanJson(source, (at) => {
     if (source.startsWith('//', at)) {

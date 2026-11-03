@@ -127,10 +127,11 @@ describes every feature.
 - The engine does not render `ditaa`, `dot`, `math`, `latex`, `chen`, `board`,
   `git`, `wire`, `files`, `hcl` and `chronology`, and renders a wireframe only
   with `@startsalt`, not inside `@startuml`.
-  It shows the first page of a diagram with `newpage` only, makes no
-  clickable links and shows no images (`<img:…>`).
+  It shows the first page of a diagram with `newpage` only and shows no
+  images (`<img:…>`).
 - Included files must be in a workspace folder or in the folder of the
-  document, with up to 1 MB each, and the previews use their saved text. The
+  document, also as the target of a symbolic link, with up to 1 MB each, and
+  the previews use their saved text. The
   extension reads no file from the internet, and of the standard library of
   PlantUML it contains the library C4 only.
 - The rendered diff of a PlantUML file marks the changed diagrams, not the
@@ -140,6 +141,16 @@ describes every feature.
   (vscode-plantuml) also contributes the language PlantUML and a Markdown
   preview of PlantUML blocks. With both extensions installed, it is not
   defined which one renders and highlights a diagram. Use one of the two.
+
+## npm package
+
+The npm package
+[`@nimblescape/plantuml`](https://github.com/nimblescape/nimblescape-plantuml/blob/main/cli/README.md)
+holds the renderer of the extension for other programs, for example
+[nimblescape Markdown Paper](https://github.com/nimblescape/markdownpaper-vscode),
+which shows the PlantUML blocks of a Markdown file on its pages and in its
+PDF files as the Markdown preview shows them: the same engine, settings,
+included files and layout engine.
 
 ## About PlantUML
 

@@ -30,6 +30,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [No change outside PlantUML blocks](#diagrams-in-the-markdown-preview) | yes | | available | [R-MD-006](requirements.md#r-md-006) |
 | [UML notation](#uml-notation) | yes | yes | available | [R-GEN-007](requirements.md#r-gen-007) |
 | [Included files](#included-files) | yes | yes | available | [R-GEN-008](requirements.md#r-gen-008) |
+| [Diagrams on the pages of other extensions](#diagrams-on-the-pages-of-other-extensions) | yes | | available | [R-MD-007](requirements.md#r-md-007) |
 
 ## How the extension renders
 
@@ -71,8 +72,15 @@ computer. A preview that opens again shows these diagrams at once, also after
 a restart of VS Code.
 
 A diagram has no largest size. A large diagram can keep the preview busy for
-about a second. A diagram that takes longer than 60 seconds to render shows
-the message "The rendering of the diagram took too long."
+about a second, and the preview does not react in that time. A diagram that
+takes longer than 60 seconds to render shows the message "The rendering of the
+diagram took too long."
+
+Problems that no diagram shows, for example a preview that VS Code cannot
+restore after a restart, or a failed load of Graphviz in the preview of a
+PlantUML file, go to the log "nimblescape PlantUML". To see it, open the
+Output view (View: Toggle Output) and select "nimblescape PlantUML" in its
+list. Add these lines to a report of a problem.
 
 ### Layout
 
@@ -106,7 +114,10 @@ Java. With `@plantuml/core` 1.2026.9:
   `chronology`. A network diagram renders with `@startnwdiag`, and a wireframe
   with `@startsalt`, but not inside `@startuml`.
 - A diagram with `newpage` shows its first page only.
-- A link (`[[…]]`) is not clickable.
+- A link (`[[…]]`) opens when you click it, as the other links of a preview
+  do: VS Code opens web addresses, mail addresses and `vscode:` addresses, and
+  asks before it opens a website that is not one of its trusted domains. It
+  opens no other kind of address, for example `file:` or `command:`.
 - An image (`<img:…>`) does not show; a placeholder text shows in its place.
 
 ### Included files
@@ -129,7 +140,9 @@ class Car
   `@startuml(id=MY_ID)`. Without a selection, the first diagram of the file is
   included, or the whole file when it has no `@start` line.
 - The extension reads files only in the workspace folders and in the folder of
-  the document, up to 1 MB per file.
+  the document, up to 1 MB per file. When an included file is a symbolic link,
+  or is in a linked folder, the target of the link must be in these folders
+  too.
 - The previews use the saved file. When you save, create or delete an included
   file, the previews that include it render again; the Markdown preview loads
   its page again for this.
@@ -213,6 +226,15 @@ selects whether both versions show next to each other or in one column.
 
 To open every Markdown diff in this way, add the preview to the setting
 `workbench.diffEditorAssociations`.
+
+### Diagrams on the pages of other extensions
+
+Another extension can show the PlantUML blocks of a Markdown file on its own
+pages with this extension, for example nimblescape Markdown Paper on its
+pages and in its PDF. The diagrams then look as in the Markdown preview: the
+same engine, the same settings, for example `nimblescape.plantuml.umlNotation`,
+the same included files and the same layout engine, in the light colors of
+PlantUML on a page with a light background.
 
 ## PlantUML files
 

@@ -26,7 +26,7 @@
  * not complete.
  */
 
-import { lineKinds } from '../diagram/lineKinds';
+import { LineKind, lineKinds } from '../diagram/lineKinds';
 import {
   controlKeywords,
   diagramTypes,
@@ -182,10 +182,20 @@ function declarationsOf(line: string): Proposal[] {
  * @param skip - The index of a line that declares nothing, usually the line of the cursor.
  */
 export function declarations(lines: readonly string[], skip = -1): Proposal[] {
+  return declarationsByKind(lines, lineKinds(lines), skip);
+}
+
+/**
+ * declarationsByKind returns the names that the statements of a PlantUML text declare, with the kinds of its
+ * lines that the caller has already computed.
+ * @param lines - The lines of the text.
+ * @param kinds - The kind of each line (`lineKinds`).
+ * @param skip - The index of a line that declares nothing.
+ */
+function declarationsByKind(lines: readonly string[], kinds: readonly LineKind[], skip: number): Proposal[] {
   const names = new Map<string, Proposal>();
-  const lineKind = lineKinds(lines);
   lines.forEach((line, index) => {
-    if (index === skip || lineKind[index] !== 'statement') {
+    if (index === skip || kinds[index] !== 'statement') {
       return;
     }
     for (const proposal of declarationsOf(line)) {
@@ -206,6 +216,16 @@ export function declarations(lines: readonly string[], skip = -1): Proposal[] {
 const keywordProposals = (words: readonly string[], prefix = ''): Proposal[] =>
   [...new Set(words)].map((word) => ({ label: `${prefix}${word}`, kind: 'Keyword' }));
 
+/** wordAtEnd matches the word at the end of a text: a name, with the parts of a qualified name and a leading `@` or `!`. */
+const wordAtEnd = /[@!]?(?:[\p{L}\p{N}_$]+(?:\.|::))*[\p{L}\p{N}_$]*$/u;
+
+/**
+ * maxWordLength is the length of the longest word before the cursor that the completion replaces. The search of a
+ * word at the end of a text tries each start of the text, so a limit keeps a long line from a long search on each
+ * typed character.
+ */
+const maxWordLength = 1000;
+
 /**
  * wordRange returns the columns of the word at the cursor. A word is a name, with a leading `@` or `!`. A quoted
  * name, a component or a use case that is still open before the cursor counts from its opening character, and
@@ -215,7 +235,8 @@ const keywordProposals = (words: readonly string[], prefix = ''): Proposal[] =>
  */
 function wordRange(text: string, character: number): { start: number; end: number } {
   const before = text.slice(0, character);
-  let start = /[@!]?(?:[\p{L}\p{N}_$]+(?:\.|::))*[\p{L}\p{N}_$]*$/u.exec(before)?.index ?? character;
+  const searched = Math.max(0, character - maxWordLength);
+  let start = searched + (wordAtEnd.exec(before.slice(searched))?.index ?? character - searched);
   const openings: Record<string, string> = { '"': '"', '[': ']', '(': ')' };
   let closing: string | undefined;
   const quote = before.lastIndexOf('"');
@@ -265,14 +286,14 @@ export function complete(lines: readonly string[], line: number, character: numb
   const word = text.slice(start, character);
   const lead = text.slice(0, start);
   const result = (proposals: Proposal[]): Completion => ({ start, end, proposals: completeWord(word, proposals) ? [] : proposals });
-  const kind = lineKinds(lines)[line];
-  if (kind === 'member') {
-    return result(declarations(lines, line));
+  const kinds = lineKinds(lines);
+  const names = () => declarationsByKind(lines, kinds, line);
+  if (kinds[line] === 'member') {
+    return result(names());
   }
-  if (kind !== 'statement') {
+  if (kinds[line] !== 'statement') {
     return result([]);
   }
-  const names = () => declarations(lines, line);
   if (/^\s*$/.test(lead)) {
     if (word.startsWith('@')) {
       return result(diagramTypes.flatMap((type) => keywordProposals([`start${type}`, `end${type}`], '@')));

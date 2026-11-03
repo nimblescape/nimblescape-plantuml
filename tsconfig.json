@@ -20,5 +20,5 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/cli/**/*.ts", "cli/index.d.ts"]
 }

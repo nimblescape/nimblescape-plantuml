@@ -21,7 +21,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { IncludedFiles, mayInclude } from '../diagram/includes';
 import { umlCommands } from '../diagram/umlNotation';
-import { blockClass, contentClass, includesAttribute, textClass } from '../markdown/markdownIt';
+import { blockClass, contentClass, pageIncludesClass, textClass } from '../markdown/markdownIt';
 import { defaultSettings } from '../settings';
 import { errorPicture, escapeXml, FakeEngine } from '../test/fakeEngine';
 import { fence, renderMarkdown } from '../test/markdownPreview';
@@ -180,6 +180,27 @@ describe('StoredResults', () => {
     const none = new StoredResults(undefined, 'v1');
     none.set(['A'], false, '<svg></svg>');
     expect(none.get(['A'], false)).toBeUndefined();
+
+    // A result with a long text, for example with large included files, is not kept, and removes no other result.
+    const count = storage.items.size;
+    stored.set(['x'.repeat(200_000)], false, '<svg></svg>');
+    expect(storage.items.size).toBe(count);
+    expect(stored.get(['D60'], false)).toBe('<svg>60</svg>');
+  });
+
+  test('keeps all results within a total length, so that the other scripts of a preview keep room in the storage', () => {
+    const storage = new FakeStorage();
+    const stored = new StoredResults(storage as unknown as Storage, 'v1');
+    for (let index = 0; index < 10; index++) {
+      stored.set([`D${index}`], false, `<svg>${'x'.repeat(150_000)}</svg>`);
+    }
+    // Six results of 150,000 characters fit into 1,000,000 characters; the least recently used ones are removed.
+    const total = [...storage.items.values()].reduce((sum, value) => sum + value.length, 0);
+    expect(total).toBeLessThanOrEqual(1_000_000 + 1000);
+    expect(stored.get(['D3'], false)).toBeUndefined();
+    expect(stored.get(['D4'], false)).toContain('<svg>');
+    expect(stored.get(['D9'], false)).toContain('<svg>');
+    expect(JSON.parse(storage.getItem('nimblescape-plantuml:index')!)).toHaveLength(6);
   });
 });
 
@@ -198,8 +219,9 @@ describe('PreviewRenderer', () => {
     expect(root.querySelector(`.${contentClass}`)!.shadowRoot!.firstElementChild).toBe(note);
     await renderer.whenIdle();
     expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
-    // The elements of the page stay as the page wrote them; the shadow root hides the text.
-    expect(root.innerHTML).toBe(written);
+    // The elements of the page stay as the page wrote them, apart from the state of the block (R-MD-007); the shadow
+    // root hides the text.
+    expect(root.innerHTML).toBe(written.replace(`class="${contentClass}"`, `class="${contentClass}" data-plantuml-state="drawn"`));
   });
 
   test('renders every diagram of a block, one at a time, and leaves the other elements of the page as they are', async () => {
@@ -434,15 +456,19 @@ describe('PreviewRenderer with included files', () => {
       'missing.puml': { problem: 'The file missing.puml does not exist.' },
       'parts.puml': { text: 'C' },
     });
-    root.innerHTML += renderMarkdown(fence('!include other.puml'));
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     await renderer.whenIdle();
     expect(shown(root)).toEqual([
       ['error Line 2: The file missing.puml does not exist.', 'text'],
       ['error Line 2: The file parts.puml has no lines between !startsub PART and !endsub.', 'text'],
-      ['error Line 1: The preview did not receive the included file other.puml.', 'text'],
     ]);
+    // A page without the element of the included files, for example without the extension in the host, names them.
+    const without = page(fence('!include other.puml'));
+    const other = new PreviewRenderer(without, async () => new FakeEngine(), () => false);
+    other.update();
+    await other.whenIdle();
+    expect(shown(without)).toEqual([['error Line 1: The preview did not receive the included file other.puml.', 'text']]);
   });
 
   test('waits for the included files that the extension still reads, and renders when they come', async () => {
@@ -453,11 +479,15 @@ describe('PreviewRenderer with included files', () => {
     await renderer.whenIdle();
     expect(shown(root)).toEqual([[`svg ${lines('A')}`]]);
 
-    // A new include line names a file that the extension reads now: the block keeps its diagram.
+    // A new include line names a file that the extension reads now: the block keeps its diagram. The Markdown preview
+    // changes the attributes of the block and the element of the included files in place.
     const block = root.querySelector<HTMLElement>(`.${blockClass}`)!;
     const replace = (files: IncludedFiles) => {
-      const next = includingPage(fence('A\n!include b.puml'), files).querySelector(`.${blockClass}`)!;
+      const nextPage = includingPage(fence('A\n!include b.puml'), files);
+      const next = nextPage.querySelector(`.${blockClass}`)!;
       next.getAttributeNames().forEach((name) => block.setAttribute(name, next.getAttribute(name)!));
+      root.querySelector(`.${pageIncludesClass}`)?.remove();
+      root.append(nextPage.querySelector(`.${pageIncludesClass}`)!);
       renderer.update();
     };
     replace({});
@@ -477,7 +507,7 @@ describe('PreviewRenderer with included files', () => {
 
   test('shows the note in a new block whose included files the extension still reads', () => {
     const root = includingPage(fence('!include a.puml'), {});
-    expect(root.querySelector(`.${blockClass}`)?.getAttribute(includesAttribute)).toBe('{}');
+    expect(root.querySelector(`.${blockClass} + .${pageIncludesClass}`)?.textContent).toBe('{}');
     const renderer = new PreviewRenderer(root, async () => new FakeEngine(), () => false);
     renderer.update();
     expect(shown(root)).toEqual([['pending Rendering the diagram…']]);
@@ -547,5 +577,16 @@ describe('engineLoader', () => {
     const second = load();
     expect(second).not.toBe(first);
     await expect(second).rejects.toThrow();
+  });
+
+  test('reports a failed load of Viz.js, which only changes the layout engine', async () => {
+    const reports: string[] = [];
+    const blocked = async () => {
+      throw new Error('blocked');
+    };
+    const load = engineLoader('file:///no/such/folder/', 'graphviz', blocked, (message) => reports.push(message));
+    // The folder has no engine either.
+    await expect(load()).rejects.toThrow();
+    expect(reports).toEqual(['Graphviz (Viz.js) could not be loaded, so the diagrams use the layout engine Smetana: blocked']);
   });
 });

@@ -15,7 +15,7 @@
 
 import MarkdownIt from 'markdown-it';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { includesAttribute, settingsAttribute } from './markdown/markdownIt';
+import { pageIncludesClass, settingsAttribute } from './markdown/markdownIt';
 import { settingsSection } from './settings';
 
 /** FakeUri stands for a vscode.Uri; the extension only passes it on. */
@@ -160,6 +160,8 @@ let disposables: { dispose(): void }[];
 let markdownActive: boolean;
 /** refreshFails makes the command `markdown.preview.refresh` fail. */
 let refreshFails: boolean;
+/** logged are the warnings in the log channel of the extension. */
+let logged: string[];
 
 /** disposable returns a new registration of the fake API and records it. */
 const disposable = () => {
@@ -207,6 +209,7 @@ beforeEach(() => {
   disposables = [];
   markdownActive = true;
   refreshFails = false;
+  logged = [];
   emitters = [];
   openDocuments = [];
   workspaceFolders = [];
@@ -254,6 +257,7 @@ beforeEach(() => {
       registerCustomEditorProvider: disposable,
       registerWebviewPanelSerializer: disposable,
       onDidChangeActiveTextEditor: disposable,
+      createOutputChannel: () => Object.assign(disposable(), { warn: (message: string) => logged.push(message) }),
     },
     extensions: {
       getExtension: (id: string) => (id === 'vscode.markdown-language-features' ? { isActive: markdownActive } : undefined),
@@ -298,7 +302,7 @@ beforeEach(() => {
 
 /** activate imports the extension with the fake API and activates it. */
 const activate = async () => {
-  const extension = await import('./extension');
+  const extension = { ...(await import('./extension')), ...(await import('./formattingProvider')) };
   const context = { subscriptions: [] as { dispose(): void }[], extensionUri: { scheme: 'file', path: '/extension' } };
   return { api: extension.activate(context as never), context, extension };
 };
@@ -380,11 +384,11 @@ test('the export reads the settings of a version of a file in Git from the works
 test('the export adds the included files of a block, and a change of a file that it includes refreshes the Markdown previews', async () => {
   const { api } = await activate();
   const md = api.extendMarkdownIt(new MarkdownIt());
-  expect(md.render(block)).not.toContain(includesAttribute);
+  expect(md.render(block)).not.toContain(pageIncludesClass);
   // A text without a document has no folder for the paths of its included files.
   const problem = 'The document is not saved in a folder, so the extension cannot find the included file a.puml.';
   expect(md.render('```plantuml\n!include a.puml\nclass A\n```\n')).toContain(
-    `${includesAttribute}="{&quot;a.puml&quot;:{&quot;problem&quot;:&quot;${problem}&quot;}}"`,
+    `<div class="${pageIncludesClass}" hidden>{&quot;a.puml&quot;:{&quot;problem&quot;:&quot;${problem}&quot;}}</div>`,
   );
   // The Markdown previews and the previews of PlantUML files each have a reader of included files, in this order.
   const [markdownReader, pumlReader] = emitters;
@@ -419,7 +423,7 @@ test('a change of a setting of the extension refreshes the Markdown previews, a 
   expect(commands).toEqual(['markdown.preview.refresh']);
 });
 
-test('a change of a setting does not start the Markdown extension, and a failed refresh is no error', async () => {
+test('a change of a setting does not start the Markdown extension, and a failed refresh is no error but a warning', async () => {
   await activate();
   markdownActive = false;
   changeSetting(settingsSection);
@@ -431,6 +435,7 @@ test('a change of a setting does not start the Markdown extension, and a failed 
   changeSetting(settingsSection);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(commands).toEqual(['markdown.preview.refresh']);
+  expect(logged).toEqual(['The Markdown previews could not render again: command not found']);
 });
 
 /**

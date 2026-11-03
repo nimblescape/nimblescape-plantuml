@@ -11,9 +11,16 @@
  * token keeps the output of the preview
  * ([R-MD-006](../../docs/requirements.md#r-md-006)).
  *
- * The element also carries the texts of the files that the diagrams of the
- * block include ([R-GEN-008](../../docs/requirements.md#r-gen-008)), which
- * the extension reads, because the preview script cannot read files.
+ * The page also carries the texts of the files that the diagrams include
+ * ([R-GEN-008](../../docs/requirements.md#r-gen-008)), which the extension
+ * reads, because the preview script cannot read files. They are the text of
+ * one hidden element after the last PlantUML block, each file once, also when
+ * several blocks include it. They are not the value of an attribute: the
+ * Markdown preview allows the styles of the document and images from the
+ * internet, and a style rule can select an element by the start of the value
+ * of an attribute and load an image for it, so that the value of an attribute
+ * could reach an address of the internet character by character. A style rule
+ * cannot select an element by its text.
  *
  * The element keeps the attributes that the preview gives to the token of the
  * block, among them `data-line` and the class `code-line`. The preview needs
@@ -61,11 +68,27 @@ export const sourceAttribute = 'data-plantuml-source';
 export const settingsAttribute = 'data-plantuml-settings';
 
 /**
- * includesAttribute is the attribute that carries the files that the diagrams of a PlantUML block include
- * ([R-GEN-008](../../docs/requirements.md#r-gen-008)) to the preview script, as JSON text. A block whose diagrams
- * include no file has no such attribute.
+ * stateAttribute is the attribute of the content element of a PlantUML block that tells the scripts of other
+ * extensions whether the block shows its diagrams ([R-MD-007](../../docs/requirements.md#r-md-007)): the preview
+ * script sets it to `pending` while the block waits for the diagrams of its text, its settings, its included files and
+ * the color theme, and to `drawn` when it shows them, or the message of an error in their place.
  */
-export const includesAttribute = 'data-plantuml-includes';
+export const stateAttribute = 'data-plantuml-state';
+
+/**
+ * includesClass is the class of the hidden child element of a PlantUML block whose text carries the files that the
+ * diagrams of the block include ([R-GEN-008](../../docs/requirements.md#r-gen-008)) to the preview script, as JSON
+ * text. The preview of PlantUML files writes it; a block whose diagrams include no file has no such element.
+ */
+export const includesClass = `${blockClass}-includes`;
+
+/**
+ * pageIncludesClass is the class of the hidden element after the last PlantUML block of a Markdown page whose text
+ * carries the files that the diagrams of all blocks of the page include, as JSON text. The paths of the files are
+ * relative to the folder of the document, so one path names one file in all blocks. A page whose diagrams include
+ * no file has no such element.
+ */
+export const pageIncludesClass = `${blockClass}-page-includes`;
 
 /**
  * diffMarker matches an empty element that the rendered diff of VS Code inserts into the Markdown text at the
@@ -101,6 +124,33 @@ export interface Rendering {
  */
 const markdownTexts = new WeakMap<Token[], string>();
 
+/** lastBlocks holds the index of the last PlantUML block of each parsing, by the tokens of the parsing. */
+const lastBlocks = new WeakMap<Token[], number>();
+
+/**
+ * isPlantUmlBlock tells whether a token is a fenced code block of PlantUML.
+ * @param token - The token.
+ */
+const isPlantUmlBlock = (token: Token): boolean => token.type === 'fence' && isPlantUmlInfo(withoutDiffMarkers(token.info));
+
+/**
+ * lastBlock returns the index of the last PlantUML block of a parsing.
+ * @param tokens - The tokens of the parsing.
+ */
+function lastBlock(tokens: Token[]): number {
+  let last = lastBlocks.get(tokens);
+  if (last === undefined) {
+    last = -1;
+    tokens.forEach((token, index) => {
+      if (isPlantUmlBlock(token)) {
+        last = index;
+      }
+    });
+    lastBlocks.set(tokens, last);
+  }
+  return last;
+}
+
 /**
  * isPlantUmlInfo tells whether the info string of a fenced code block names PlantUML: its first word is
  * `plantuml`, in any letter case.
@@ -132,7 +182,7 @@ export function extendMarkdownIt(
   const fence = md.renderer.rules.fence;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
-    if (!isPlantUmlInfo(withoutDiffMarkers(token.info))) {
+    if (!isPlantUmlBlock(token)) {
       return fence ? fence(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
     }
     const source = withoutDiffMarkers(token.content);
@@ -152,16 +202,24 @@ export function extendMarkdownIt(
     if (!isDefault(values)) {
       attributes.set(settingsAttribute, JSON.stringify(values));
     }
-    const files = includes(rendering, source);
-    if (files) {
-      attributes.set(includesAttribute, JSON.stringify(files));
+    // The last block adds the included files of all blocks, so that each file is once in the page.
+    let included = '';
+    if (idx === lastBlock(tokens)) {
+      const files = tokens
+        .filter(isPlantUmlBlock)
+        .map((block) => includes(rendering, withoutDiffMarkers(block.content)))
+        .filter((blockFiles) => blockFiles !== undefined);
+      if (files.length > 0) {
+        const text = md.utils.escapeHtml(JSON.stringify(Object.assign({}, ...files)));
+        included = `<div class="${pageIncludesClass}" hidden>${text}</div>\n`;
+      }
     }
     // renderAttrs escapes the attribute values, so the diagram text is safe in the attribute. The preview script
     // hides the text before the page shows it; the text stays when the preview runs no scripts.
     const element = { attrs: [...attributes] } as Token;
     return (
       `<div${self.renderAttrs(element)}><div class="${contentClass}">` +
-      `<pre class="${textClass}"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n`
+      `<pre class="${textClass}"><code>${md.utils.escapeHtml(source)}</code></pre></div></div>\n${included}`
     );
   };
   return md;

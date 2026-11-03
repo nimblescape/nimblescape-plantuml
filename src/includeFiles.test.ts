@@ -6,8 +6,8 @@
  * These tests check the reading of the included files of the previews (R-GEN-008) with a fake of the API of VS Code
  * and of the file system: the files of the disk, which the extension reads at once, the files of other file systems,
  * for which a diagram waits, the paths relative to the document and to an included file, the versions of Git, the
- * folders that the extension reads from, the problems of a file, the event after a reading and after a change of an
- * included file, and the end of the watchers.
+ * folders that the extension reads from, also through symbolic links, the problems of a file, the event after a
+ * reading and after a change of an included file, and the end of the watchers.
  */
 
 import * as posix from 'node:path/posix';
@@ -93,6 +93,8 @@ class FakeWatcher {
 
 /** files holds the files of the fake file systems by their address: a text, `folder`, or `locked` for a file without the right to read it. */
 let files: Map<string, string>;
+/** links holds the symbolic links of the disk: the path of each link and the path of its target. */
+let links: Map<string, string>;
 /** reads records the addresses of the files that the extension read. */
 let reads: string[];
 /** workspaceFolders are the workspace folders of the fake. */
@@ -107,26 +109,44 @@ beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
   files = new Map();
+  links = new Map();
   reads = [];
   workspaceFolders = [{ uri: FakeUri.file('/work') }];
   watchers = [];
   const fileNotFound = () => Object.assign(new Error('not found'), { code: 'FileNotFound' });
   // The file system of the disk: the path of a file of the disk is the path of its address.
+  // A path whose start is a link continues in the target of the link.
+  const realpathSync = (path: string) => {
+    for (const [link, target] of links) {
+      if (path === link || path.startsWith(`${link}/`)) {
+        return target + path.slice(link.length);
+      }
+    }
+    return path;
+  };
+  const statSync = (path: string) => {
+    const file = files.get(`file://${path}`);
+    if (file === undefined) {
+      throw Object.assign(new Error(`ENOENT: no such file or directory, stat '${path}'`), { code: 'ENOENT' });
+    }
+    return { isDirectory: () => file === 'folder', size: new TextEncoder().encode(file).length };
+  };
+  const readFileSync = (path: string) => {
+    reads.push(`file://${path}`);
+    const file = files.get(`file://${path}`);
+    if (file === 'locked') {
+      throw Object.assign(new Error(locked), { code: 'EACCES' });
+    }
+    return file;
+  };
   vi.doMock('node:fs', () => ({
-    statSync: (path: string) => {
-      const file = files.get(`file://${path}`);
-      if (file === undefined) {
-        throw Object.assign(new Error(`ENOENT: no such file or directory, stat '${path}'`), { code: 'ENOENT' });
-      }
-      return { isDirectory: () => file === 'folder', size: new TextEncoder().encode(file).length };
-    },
-    readFileSync: (path: string) => {
-      reads.push(`file://${path}`);
-      const file = files.get(`file://${path}`);
-      if (file === 'locked') {
-        throw Object.assign(new Error(locked), { code: 'EACCES' });
-      }
-      return file;
+    realpathSync,
+    statSync,
+    readFileSync,
+    promises: {
+      realpath: async (path: string) => realpathSync(path),
+      stat: async (path: string) => statSync(path),
+      readFile: async (path: string) => readFileSync(path),
     },
   }));
   vi.doMock('vscode', () => ({
@@ -169,10 +189,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** includeFiles imports the module with the fakes and returns a new reader. */
-async function includeFiles() {
+/**
+ * includeFiles imports the module with the fakes and returns a new reader.
+ * @param diskAtOnce - Whether the reader reads a file of the disk at once, as for the Markdown preview.
+ */
+async function includeFiles(diskAtOnce = true) {
   const { IncludeFiles } = await import('./includeFiles');
-  const includes = new IncludeFiles();
+  const includes = new IncludeFiles({ diskAtOnce });
   let changes = 0;
   includes.onDidChange(() => changes++);
   return { includes, changes: () => changes };
@@ -210,6 +233,25 @@ test('reads a file of the disk at once, and returns it from then on without read
   expect(reads).toEqual(['file:///work/docs/styles.puml', 'file:///work/docs/lib/a.puml', 'file:///work/shared/b.puml']);
 });
 
+test('reads a file of the disk in the background for the previews of PlantUML files, which wait for it', async () => {
+  files.set('file:///work/docs/styles.puml', 'skinparam a 1');
+  files.set('file:///work/docs/key.iuml', 'secret');
+  links.set('/work/docs/key.iuml', '/home/user/.ssh/id_rsa');
+  files.set('file:///home/user/.ssh/id_rsa', 'secret');
+  const { includes, changes } = await includeFiles(false);
+  const text = '@startuml\n!include styles.puml\n!include key.iuml\n@enduml';
+  const loading = includes.load(document, text);
+  expect(loading).toBeInstanceOf(Promise);
+  expect(reads).toEqual([]);
+  await settle();
+  const problem = 'The file key.iuml is a symbolic link to a file outside the workspace folders and the folder of the document. The extension reads included files only from these folders.';
+  expect(await loading).toEqual({ 'styles.puml': { text: 'skinparam a 1' }, 'key.iuml': { problem } });
+  expect(changes()).toBe(1);
+  // From then on, the reader returns the files without a promise, and watches them.
+  expect(includes.load(document, text)).toEqual(await loading);
+  expect(watchers.map((watcher) => watcher.pattern.pattern)).toEqual(['styles.puml', 'key.iuml']);
+});
+
 test('reads a file of another file system later, tells the previews, and returns it from then on', async () => {
   const virtual = (path: string) => new FakeUri('vscode-vfs', 'github', path);
   files.set(virtual('/repo/docs/styles.puml').toString(), 'skinparam a 1');
@@ -235,8 +277,27 @@ test('loads the files of another file system that the included files include, an
   await settle();
   expect(await loading).toEqual({ 'lib/a.puml': { text: '!include ../../shared/b.puml' }, '../shared/b.puml': { text: 'B' } });
   expect(includes.load(virtual('/repo/docs/design.md') as never, text)).toEqual(await loading);
-  // The extension watches only the files of the disk.
-  expect(watchers).toEqual([]);
+  // The files of a virtual workspace can change, so the extension watches them too.
+  expect(watchers.map((watcher) => [watcher.pattern.base.toString(), watcher.pattern.pattern])).toEqual([
+    ['vscode-vfs://github/repo/docs/lib', 'a.puml'],
+    ['vscode-vfs://github/repo/shared', 'b.puml'],
+  ]);
+});
+
+test('reads a watched file of a virtual workspace again when it changes, and tells the previews', async () => {
+  const virtual = (path: string) => new FakeUri('vscode-vfs', 'github', path);
+  workspaceFolders = [{ uri: virtual('/repo') }];
+  files.set(virtual('/repo/docs/styles.puml').toString(), 'old');
+  const { includes, changes } = await includeFiles();
+  const text = '!include styles.puml';
+  expect(await includes.load(virtual('/repo/docs/design.md') as never, text)).toEqual({ 'styles.puml': { text: 'old' } });
+  await settle();
+  expect(changes()).toBe(1);
+  files.set(virtual('/repo/docs/styles.puml').toString(), 'new');
+  watchers[0].changed();
+  await settle();
+  expect(changes()).toBe(2);
+  expect(includes.filesOf(virtual('/repo/docs/design.md') as never, text)).toEqual({ 'styles.puml': { text: 'new' } });
 });
 
 test('names the problem of a file that does not exist, of a folder, of a large file, of a file that it cannot read and of a file outside the folders', async () => {
@@ -268,6 +329,30 @@ test('names the problem of a file that does not exist, of a folder, of a large f
     },
   });
   expect(reads).toEqual(['file:///work/docs/locked.puml']);
+});
+
+test('reads no file whose symbolic links lead outside the workspace folders and the folder of the document', async () => {
+  files.set('file:///home/user/.ssh/id_rsa', 'secret');
+  files.set('file:///work/shared/styles.puml', 'S');
+  files.set('file:///real/work/docs/own.puml', 'O');
+  links.set('/work/docs/key.puml', '/home/user/.ssh/id_rsa');
+  links.set('/work/docs/lib', '/home/user/.ssh');
+  links.set('/work/docs/styles.puml', '/work/shared/styles.puml');
+  const { includes } = await includeFiles();
+  const text = ['!include key.puml', '!include lib/id_rsa', '!include styles.puml'].join('\n');
+  const problem = (path: string) =>
+    `The file ${path} is a symbolic link to a file outside the workspace folders and the folder of the document. The extension reads included files only from these folders.`;
+  expect(includes.load(document, text)).toEqual({
+    'key.puml': { problem: problem('key.puml') },
+    'lib/id_rsa': { problem: problem('lib/id_rsa') },
+    // A link to a file in a workspace folder is fine.
+    'styles.puml': { text: 'S' },
+  });
+
+  // A workspace folder that is a symbolic link holds the targets of its links.
+  links.clear();
+  links.set('/work', '/real/work');
+  expect(includes.load(document, '!include own.puml')).toEqual({ 'own.puml': { text: 'O' } });
 });
 
 test('reads the files of the folder of a document outside the workspace folders, and no file without a saved document', async () => {
@@ -320,9 +405,9 @@ test('forgets a file that no diagram has included for ten minutes, and stops its
   files.set('file:///work/docs/a.puml', 'A');
   files.set('file:///work/docs/b.puml', 'B');
   const { includes } = await includeFiles();
-  includes.load(document, '!include a.puml');
+  void includes.load(document, '!include a.puml');
   await vi.advanceTimersByTimeAsync(11 * 60_000);
-  includes.load(document, '!include b.puml');
+  void includes.load(document, '!include b.puml');
   expect(watchers.map((watcher) => [watcher.pattern.pattern, watcher.disposed])).toEqual([
     ['a.puml', true],
     ['b.puml', false],
@@ -334,6 +419,6 @@ test('forgets a file that no diagram has included for ten minutes, and stops its
 test('watches a file whose name holds characters with a meaning in patterns by that name', async () => {
   files.set('file:///work/docs/a[1]{x}.puml', 'A');
   const { includes } = await includeFiles();
-  includes.load(document, '!include a[1]{x}.puml');
+  void includes.load(document, '!include a[1]{x}.puml');
   expect(watchers.map((watcher) => watcher.pattern.pattern)).toEqual(['a[[]1[]][{]x[}].puml']);
 });

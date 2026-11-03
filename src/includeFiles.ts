@@ -12,21 +12,28 @@
  * The path of an included file is relative to the folder of the document. As
  * the Markdown preview, which shows only the images of these folders, the
  * extension reads only files in a workspace folder or in the folder of the
- * document, up to 1 MB. It reads the saved file, not the text of an open
- * document: the previews show the changes of an included file when the file
- * is saved.
+ * document, up to 1 MB. For a file of the disk, the target of its symbolic
+ * links must be in these folders too, so that a link in a workspace cannot
+ * show a file from elsewhere on the computer. The extension reads the saved
+ * file, not the text of an open document: the previews show the changes of an
+ * included file when the file is saved.
  *
- * The extension reads a file of the disk at once: the Markdown preview renders
- * a document in one step, and renders it again only as a whole, with a new
- * page. Files of other file systems, such as the versions of a file in Git and
- * the files of virtual workspaces, the extension reads through the file system
- * of VS Code, which takes time; a diagram waits for them. The original side of
- * a diff in Git is a version of the document in Git; the extension reads its
- * included files from the same version.
+ * For the Markdown preview, the extension reads a file of the disk at once
+ * when a diagram includes it first: the Markdown preview renders a document in
+ * one step, and renders it again only as a whole, with a new page. Every other
+ * reading runs in the background, so that a slow drive does not block the
+ * extension host: the files of the previews of PlantUML files, a file that
+ * changed, and the files of other file systems, such as the versions of a file
+ * in Git and the files of virtual workspaces, which the extension reads
+ * through the file system of VS Code. A diagram waits for them. The original
+ * side of a diff in Git is a version of the document in Git; the extension
+ * reads its included files from the same version.
  *
- * The extension keeps the texts that it read and watches the files of the
- * disk. When an included file changes, and when it has read the files that a
- * diagram waits for, it tells the previews to render again (`onDidChange`).
+ * The extension keeps the texts that it read and watches the files. A file of
+ * another file system whose address has a query, as the versions of a file in
+ * Git have, does not change, so the extension does not watch it. When an
+ * included file changes, and when it has read the files that a diagram waits
+ * for, it tells the previews to render again (`onDidChange`).
  * It forgets a file that no diagram has included for ten minutes. The
  * Markdown previews and the previews of PlantUML files each have a reader of
  * their own, so that a change of a file renders only the previews of the kind
@@ -36,10 +43,8 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import { diagramsOf } from './diagram/diagramRanges';
+import { includeProblems, maxFileSize } from './diagram/includeProblems';
 import { expandIncludes, IncludedFile, IncludedFiles, maxDepth, mayInclude } from './diagram/includes';
-
-/** maxFileSize is the size in bytes of the largest file that the extension includes. */
-const maxFileSize = 1024 * 1024;
 
 /** idleTime is the time in milliseconds after which the extension forgets a file that no diagram has included. */
 const idleTime = 10 * 60_000;
@@ -50,9 +55,15 @@ const changeDelay = 100;
 /** Content is the content of a file that the extension has read: its text, or the problem for a path of the file. */
 type Content = { text: string } | { problem: (path: string) => string };
 
-/** Entry is a file that the extension has read, with the watcher of the file on the disk. */
-interface Entry {
+/** Reading is the content of a file that the extension has read, and for a file of the disk, its path after its symbolic links. */
+interface Reading {
   content: Content;
+  /** real is the path of a file of the disk after its symbolic links, when the file exists. */
+  real?: string;
+}
+
+/** Entry is a file that the extension has read, with the watcher of the file. */
+interface Entry extends Reading {
   watcher?: vscode.Disposable;
 }
 
@@ -93,23 +104,44 @@ export function isInFolder(uri: vscode.Uri, folder: vscode.Uri): boolean {
 }
 
 /**
- * isInFolders tells whether a file is in a workspace folder or in the folder of the document.
- * @param uri - The address of the file.
- * @param folder - The folder of the document.
+ * realFolder returns the address of a folder of the disk after its symbolic links, and every other folder as it is.
+ * @param folder - The address of the folder.
  */
-function isInFolders(uri: vscode.Uri, folder: vscode.Uri): boolean {
-  const roots = [folder, ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => workspaceFolder.uri)];
-  return roots.some((root) => isInFolder(uri, root));
+function realFolder(folder: vscode.Uri): vscode.Uri {
+  if (folder.scheme !== 'file') {
+    return folder;
+  }
+  try {
+    return vscode.Uri.file(fs.realpathSync(folder.fsPath));
+  } catch {
+    return folder;
+  }
 }
 
 /**
- * resolve returns the address of an included file, or the problem that keeps the extension from reading it.
+ * isInRealFolders tells whether the target of a file of the disk, after its symbolic links, is in one of some folders.
+ * A file whose path has no symbolic link is in the folder of its path, which the extension checked before.
+ * @param uri - The address of the file.
+ * @param real - The path of the file after its symbolic links.
+ * @param folders - The folders.
+ */
+function isInRealFolders(uri: vscode.Uri, real: string, folders: readonly vscode.Uri[]): boolean {
+  if (pathKey(real) === pathKey(uri.fsPath)) {
+    return true;
+  }
+  const target = vscode.Uri.file(real);
+  return folders.some((folder) => isInFolder(target, realFolder(folder)));
+}
+
+/**
+ * resolve returns the address of an included file with the folders that it must be in, or the problem that keeps the
+ * extension from reading it.
  * @param document - The address of the document.
  * @param path - The path of the file, relative to the folder of the document or absolute.
  */
-function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.Uri } | { problem: string } {
+function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.Uri; folders: vscode.Uri[] } | { problem: string } {
   if (!document || document.scheme === 'untitled') {
-    return { problem: `The document is not saved in a folder, so the extension cannot find the included file ${path}.` };
+    return { problem: includeProblems.unsaved(path) };
   }
   const folder = vscode.Uri.joinPath(document, '..');
   let uri: vscode.Uri;
@@ -120,15 +152,14 @@ function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.
       uri = vscode.Uri.joinPath(folder, path);
     }
   } catch {
-    return { problem: `The extension cannot find the included file ${path}.` };
+    return { problem: includeProblems.unknown(path) };
   }
   uri = withQueryPath(uri.with({ fragment: '' }));
-  if (!isInFolders(uri, folder)) {
-    return {
-      problem: `The file ${path} is outside the workspace folders and the folder of the document. The extension reads included files only from these folders.`,
-    };
+  const folders = [folder, ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => workspaceFolder.uri)];
+  if (!folders.some((root) => isInFolder(uri, root))) {
+    return { problem: includeProblems.outside(path) };
   }
-  return { uri };
+  return { uri, folders };
 }
 
 /**
@@ -139,10 +170,10 @@ function resolve(document: vscode.Uri | undefined, path: string): { uri: vscode.
  */
 function checkStat(folder: boolean, size: number): Content | undefined {
   if (folder) {
-    return { problem: (path) => `The included path ${path} is a folder, not a file.` };
+    return { problem: includeProblems.folder };
   }
   if (size > maxFileSize) {
-    return { problem: (path) => `The file ${path} is larger than 1 MB, the largest file that the extension includes.` };
+    return { problem: includeProblems.tooLarge };
   }
   return undefined;
 }
@@ -154,24 +185,47 @@ function checkStat(folder: boolean, size: number): Content | undefined {
  */
 function readProblem(error: unknown, missing: boolean): Content {
   if (missing) {
-    return { problem: (path) => `The file ${path} does not exist.` };
+    return { problem: includeProblems.missing };
   }
   const message = error instanceof Error ? error.message : String(error);
-  return { problem: (path) => `The extension cannot read the file ${path}: ${message}` };
+  return { problem: (path) => includeProblems.unreadable(path, message) };
 }
 
 /**
- * readDiskFile reads a file of the disk at once.
+ * readDiskFile reads a file of the disk at once, through its symbolic links.
  * @param uri - The address of the file.
  */
-function readDiskFile(uri: vscode.Uri): Content {
+function readDiskFile(uri: vscode.Uri): Reading {
   try {
-    const stat = fs.statSync(uri.fsPath);
-    return checkStat(stat.isDirectory(), stat.size) ?? { text: fs.readFileSync(uri.fsPath, 'utf8') };
+    const real = fs.realpathSync(uri.fsPath);
+    const stat = fs.statSync(real);
+    return { content: checkStat(stat.isDirectory(), stat.size) ?? { text: fs.readFileSync(real, 'utf8') }, real };
   } catch (error) {
-    const code = (error as { code?: unknown } | undefined)?.code;
-    return readProblem(error, code === 'ENOENT' || code === 'ENOTDIR');
+    return diskProblem(error);
   }
+}
+
+/**
+ * readDiskFileLater reads a file of the disk through its symbolic links, without blocking the extension host.
+ * @param uri - The address of the file.
+ */
+async function readDiskFileLater(uri: vscode.Uri): Promise<Reading> {
+  try {
+    const real = await fs.promises.realpath(uri.fsPath);
+    const stat = await fs.promises.stat(real);
+    return { content: checkStat(stat.isDirectory(), stat.size) ?? { text: await fs.promises.readFile(real, 'utf8') }, real };
+  } catch (error) {
+    return diskProblem(error);
+  }
+}
+
+/**
+ * diskProblem returns the reading of a file of the disk that the extension cannot read.
+ * @param error - The error of the reading.
+ */
+function diskProblem(error: unknown): Reading {
+  const code = (error as { code?: unknown } | undefined)?.code;
+  return { content: readProblem(error, code === 'ENOENT' || code === 'ENOTDIR') };
 }
 
 /**
@@ -192,6 +246,14 @@ async function readContent(uri: vscode.Uri): Promise<Content> {
 }
 
 /**
+ * readLater reads a file without blocking the extension host: a file of the disk through its symbolic links, and
+ * another file through the file system of VS Code.
+ * @param uri - The address of the file.
+ */
+const readLater = async (uri: vscode.Uri): Promise<Reading> =>
+  uri.scheme === 'file' ? readDiskFileLater(uri) : { content: await readContent(uri) };
+
+/**
  * sameContent tells whether two contents of a file are equal.
  * @param first - The one content.
  * @param second - The other content.
@@ -210,7 +272,16 @@ export class IncludeFiles implements vscode.Disposable {
   /** #used holds for the address of each included file the time when a diagram included it last. */
   readonly #used = new Map<string, number>();
   readonly #changed = new vscode.EventEmitter<void>();
+  readonly #diskAtOnce: boolean;
   #timer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * @param options - diskAtOnce: reads a file of the disk at once when a diagram includes it first, as the Markdown
+   *   preview needs; without it, the reader reads every file in the background, and `load` waits for it.
+   */
+  constructor({ diskAtOnce = true }: { diskAtOnce?: boolean } = {}) {
+    this.#diskAtOnce = diskAtOnce;
+  }
 
   /** onDidChange fires when an included file changes, and when the extension has read files that a diagram waits for. */
   readonly onDidChange = this.#changed.event;
@@ -293,8 +364,8 @@ export class IncludeFiles implements vscode.Disposable {
   }
 
   /**
-   * #file returns an included file. It reads a file of the disk at once; for a file of another file system that it
-   * has not read yet, it starts to read it and returns undefined.
+   * #file returns an included file. For the Markdown preview, it reads a file of the disk at once; for another file
+   * that it has not read yet, it starts to read it and returns undefined.
    * @param document - The address of the document.
    * @param path - The path of the file.
    * @param readings - Receives the reading of a file that the extension starts.
@@ -307,29 +378,33 @@ export class IncludeFiles implements vscode.Disposable {
     const key = target.uri.toString();
     this.#used.set(key, Date.now());
     let entry = this.#entries.get(key);
-    if (!entry && target.uri.scheme === 'file') {
-      entry = { content: readDiskFile(target.uri), watcher: this.#watch(target.uri, key) };
+    if (!entry && target.uri.scheme === 'file' && this.#diskAtOnce) {
+      entry = { ...readDiskFile(target.uri), watcher: this.#watch(target.uri, key) };
       this.#entries.set(key, entry);
     }
     if (!entry) {
       readings.push(this.#read(target.uri, key));
       return undefined;
     }
+    if (entry.real !== undefined && !isInRealFolders(target.uri, entry.real, target.folders)) {
+      return { problem: includeProblems.linkOutside(path) };
+    }
     return 'text' in entry.content ? entry.content : { problem: entry.content.problem(path) };
   }
 
   /**
-   * #read reads a file of another file system, keeps its content, and tells the previews. The extension does not
-   * watch such a file, as the versions of a file in Git do not change; it keeps the content until it forgets the file.
+   * #read reads a file in the background, keeps its content, watches the file, and tells the previews. A file whose
+   * address has a query, as the versions of a file in Git have, does not change; the extension does not watch it,
+   * and keeps its content until it forgets the file.
    * @param uri - The address of the file.
    * @param key - The address as text.
    */
   #read(uri: vscode.Uri, key: string): Promise<void> {
     let reading = this.#reading.get(key);
     if (!reading) {
-      reading = readContent(uri).then((content) => {
+      reading = readLater(uri).then((read) => {
         this.#reading.delete(key);
-        this.#entries.set(key, { content });
+        this.#entries.set(key, { ...read, watcher: uri.query === '' ? this.#watch(uri, key) : undefined });
         this.#fire();
       });
       this.#reading.set(key, reading);
@@ -338,7 +413,8 @@ export class IncludeFiles implements vscode.Disposable {
   }
 
   /**
-   * #watch watches a file of the disk, also before it exists, and reads it again when it changes.
+   * #watch watches a file, also before it exists, and reads it again when it changes. A file of another file system
+   * than the disk reports its changes when its file system can watch files.
    * @param uri - The address of the file.
    * @param key - The address as text.
    */
@@ -346,11 +422,16 @@ export class IncludeFiles implements vscode.Disposable {
     // The name is a pattern, in which a character with a meaning in patterns stands for itself in brackets.
     const name = uri.path.slice(uri.path.lastIndexOf('/') + 1).replace(/[*?[\]{}]/g, '[$&]');
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), name));
-    const reload = () => {
+    const reload = async () => {
+      const reading = await readLater(uri);
       const entry = this.#entries.get(key);
-      const content = readDiskFile(uri);
-      if (entry && !sameContent(entry.content, content)) {
-        entry.content = content;
+      if (!entry) {
+        return;
+      }
+      const changed = !sameContent(entry.content, reading.content) || entry.real !== reading.real;
+      entry.content = reading.content;
+      entry.real = reading.real;
+      if (changed) {
         this.#fire();
       }
     };

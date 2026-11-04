@@ -85,7 +85,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": true,
-      "description": "The extension reads PlantUML text and the files that it includes from the workspace to show the diagrams, and runs no program of the workspace."
+      "description": "The extension reads PlantUML text and the files that it includes from the workspace to show the diagrams, writes SVG files only when you run the command Export Diagrams as SVG, and runs no program of the workspace."
     },
     "virtualWorkspaces": {
       "supported": true
@@ -188,6 +188,11 @@
         "command": "nimblescape.plantuml.formatBlocks",
         "title": "Format PlantUML Blocks",
         "category": "PlantUML"
+      },
+      {
+        "command": "nimblescape.plantuml.exportSvg",
+        "title": "Export Diagrams as SVG",
+        "category": "PlantUML"
       }
     ],
     "menus": {
@@ -224,6 +229,17 @@
         {
           "command": "nimblescape.plantuml.formatBlocks",
           "when": "editorLangId == markdown"
+        },
+        {
+          "command": "nimblescape.plantuml.exportSvg",
+          "when": "editorLangId == plantuml || editorLangId == markdown || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "nimblescape.plantuml.exportSvg",
+          "when": "resourceLangId == plantuml",
+          "group": "navigation"
         }
       ]
     },

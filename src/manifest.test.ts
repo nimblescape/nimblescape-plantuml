@@ -21,6 +21,7 @@ import { grammarFiles } from './language/grammars';
 import { bundledLibraries } from './preview/renderer';
 import { commands, diffPreviewViewType, previewViewType, sidePreviewViewType } from './pumlPreviews';
 import { defaultSettings, settingsSection } from './settings';
+import { exportSvgCommand } from './svgExport';
 
 // The previews module imports the editor API; these tests read only its constants.
 vi.mock('vscode', () => ({}));
@@ -113,7 +114,7 @@ test('the icon is a PNG of 256 × 256 pixels, because the Marketplace takes no S
 test('the manifest contributes the custom editor, the commands and the activation events of the previews', () => {
   expect(manifest.contributes.customEditors.map((editor: { viewType: string }) => editor.viewType)).toEqual([previewViewType]);
   expect(manifest.contributes.commands.map((command: { command: string }) => command.command).sort()).toEqual(
-    [...Object.values(commands), formatBlocksCommand].sort(),
+    [...Object.values(commands), formatBlocksCommand, exportSvgCommand].sort(),
   );
   expect(manifest.activationEvents).toEqual(
     expect.arrayContaining([`onWebviewPanel:${sidePreviewViewType}`, `onWebviewPanel:${diffPreviewViewType}`]),
@@ -157,6 +158,16 @@ test('the extension is the default formatter of PlantUML files, and the command 
     '[plantuml]': { 'editor.defaultFormatter': `${manifest.publisher}.${manifest.name}` },
   });
   expect(manifest.contributes.menus.commandPalette).toContainEqual({ command: formatBlocksCommand, when: 'editorLangId == markdown' });
+});
+
+test('the command "Export Diagrams as SVG" is for PlantUML files, their previews and Markdown files (R-GEN-003)', () => {
+  expect(manifest.contributes.commands).toContainEqual({ command: exportSvgCommand, title: 'Export Diagrams as SVG', category: 'PlantUML' });
+  expect(manifest.contributes.menus.commandPalette).toContainEqual({
+    command: exportSvgCommand,
+    when: `editorLangId == plantuml || editorLangId == markdown || activeCustomEditorId == '${previewViewType}'`,
+  });
+  // The explorer offers the command for PlantUML files only: a Markdown file without PlantUML blocks gets no entry (R-MD-006).
+  expect(manifest.contributes.menus['explorer/context']).toEqual([{ command: exportSvgCommand, when: 'resourceLangId == plantuml', group: 'navigation' }]);
 });
 
 test('the manifest contributes the settings of src/settings.ts with their defaults', () => {
@@ -203,6 +214,7 @@ test('the package holds the bundles, the engine, the grammars, the preview style
     '!dist/extension.js',
     '!dist/markdownPreview.js',
     '!dist/pumlPreview.js',
+    '!dist/svgExport.js',
     '!dist/engine/**',
     '!dist/syntaxes/**',
     '!media/markdownPreview.css',
@@ -266,6 +278,7 @@ test('the third-party notices name every package that the build bundles into a s
     ['src/extension.ts', 'node'],
     ['src/preview/markdownPreview.ts', 'browser'],
     ['src/preview/pumlPreview.ts', 'browser'],
+    ['src/preview/svgExportPage.ts', 'browser'],
     ['src/cli/index.ts', 'node'],
   ];
   const packages = new Set<string>();

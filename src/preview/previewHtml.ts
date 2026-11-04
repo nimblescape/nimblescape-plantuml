@@ -3,7 +3,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 /**
- * The page of the preview of PlantUML files. Its security policy allows the
+ * The page of the preview of PlantUML files and of the SVG export. Its security policy allows the
  * script of the extension only, by a nonce, and allows WebAssembly
  * (`'wasm-unsafe-eval'`) for the Graphviz layout of Viz.js. It allows the
  * styles and the images of the extension and inline styles, which the SVG
@@ -21,6 +21,8 @@ export interface PageResources {
   script: string;
   /** style is the address of the styles of the page in the webview. */
   style: string;
+  /** title is the title of the page; by default, "PlantUML Preview". */
+  title?: string;
 }
 
 /**
@@ -35,7 +37,7 @@ const escapeAttribute = (text: string): string =>
  * @param resources - The addresses and the security values of the page.
  */
 export function previewHtml(resources: PageResources): string {
-  const { cspSource, nonce, script, style } = resources;
+  const { cspSource, nonce, script, style, title = 'PlantUML Preview' } = resources;
   const policy = [
     `default-src 'none'`,
     `img-src ${cspSource} data:`,
@@ -52,7 +54,7 @@ export function previewHtml(resources: PageResources): string {
 <meta http-equiv="Content-Security-Policy" content="${escapeAttribute(policy)}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${escapeAttribute(style)}">
-<title>PlantUML Preview</title>
+<title>${escapeAttribute(title)}</title>
 </head>
 <body>
 <main id="diagrams"></main>

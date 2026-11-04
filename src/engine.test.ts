@@ -14,8 +14,9 @@
  * `src/language/keywords.ts`, the picture of an error that `errorOf` reads,
  * the group of the title that the label of an image reads, the library C4 of
  * the package, the failure at an include line of a file, which the engine
- * cannot read, and the Graphviz layout of Viz.js. Two tests render a Markdown
- * page with the renderer of the previews, one with included files.
+ * cannot read, the type of UML diagram that the error message names for the
+ * probe of the SVG export, and the Graphviz layout of Viz.js. Two tests render
+ * a Markdown page with the renderer of the previews, one with included files.
  *
  * The tests run the engine in happy-dom, which has no fonts: a text measures
  * a fixed width for each character.
@@ -203,6 +204,26 @@ describe('the engine with the loader of the previews', () => {
       error: 'The extension does not contain the PlantUML library awslib. It contains only the library C4.',
       line: 1,
     });
+  });
+
+  test('names the type of UML diagram that PlantUML assumes at the line of the probe of the SVG export', async () => {
+    const renderer = new PreviewRenderer(document.body, loadEngine, () => false);
+    // PlantUML names the use case, component and deployment diagrams "component", and the object diagrams "class".
+    const bodies: [string, string][] = [
+      ['sequence', 'Alice -> Bob : hello'],
+      ['class', 'class Car\nCar --> Wheel'],
+      ['class', 'object car'],
+      ['activity', 'start\n:read;\nstop'],
+      ['component', '[Web] --> [Database]'],
+      ['component', 'actor User\nUser --> (Log in)'],
+      ['component', 'node Server\nartifact App\nServer -- App'],
+      ['state', '[*] --> Idle'],
+      ['timing', 'robust "Web" as W\n@0\nW is Idle'],
+    ];
+    for (const [type, body] of bodies) {
+      expect(await renderer.typeOf(diagramLines(body, defaultSettings).lines), body).toBe(type);
+    }
+    expect(await renderer.typeOf(diagramLines('@startmindmap\n* root\n@endmindmap', defaultSettings).lines)).toBe('mindmap');
   });
 
   test('shows the diagrams of a Markdown page with the renderer of the previews', async () => {

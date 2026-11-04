@@ -21,7 +21,9 @@ links to its details.
   (`onLanguage:markdown`), when a PlantUML file opens (`onLanguage:plantuml`,
   which VS Code adds for the language of the extension), and when VS Code
   restores a preview to the side or a rendered diff of a PlantUML file after a
-  restart (`onWebviewPanel:…`). The manifest has no `browser` entry, so the
+  restart (`onWebviewPanel:…`), or when you run its command "Export Diagrams
+  as SVG", for example from the explorer (VS Code activates an extension for
+  its commands). The manifest has no `browser` entry, so the
   extension does not run in VS Code for the Web. See
   [Trust boundaries](#trust-boundaries).
 - **Rendering.** The diagrams render on your computer, in the webview of the
@@ -45,7 +47,9 @@ links to its details.
 - **Files and data.** The extension reads the files that a diagram includes,
   only in the workspace folders and in the folder of the document, up to 1 MB
   each, and watches them. It writes no file, except the formatting of the file
-  that you format or save. The previews keep the pictures of the 50 most
+  that you format or save, and the SVG files of the command "Export Diagrams
+  as SVG" in the folder of the file that you export. See
+  [SVG export](#svg-export). The previews keep the pictures of the 50 most
   recently rendered diagrams, with their text, in the storage of the webviews,
   up to 1,000,000 characters together. Warnings go to the log "nimblescape
   PlantUML" in the Output view, which VS Code also writes into its log files.
@@ -88,7 +92,8 @@ A diagram text from a stranger can still:
 | The extension (`dist/extension.js`) | Your user, in the extension host of VS Code, where the workspace is | VS Code. It reads documents and included files only as text. |
 | The Markdown preview with the script `dist/markdownPreview.js` and the engine | The webview of the Markdown preview of VS Code, with the security policy of the Markdown preview | The page that the Markdown extension of VS Code writes |
 | A preview of a PlantUML file or a rendered diff, with `dist/pumlPreview.js` and the engine | A webview of the extension, with its own security policy | The messages of the extension. The extension accepts only two messages from the page: `ready`, and `log`, whose text (up to 2,000 characters) goes into the log of the extension. |
-| The engine (`dist/engine/`) | The webview of the preview | Nothing: the diagram text and the texts of the included files are data that it renders into SVG |
+| The page of the SVG export, with `dist/svgExport.js` and the engine | A webview of the extension, with the security policy of the preview of PlantUML files, open while an export renders | The messages of the extension. The extension accepts four messages from the page: `ready`, `block` with the SVG texts and the types of the diagrams of a block, `done`, and `log` (up to 2,000 characters). |
+| The engine (`dist/engine/`) | The webview of the preview or of the export | Nothing: the diagram text and the texts of the included files are data that it renders into SVG |
 
 In a remote window (SSH, WSL, a container), the extension runs where the
 workspace is, and the previews show in the VS Code window of your computer.
@@ -200,6 +205,31 @@ variable or a function. It reads the files of the disk at once and watches
 nothing. The program decides which folders it names, so it decides how far
 the reading reaches.
 
+## SVG export
+
+The command "PlantUML: Export Diagrams as SVG" (`src/svgExport.ts`) runs only
+when you start it:
+
+- **Rendering.** The engine needs a page, so the export renders in a webview
+  of the extension with the page of `src/preview/previewHtml.ts`, the same
+  security policy as the preview of PlantUML files, and the script
+  `dist/svgExport.js`. The webview shows as a tab "Export <file>" while it
+  renders and closes when the files are written. It renders the text of the
+  editor with the same included files and settings as a preview, and sends
+  nothing to the internet.
+- **Files.** The extension writes each SVG file with the file system of
+  VS Code (`workspace.fs.writeFile`) into the folder of the exported file, and
+  replaces a file with the same name. It makes each name itself, from the
+  name of the exported file and the type of the diagram that the page sends;
+  the type adds only small letters and digits to the name, so a name never
+  leaves the folder. It writes nothing for a page message that is not valid,
+  and nothing when you close the tab or cancel the export.
+- **Content.** A file holds the SVG image of the engine as it is, after the
+  XML declaration, as the preview shows it (see [Rendering](#rendering)): the
+  engine 1.2026.9 writes no script, no event handler and no
+  `<foreignObject>`. A link of a diagram (`[[…]]`) stays a link in the file,
+  which a program that shows the file may open.
+
 ## Formatting and editing
 
 - **Markdown files at save.** VS Code formats at save only with the default
@@ -235,7 +265,8 @@ the reading reaches.
 
 The manifest declares `untrustedWorkspaces` and `virtualWorkspaces` as
 supported. In Restricted Mode and in a virtual workspace, the extension
-activates with all features, because it only reads the files of the workspace
+activates with all features, because it reads the files of the workspace,
+writes files only when you run a command (the formatting, the SVG export),
 and runs no program of the workspace. The only setting of the extension,
 `nimblescape.plantuml.umlNotation`, can come from the settings of a workspace;
 it only changes the notation of the diagrams. The settings of VS Code that
@@ -256,8 +287,10 @@ extension of a remote repository, may download a file to read it.
 | The address of the file of a preview of a PlantUML file, and of the original file of a rendered diff | The state of the webview, which VS Code keeps for a restart | Until the preview closes, also across a restart of VS Code |
 | The texts of the included files | The memory of the extension host | Until no diagram included the file for ten minutes, or VS Code closes |
 | The setting `nimblescape.plantuml.umlNotation` | The settings of VS Code, when you change it | Until you change it |
+| The SVG files of the export, and the errors of the diagrams without a file | The folder of the exported file; the errors in the log "nimblescape PlantUML" | Until you delete the files |
 
-The extension writes no file of its own (VS Code writes the log), uses
+The extension writes no file of its own, except the SVG files of an export
+that you start (VS Code writes the log), uses
 neither `globalState` nor `workspaceState` of VS Code, stores no secret, and
 sends nothing to any address.
 

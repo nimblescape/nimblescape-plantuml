@@ -7,8 +7,9 @@ node_modules/
 dist/
 *.vsix
 
-# Keep the downloads and the user data of the tests in VS Code out of Git.
+# Keep the downloads and the user data of the tests in VS Code out of Git, and the SVG files of their export.
 .vscode-test/
+test/vscode/workspace/*.svg
 
 # The license and the notices that the build copies into the npm package.
 cli/LICENSE

@@ -3,6 +3,19 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.3.0
+
+**Export as SVG.** The new command "PlantUML: Export Diagrams as SVG" writes
+one SVG file for each diagram of a PlantUML file, or of the PlantUML blocks
+of a Markdown file, into the folder of the file. A file with one diagram
+gives `notes.svg`; a file with several diagrams gives one file for each,
+named by the type of the diagram, for example `notes-sequence.svg`,
+`notes-class.svg` and `notes-sequence-2.svg`. The files have the normal
+colors of PlantUML for a light background, the UML notation of the setting
+`nimblescape.plantuml.umlNotation`, and the included files. Run the command
+from the command palette in a PlantUML or Markdown file, or from the context
+menu of a PlantUML file in the explorer.
+
 ## 0.2.2
 
 **PlantUML 1.2026.9.** The extension renders with the engine 1.2026.9. Wireframes with `@startsalt` now render, and `salt` is a diagram type of the highlighting and the completion. The links of a diagram (`[[…]]`) are links of the picture: a click opens web, mail and `vscode:` addresses. In the preview of PlantUML files, a click on a link opens it and no longer changes the size of the diagram.

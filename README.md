@@ -10,8 +10,9 @@ Java, no Graphviz installation and no server, and it works offline.
 ## What the extension does on your computer
 
 - **When it works.** The extension starts when a Markdown file or a PlantUML
-  file opens, and when VS Code restores a preview of a PlantUML file after a
-  restart. It does not run in VS Code for the Web.
+  file opens, when VS Code restores a preview of a PlantUML file after a
+  restart, and when you run its command "Export Diagrams as SVG". It does not
+  run in VS Code for the Web.
 - **Rendering.** The diagrams render on your computer, in the preview, with
   the PlantUML engine that the package contains (`@plantuml/core` 1.2026.9,
   PlantUML compiled to JavaScript). The extension uses no PlantUML server,
@@ -40,14 +41,17 @@ Java, no Graphviz installation and no server, and it works offline.
   `!includesub`, the extension reads files of the workspace folders and of
   the folder of the document only, up to 1 MB each, and watches them for
   changes. It reads no address of the internet. It writes no file, except the
-  formatting of the file that you format or save. The previews keep the
-  pictures of the 50 most recently rendered diagrams, with their text, in the
-  storage that VS Code keeps for its previews on your computer.
+  formatting of the file that you format or save, and the SVG files of the
+  command "Export Diagrams as SVG" next to the file that you export. The
+  previews keep the pictures of the 50 most recently rendered diagrams, with
+  their text, in the storage that VS Code keeps for its previews on your
+  computer.
 - **Network.** The extension connects to no address and collects no
   telemetry.
 - **Restricted Mode and virtual workspaces.** The extension works with all
-  features in Restricted Mode and in virtual workspaces, because it only reads
-  the files of the workspace and runs no program of the workspace.
+  features in Restricted Mode and in virtual workspaces, because it reads the
+  files of the workspace, writes files only on your command, and runs no
+  program of the workspace.
 
 [Security](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/security.md#what-the-extension-does-on-your-computer)
 describes each step and where its protection ends.
@@ -77,8 +81,11 @@ describes each step and where its protection ends.
   sequence, use case, class, activity, component, state and timing diagrams,
   Gantt charts, mind maps, and JSON and YAML data, with the themes, emoji and
   icons of PlantUML, for light and dark color themes.
-
-The extension shows diagrams only; it does not export them to image files.
+- **Export as SVG.** The command "PlantUML: Export Diagrams as SVG" writes
+  one SVG file for each diagram of a PlantUML file or of the PlantUML blocks of
+  a Markdown file, next to the file: `notes.svg` for one diagram, and
+  `notes-sequence.svg`, `notes-class.svg`, `notes-sequence-2.svg` … for
+  several, named by the type of each diagram.
 
 ## Usage
 
@@ -101,6 +108,7 @@ Then open the preview:
 | Markdown: Toggle Preview, PlantUML: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview. In the diff of a PlantUML file, it switches between the diff and the rendered diff. |
 | Format Document | Shift+Alt+F (Linux: Ctrl+Shift+I) | Formats a PlantUML file, or the PlantUML blocks of a Markdown file. |
 | PlantUML: Format PlantUML Blocks | | Formats the PlantUML blocks of a Markdown file when another extension formats Markdown files. |
+| PlantUML: Export Diagrams as SVG | | Writes one SVG file for each diagram of a PlantUML file or of the PlantUML blocks of a Markdown file, next to the file. Also in the context menu of a PlantUML file in the explorer. |
 
 On macOS, use Cmd instead of Ctrl, and Shift+Option+F for Format Document.
 The [user guide](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/guide.md)

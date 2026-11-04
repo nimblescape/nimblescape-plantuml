@@ -31,6 +31,7 @@ Windows and Linux; on macOS, use Cmd instead of Ctrl.
 | [UML notation](#uml-notation) | yes | yes | available | [R-GEN-007](requirements.md#r-gen-007) |
 | [Included files](#included-files) | yes | yes | available | [R-GEN-008](requirements.md#r-gen-008) |
 | [Diagrams on the pages of other extensions](#diagrams-on-the-pages-of-other-extensions) | yes | | available | [R-MD-007](requirements.md#r-md-007) |
+| [Export as SVG](#export-as-svg) | yes, one file for each diagram of the PlantUML blocks | yes, one file for each diagram | available | [R-GEN-003](requirements.md#r-gen-003), [R-MD-008](requirements.md#r-md-008), [R-PUML-009](requirements.md#r-puml-009) |
 
 ## How the extension renders
 
@@ -56,8 +57,8 @@ renders it as if it started with `@startuml` and ended with `@enduml`.
 A diagram can include other files. The section
 [Included files](#included-files) explains it.
 
-The extension only shows diagrams. It does not export a diagram to a file, in
-no format.
+The command "PlantUML: Export Diagrams as SVG" writes the diagrams into SVG
+files. The section [Export as SVG](#export-as-svg) explains it.
 
 The diagrams follow the color theme of VS Code: with a dark theme, PlantUML
 draws them for a dark background. When the theme changes, the previews draw
@@ -295,6 +296,66 @@ Limits:
   opened due to an unexpected error". This is an error of VS Code, and the
   source code of the next VS Code version has a fix for it. Use Ctrl+Shift+V
   or the button instead.
+
+## Export as SVG
+
+The command "PlantUML: Export Diagrams as SVG" writes one SVG file for each
+diagram of a PlantUML file, or of the PlantUML blocks of a Markdown file,
+into the folder of the file. Run it in one of these ways:
+
+| Where | How |
+| --- | --- |
+| A PlantUML file or its preview | Command palette (Ctrl+Shift+P): "PlantUML: Export Diagrams as SVG" |
+| A Markdown file | Command palette: "PlantUML: Export Diagrams as SVG" |
+| PlantUML files in the explorer | Context menu of a file: "Export Diagrams as SVG". With several selected files, the command exports each of them. |
+
+The names of the files come from the name of the file and the type of each
+diagram:
+
+| File | Diagrams | SVG files |
+| --- | --- | --- |
+| `notes.md` | one diagram | `notes.svg` |
+| `notes.md` | a sequence diagram and a class diagram | `notes-sequence.svg`, `notes-class.svg` |
+| `notes.md` | two sequence diagrams and a mind map | `notes-sequence.svg`, `notes-sequence-2.svg`, `notes-mindmap.svg` |
+| `shapes.puml` | one diagram | `shapes.svg` |
+| `shapes.puml` | an activity diagram and a Gantt chart | `shapes-activity.svg`, `shapes-gantt.svg` |
+
+In a Markdown file, the export counts the diagrams of all PlantUML blocks of
+the file, in their order; a block can hold several diagrams. The type of a
+diagram is the word after its `@start`, for example `mindmap`, `gantt` or
+`json`. For a UML diagram (`@startuml`, or a text without `@start`), it is the
+type that PlantUML finds in the text, with the name that PlantUML gives it:
+`sequence`, `class`, `activity`, `component`, `state` or `timing`. PlantUML
+names use case and deployment diagrams `component`, and object diagrams
+`class`.
+
+How the export works:
+
+- The export renders the text of the editor, also changes that you have not
+  saved yet, with the settings of the file, for example the
+  [UML notation](#uml-notation), and with the saved texts of the
+  [included files](#included-files).
+- The engine needs a page of VS Code to measure the texts of a diagram. So
+  the export opens a tab "Export <file>" next to the editor, which shows the
+  diagrams while they render, and closes it when the files are written. A
+  notification shows the progress; its button "Cancel" stops the export. When
+  you close the tab before the end, the export stops and writes no file.
+- The SVG files have the normal colors of PlantUML for a light background,
+  also when VS Code has a dark color theme, and use the layout engine
+  Graphviz. A diagram in the Markdown preview with Smetana (see
+  [Layout of diagrams in the Markdown preview](#layout-of-diagrams-in-the-markdown-preview))
+  can look a little different in its SVG file.
+- The export replaces a file with the same name. It removes no file: when a
+  file has fewer diagrams than at the last export, the files of the earlier
+  diagrams stay.
+- A diagram with an error gets no SVG file, and the files of the other
+  diagrams keep their names. The message after the export names the number of
+  these diagrams, and the log "nimblescape PlantUML" in the Output view names
+  each error with its line, as the preview does (button "Show Log").
+- A new file that has never been saved (`Untitled-1`) has no folder: save it
+  first.
+
+The export writes SVG only, no PNG or other format.
 
 ## Editing
 

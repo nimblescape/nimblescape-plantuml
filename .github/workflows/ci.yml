@@ -14,8 +14,7 @@
 # and macOS, with the oldest Node.js that the package supports (engines of
 # cli/package.json) and the newest LTS release. This workflow publishes
 # nothing: the release workflow calls it for the commit of a version and
-# publishes the VSIX and the npm package of that call. A change of this file
-# changes the release process: its pull request needs a dry run (rule 4).
+# publishes the VSIX and the npm package of that call.
 
 name: CI
 

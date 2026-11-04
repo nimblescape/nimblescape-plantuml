@@ -104,13 +104,12 @@ official product of the PlantUML project.
 ### R-GEN-006
 
 **Release.** The publisher is `nimblescape`. The release uses the same
-workflows and checks as the other extensions of the publisher (`release.yml`,
-`release-dry-run.yml`, `marketplace-identity.yml`,
-`scripts/release-checks.mjs`) and follows the
+workflows as the other extensions of the publisher (`release.yml`,
+`marketplace-identity.yml`) and follows the
 [release rules](../CONTRIBUTING.md#release-rules) of the publisher: the
 extension ID never changes, no deletion, only versions that change something
-for the users and at most one version in 7 days, a dry run before a change of
-the release process reaches `main`, and publishing only from GitHub Actions
+for the users and at most one version in 7 days, a dry run before a release
+uses a changed release workflow, and publishing only from GitHub Actions
 with Microsoft Entra ID. The release also publishes the npm package
 ([R-NPM-001](#r-npm-001)) to npmjs.com with trusted publishing, in the same
 version as the extension. Nobody publishes the extension or the npm package

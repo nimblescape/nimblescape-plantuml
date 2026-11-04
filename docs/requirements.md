@@ -15,10 +15,12 @@ comes first, the support of PlantUML files second.
 
 The plan of nimblescape PlantUML is a part of the Claude document
 [One plan of all products](https://claude.ai/artifact/SatbygA2FkJiW3ob623NEy). All its steps, 1 to 6, are built, and
-version 0.2.2 is released; they are in its tab "Built steps". A new step of
-nimblescape PlantUML goes into the section "Open steps" of that plan. No
-repository holds a plan; the plan names the requirements of each step by
-their IDs, and the requirements stay the normative text.
+version 0.2.2 is released; their list is in the
+[last version of the plan file](https://github.com/nimblescape/markdown/blob/23c2c0a/docs/plan.md#74-nimblescape-plantuml) in the history
+of nimblescape Markdown. A new step of nimblescape PlantUML goes into the
+section "Open steps" of that plan. No repository holds a plan; the plan shows
+only the open points, each with the text of the requirements that it names,
+and the requirements stay the normative text.
 
 ## General
 

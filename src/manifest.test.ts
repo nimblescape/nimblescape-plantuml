@@ -21,7 +21,7 @@ import { grammarFiles } from './language/grammars';
 import { bundledLibraries } from './preview/renderer';
 import { commands, diffPreviewViewType, previewViewType, sidePreviewViewType } from './pumlPreviews';
 import { defaultSettings, settingsSection } from './settings';
-import { exportSvgCommand } from './svgExport';
+import { exportSvgCommand, markdownPreviewPanel } from './svgExport';
 
 // The previews module imports the editor API; these tests read only its constants.
 vi.mock('vscode', () => ({}));
@@ -160,11 +160,13 @@ test('the extension is the default formatter of PlantUML files, and the command 
   expect(manifest.contributes.menus.commandPalette).toContainEqual({ command: formatBlocksCommand, when: 'editorLangId == markdown' });
 });
 
-test('the command "Export Diagrams as SVG" is for PlantUML files, their previews and Markdown files (R-GEN-003)', () => {
+test('the command "Export Diagrams as SVG" is for PlantUML files and Markdown files in every editor that shows them (R-GEN-003)', () => {
   expect(manifest.contributes.commands).toContainEqual({ command: exportSvgCommand, title: 'Export Diagrams as SVG', category: 'PlantUML' });
+  // resourceLangId is the language of the file of the active editor, also of a preview or another custom editor; the
+  // Markdown preview beside the editor (Ctrl+K V) is a webview panel without a file.
   expect(manifest.contributes.menus.commandPalette).toContainEqual({
     command: exportSvgCommand,
-    when: `editorLangId == plantuml || editorLangId == markdown || activeCustomEditorId == '${previewViewType}'`,
+    when: `editorLangId == plantuml || editorLangId == markdown || resourceLangId == plantuml || resourceLangId == markdown || activeWebviewPanelId == '${markdownPreviewPanel}'`,
   });
   // The explorer offers the command for PlantUML files only: a Markdown file without PlantUML blocks gets no entry (R-MD-006).
   expect(manifest.contributes.menus['explorer/context']).toEqual([{ command: exportSvgCommand, when: 'resourceLangId == plantuml', group: 'navigation' }]);

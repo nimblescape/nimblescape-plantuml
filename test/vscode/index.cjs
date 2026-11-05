@@ -141,10 +141,49 @@ const tests = [
         }
         const sequence = new TextDecoder().decode(await vscode.workspace.fs.readFile(files[0]));
         assert.match(sequence, />Alice</);
+        // The image has the white background of PlantUML, so that a viewer with a dark theme shows its black lines.
+        assert.match(sequence, /^[^\n]*\n<svg\b[^>]*><rect x="0" y="0" width="[\d.]+" height="[\d.]+" fill="#FFFFFF" stroke="none"\/>/);
         // The export tabs are closed again.
         const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs);
         assert.ok(!tabs.some((tab) => tab.label.startsWith('Export ')), tabs.map((tab) => tab.label).join(', '));
       } finally {
+        for (const file of files) {
+          await vscode.workspace.fs.delete(file).then(undefined, () => undefined);
+        }
+      }
+    },
+  },
+  {
+    name: 'the SVG export exports the Markdown file of the Markdown preview of VS Code, in its tab and beside the editor',
+    run: async () => {
+      const files = ['diagrams-sequence.svg', 'diagrams-class.svg'].map(workspace);
+      /** exportActive runs the command for the active tab and returns whether it wrote the files. */
+      const exportActive = async () => {
+        for (const file of files) {
+          await vscode.workspace.fs.delete(file).then(undefined, () => undefined);
+        }
+        await vscode.commands.executeCommand('nimblescape.plantuml.exportSvg');
+        const written = await Promise.all(files.map((file) => vscode.workspace.fs.stat(file).then(() => true, () => false)));
+        return written.every(Boolean);
+      };
+      try {
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+        // The Markdown preview in the tab of the file (Ctrl+Shift+V) is a custom editor of the file.
+        await vscode.commands.executeCommand('vscode.openWith', workspace('diagrams.md'), 'vscode.markdown.preview.editor');
+        await until(() => activeViewType() === 'vscode.markdown.preview.editor', 'the Markdown preview');
+        assert.ok(await exportActive(), 'the export of the Markdown preview in the tab of the file');
+        // The Markdown preview beside the editor (Ctrl+K V) is a webview panel that names no file.
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+        await vscode.window.showTextDocument(workspace('diagrams.md'));
+        await vscode.commands.executeCommand('markdown.showPreviewToSide');
+        await until(() => vscode.window.tabGroups.all.length === 2, 'the preview beside the editor');
+        await vscode.commands.executeCommand('workbench.action.focusSecondEditorGroup');
+        const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+        assert.ok(input instanceof vscode.TabInputWebview, String(input?.constructor?.name));
+        assert.equal(vscode.window.activeTextEditor, undefined);
+        assert.ok(await exportActive(), `the export of the Markdown preview beside the editor (${input.viewType})`);
+      } finally {
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
         for (const file of files) {
           await vscode.workspace.fs.delete(file).then(undefined, () => undefined);
         }

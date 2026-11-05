@@ -11,8 +11,9 @@
  * A file with one diagram gives one SVG file with the name of the file, for
  * example `notes.svg` for `notes.md`. A file with several diagrams gives one
  * SVG file for each diagram, named by the file and the type of the diagram,
- * for example `notes-sequence.svg` and `notes-class.svg`; a second diagram of
- * the same type gets a number, for example `notes-sequence-2.svg`
+ * for example `notes-sequence.svg` and `notes-class.svg`; when the file has
+ * several diagrams of the same type, each of them gets its number among them,
+ * for example `notes-sequence-1.svg` and `notes-sequence-2.svg`
  * ([R-MD-008](../../docs/requirements.md#r-md-008),
  * [R-PUML-009](../../docs/requirements.md#r-puml-009)).
  *
@@ -77,10 +78,10 @@ export function baseName(fileName: string): string {
 
 /**
  * svgFileNames returns the name of the SVG file of each diagram of a file, in the order of the diagrams. With one
- * diagram, the name is the base name; with several, the base name and the type of the diagram, and from the second
- * diagram of a type on, its number among the diagrams of that type: `notes-sequence.svg`, `notes-sequence-2.svg`. A
- * diagram without a type, because it has an error, gets no name, and the numbers of the other diagrams do not count
- * it; it still counts as a diagram of the file.
+ * diagram, the name is the base name; with several, the base name and the type of the diagram: `notes-class.svg`.
+ * When several diagrams have the same type, each of them also gets its number among the diagrams of that type, from 1
+ * (Hannes, 2026-11-05): `notes-sequence-1.svg`, `notes-sequence-2.svg`. A diagram without a type, because it has an
+ * error, gets no name, and the numbers of the other diagrams do not count it; it still counts as a diagram of the file.
  * @param base - The base name of the file, for example `notes` for `notes.md`.
  * @param types - The type of each diagram of the file, or undefined for a diagram with an error.
  */
@@ -88,15 +89,24 @@ export function svgFileNames(base: string, types: readonly (string | undefined)[
   if (types.length === 1) {
     return [types[0] === undefined ? undefined : `${base}.svg`];
   }
+  const names = types.map((type) => (type === undefined ? undefined : fileType(type)));
+  const totals = new Map<string, number>();
+  for (const name of names) {
+    if (name !== undefined) {
+      totals.set(name, (totals.get(name) ?? 0) + 1);
+    }
+  }
   const counts = new Map<string, number>();
-  return types.map((type) => {
-    if (type === undefined) {
+  return names.map((name) => {
+    if (name === undefined) {
       return undefined;
     }
-    const name = fileType(type);
+    if (totals.get(name) === 1) {
+      return `${base}-${name}.svg`;
+    }
     const count = (counts.get(name) ?? 0) + 1;
     counts.set(name, count);
-    return count === 1 ? `${base}-${name}.svg` : `${base}-${name}-${count}.svg`;
+    return `${base}-${name}-${count}.svg`;
   });
 }
 
@@ -106,12 +116,22 @@ export const xmlDeclaration = '<?xml version="1.0" encoding="UTF-8" standalone="
 /** xlinkNamespace is the namespace of the attributes `xlink:…` of SVG. */
 const xlinkNamespace = 'http://www.w3.org/1999/xlink';
 
+/** svgBackground is the color of the background that svgFile gives an image without one: the white of PlantUML. */
+export const svgBackground = '#FFFFFF';
+
 /**
- * svgFile returns the text of an SVG file for the SVG image of the engine: the XML declaration and the image. In the
- * browser of VS Code, the engine declares the namespace of the attribute `xlink:href`, which it writes for the image of
- * a sprite, on the element that uses it. An SVG file is XML and needs this declaration, so for an image that uses the
- * prefix `xlink:` without any declaration, svgFile adds the declaration to the root element. Nothing else of the image
- * changes.
+ * svgFile returns the text of an SVG file for the SVG image of the engine: the XML declaration and the image.
+ *
+ * - In the browser of VS Code, the engine declares the namespace of the attribute `xlink:href`, which it writes for the
+ *   image of a sprite, on the element that uses it. An SVG file is XML and needs this declaration, so for an image that
+ *   uses the prefix `xlink:` without any declaration, svgFile adds the declaration to the root element.
+ * - The engine draws the background of a diagram only when the diagram sets a color other than white, for example with
+ *   `skinparam backgroundColor`, and then marks the root element with the style `background-color`. Without it, the
+ *   image is transparent, and a viewer with a dark theme hides the black lines and texts of PlantUML. So for an image
+ *   without this style, svgFile adds a white rectangle of the size of the image as its first element, as the engine
+ *   draws a background.
+ *
+ * Nothing else of the image changes.
  * @param svg - The SVG text of the engine.
  */
 export function svgFile(svg: string): string {
@@ -119,5 +139,22 @@ export function svgFile(svg: string): string {
   if (/\sxlink:[a-z]/i.test(text) && !/\sxmlns:xlink=/.test(text)) {
     text = text.replace(/^<svg\b/, `<svg xmlns:xlink="${xlinkNamespace}"`);
   }
-  return `${xmlDeclaration}\n${text}\n`;
+  return `${xmlDeclaration}\n${withBackground(text)}\n`;
+}
+
+/**
+ * withBackground returns an SVG image with a white rectangle behind all its elements, of the size of its `viewBox`, or
+ * of its `width` and `height` without a `viewBox`. An image whose root element has a background color already stays as
+ * it is.
+ * @param svg - The SVG text, which starts with the root element.
+ */
+function withBackground(svg: string): string {
+  const root = /^<svg\b[^>]*>/.exec(svg)?.[0];
+  if (!root || root.endsWith('/>') || /\sstyle="[^"]*background/i.test(root)) {
+    return svg;
+  }
+  const attribute = (name: string): string | undefined => new RegExp(`\\s${name}="([^"]*)"`).exec(root)?.[1];
+  const box = attribute('viewBox')?.trim().split(/[\s,]+/);
+  const [x, y, width, height] = box?.length === 4 ? box : ['0', '0', attribute('width') ?? '100%', attribute('height') ?? '100%'];
+  return `${root}<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${svgBackground}" stroke="none"/>${svg.slice(root.length)}`;
 }

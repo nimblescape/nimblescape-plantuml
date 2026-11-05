@@ -306,8 +306,15 @@ into the folder of the file. Run it in one of these ways:
 | Where | How |
 | --- | --- |
 | A PlantUML file or its preview | Command palette (Ctrl+Shift+P): "PlantUML: Export Diagrams as SVG" |
-| A Markdown file | Command palette: "PlantUML: Export Diagrams as SVG" |
+| A Markdown file, its text or its preview | Command palette: "PlantUML: Export Diagrams as SVG" |
 | PlantUML files in the explorer | Context menu of a file: "Export Diagrams as SVG". With several selected files, the command exports each of them. |
+
+The command palette shows the command in every editor of a PlantUML file or a
+Markdown file: in its text, in its preview (Ctrl+Shift+V), and in the editor
+of another extension. The Markdown preview beside the editor (Ctrl+K V) does
+not tell the extension which file it shows, so there the command exports the
+Markdown file of the text editor next to it; with several Markdown files open
+beside it, click into the text of the file first.
 
 The names of the files come from the name of the file and the type of each
 diagram:
@@ -316,7 +323,7 @@ diagram:
 | --- | --- | --- |
 | `notes.md` | one diagram | `notes.svg` |
 | `notes.md` | a sequence diagram and a class diagram | `notes-sequence.svg`, `notes-class.svg` |
-| `notes.md` | two sequence diagrams and a mind map | `notes-sequence.svg`, `notes-sequence-2.svg`, `notes-mindmap.svg` |
+| `notes.md` | two sequence diagrams and a mind map | `notes-sequence-1.svg`, `notes-sequence-2.svg`, `notes-mindmap.svg` |
 | `shapes.puml` | one diagram | `shapes.svg` |
 | `shapes.puml` | an activity diagram and a Gantt chart | `shapes-activity.svg`, `shapes-gantt.svg` |
 
@@ -340,9 +347,11 @@ How the export works:
   diagrams while they render, and closes it when the files are written. A
   notification shows the progress; its button "Cancel" stops the export. When
   you close the tab before the end, the export stops and writes no file.
-- The SVG files have the normal colors of PlantUML for a light background,
-  also when VS Code has a dark color theme, and use the layout engine
-  Graphviz. A diagram in the Markdown preview with Smetana (see
+- The SVG files have the normal colors of PlantUML and a white background,
+  also when VS Code has a dark color theme, so that a viewer with a dark theme
+  shows the black lines and texts. A diagram that sets its own background
+  color, for example with `skinparam backgroundColor`, keeps it. The files use
+  the layout engine Graphviz. A diagram in the Markdown preview with Smetana (see
   [Layout of diagrams in the Markdown preview](#layout-of-diagrams-in-the-markdown-preview))
   can look a little different in its SVG file.
 - The export replaces a file with the same name. It removes no file: when a

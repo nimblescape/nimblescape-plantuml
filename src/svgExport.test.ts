@@ -45,6 +45,11 @@ class FakeTabInputCustom {
   ) {}
 }
 
+/** FakeTabInputWebview stands for a vscode.TabInputWebview. */
+class FakeTabInputWebview {
+  constructor(readonly viewType: string) {}
+}
+
 /** FakeWebview stands for a vscode.Webview; the page of the test answers the messages of the extension. */
 class FakeWebview {
   html = '';
@@ -128,6 +133,8 @@ let cancel: (() => void) | undefined;
 let activeDocument: FakeDocument | undefined;
 /** activeInput is the input of the active tab. */
 let activeInput: unknown;
+/** visibleDocuments are the documents of the visible text editors. */
+let visibleDocuments: FakeDocument[];
 /** page answers a message of the extension to the page of the export, by sending messages of the page. */
 let page: (message: ExportMessage, send: (answer: PageMessage) => void) => void;
 /** registered holds the handlers of the registered commands, by their names. */
@@ -167,6 +174,7 @@ beforeEach(() => {
   cancel = undefined;
   activeDocument = undefined;
   activeInput = undefined;
+  visibleDocuments = [];
   registered = new Map();
   page = () => undefined;
   pageStarts = true;
@@ -174,6 +182,7 @@ beforeEach(() => {
   vi.doMock('vscode', () => ({
     Uri: FakeUri,
     TabInputCustom: FakeTabInputCustom,
+    TabInputWebview: FakeTabInputWebview,
     ViewColumn: { Beside: -2 },
     ProgressLocation: { Notification: 15 },
     commands: {
@@ -202,6 +211,9 @@ beforeEach(() => {
     window: {
       get activeTextEditor() {
         return activeDocument && { document: activeDocument };
+      },
+      get visibleTextEditors() {
+        return visibleDocuments.map((document) => ({ document }));
       },
       tabGroups: {
         get activeTabGroup() {
@@ -319,7 +331,7 @@ describe('the command "Export Diagrams as SVG"', () => {
     expect((panels[0].webview.posted[0] as ExportMessage).blocks[0].includes).toEqual({ 'parts.puml': { text: 'class Wheel' } });
   });
 
-  test('writes the diagrams of a PlantUML file next to it, numbered from the second diagram of a type on', async () => {
+  test('writes the diagrams of a PlantUML file next to it, with a number for each of several diagrams of a type', async () => {
     const document = addDocument('/work/shapes.puml', 'plantuml', '@startuml\nA -> B\n@enduml\n@startuml\nB -> C\n@enduml\n@startmindmap\n* a\n@endmindmap');
     page = pageAnswers([
       [
@@ -330,7 +342,7 @@ describe('the command "Export Diagrams as SVG"', () => {
     ]);
     const { command } = await exporter();
     await command(document.uri);
-    expect([...written.keys()]).toEqual(['file:/work/shapes-sequence.svg', 'file:/work/shapes-sequence-2.svg', 'file:/work/shapes-mindmap.svg']);
+    expect([...written.keys()]).toEqual(['file:/work/shapes-sequence-1.svg', 'file:/work/shapes-sequence-2.svg', 'file:/work/shapes-mindmap.svg']);
     expect((panels[0].webview.posted[0] as ExportMessage).blocks).toEqual([{ text: document.getText(), settings: { umlNotation: false } }]);
   });
 
@@ -383,6 +395,44 @@ describe('the command "Export Diagrams as SVG"', () => {
     activeInput = new FakeTabInputCustom(addDocument('/work/shapes.puml', 'plantuml', 'class Car').uri, 'nimblescape.plantuml.preview');
     await command();
     expect([...written.keys()]).toEqual(['file:/work/notes.svg', 'file:/work/shapes.svg']);
+  });
+
+  test('exports the Markdown file of any editor that shows it, for example the Markdown preview of VS Code', async () => {
+    const { command } = await exporter();
+    page = pageAnswers([[{ svg: svg('1'), type: 'class' }]]);
+    // The Markdown preview in the tab of the file (Ctrl+Shift+V), and the Markdown editor of another extension.
+    activeInput = new FakeTabInputCustom(addDocument('/work/notes.md', 'markdown', '```plantuml\nclass Car\n```').uri, 'vscode.markdown.preview.editor');
+    await command();
+    activeInput = new FakeTabInputCustom(addDocument('/work/plan.md', 'markdown', '```plantuml\nclass Car\n```').uri, 'other.markdownEditor');
+    await command();
+    expect([...written.keys()]).toEqual(['file:/work/notes.svg', 'file:/work/plan.svg']);
+    // The export checks the kind of the file of any other editor.
+    activeInput = new FakeTabInputCustom(addDocument('/work/script.js', 'javascript', '').uri, 'other.editor');
+    await command();
+    expect(messages.at(-1)).toBe('error: The export works for PlantUML files and Markdown files, not for script.js.');
+  });
+
+  test('exports the Markdown file of the visible text editor from the Markdown preview beside it, when there is one', async () => {
+    const { command } = await exporter();
+    page = pageAnswers([[{ svg: svg('1'), type: 'class' }]]);
+    // VS Code puts a prefix before the type of the webview panel of the preview beside the editor (Ctrl+K V).
+    activeInput = new FakeTabInputWebview('mainThreadWebview-markdown.preview');
+    const notes = addDocument('/work/notes.md', 'markdown', '```plantuml\nclass Car\n```');
+    visibleDocuments = [notes, addDocument('/work/script.js', 'javascript', ''), notes];
+    await command();
+    expect([...written.keys()]).toEqual(['file:/work/notes.svg']);
+    // With two visible Markdown files, the preview does not tell which one it shows.
+    visibleDocuments = [notes, addDocument('/work/plan.md', 'markdown', '```plantuml\nclass Car\n```')];
+    await command();
+    // Another webview names no file either.
+    activeInput = new FakeTabInputWebview('mainThreadWebview-other.view');
+    visibleDocuments = [notes];
+    await command();
+    expect(messages.slice(-2)).toEqual([
+      'error: Open a PlantUML file or a Markdown file to export its diagrams as SVG files.',
+      'error: Open a PlantUML file or a Markdown file to export its diagrams as SVG files.',
+    ]);
+    expect(written.size).toBe(1);
   });
 
   test('tells what to open when no PlantUML or Markdown file is active', async () => {

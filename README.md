@@ -84,8 +84,9 @@ describes each step and where its protection ends.
 - **Export as SVG.** The command "PlantUML: Export Diagrams as SVG" writes
   one SVG file for each diagram of a PlantUML file or of the PlantUML blocks of
   a Markdown file, next to the file: `notes.svg` for one diagram, and
-  `notes-sequence.svg`, `notes-class.svg`, `notes-sequence-2.svg` … for
-  several, named by the type of each diagram.
+  `notes-sequence.svg`, `notes-class.svg` … for several, named by the type of
+  each diagram, and `notes-sequence-1.svg`, `notes-sequence-2.svg` … for
+  several diagrams of the same type.
 
 ## Usage
 
@@ -108,7 +109,7 @@ Then open the preview:
 | Markdown: Toggle Preview, PlantUML: Toggle Preview | Ctrl+Shift+V | Switches the tab between the text and the preview. In the diff of a PlantUML file, it switches between the diff and the rendered diff. |
 | Format Document | Shift+Alt+F (Linux: Ctrl+Shift+I) | Formats a PlantUML file, or the PlantUML blocks of a Markdown file. |
 | PlantUML: Format PlantUML Blocks | | Formats the PlantUML blocks of a Markdown file when another extension formats Markdown files. |
-| PlantUML: Export Diagrams as SVG | | Writes one SVG file for each diagram of a PlantUML file or of the PlantUML blocks of a Markdown file, next to the file. Also in the context menu of a PlantUML file in the explorer. |
+| PlantUML: Export Diagrams as SVG | | Writes one SVG file for each diagram of a PlantUML file or of the PlantUML blocks of a Markdown file, next to the file. In every editor of the file, also in its preview, and in the context menu of a PlantUML file in the explorer. |
 
 On macOS, use Cmd instead of Ctrl, and Shift+Option+F for Format Document.
 The [user guide](https://github.com/nimblescape/plantuml-vscode/blob/main/docs/guide.md)

@@ -331,7 +331,7 @@ describe('the command "Export Diagrams as SVG"', () => {
     expect((panels[0].webview.posted[0] as ExportMessage).blocks[0].includes).toEqual({ 'parts.puml': { text: 'class Wheel' } });
   });
 
-  test('writes the diagrams of a PlantUML file next to it, numbered from the second diagram of a type on', async () => {
+  test('writes the diagrams of a PlantUML file next to it, with a number for each of several diagrams of a type', async () => {
     const document = addDocument('/work/shapes.puml', 'plantuml', '@startuml\nA -> B\n@enduml\n@startuml\nB -> C\n@enduml\n@startmindmap\n* a\n@endmindmap');
     page = pageAnswers([
       [
@@ -342,7 +342,7 @@ describe('the command "Export Diagrams as SVG"', () => {
     ]);
     const { command } = await exporter();
     await command(document.uri);
-    expect([...written.keys()]).toEqual(['file:/work/shapes-sequence.svg', 'file:/work/shapes-sequence-2.svg', 'file:/work/shapes-mindmap.svg']);
+    expect([...written.keys()]).toEqual(['file:/work/shapes-sequence-1.svg', 'file:/work/shapes-sequence-2.svg', 'file:/work/shapes-mindmap.svg']);
     expect((panels[0].webview.posted[0] as ExportMessage).blocks).toEqual([{ text: document.getText(), settings: { umlNotation: false } }]);
   });
 

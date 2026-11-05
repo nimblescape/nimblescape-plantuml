@@ -22,12 +22,13 @@ describe('svgFileNames', () => {
     expect(svgFileNames('notes', ['sequence', 'class', 'mindmap'])).toEqual(['notes-sequence.svg', 'notes-class.svg', 'notes-mindmap.svg']);
   });
 
-  test('numbers the diagrams of the same type from the second one on', () => {
-    expect(svgFileNames('notes', ['sequence', 'class', 'sequence', 'sequence', 'class'])).toEqual([
-      'notes-sequence.svg',
-      'notes-class.svg',
+  test('numbers each of several diagrams of the same type from 1, and no diagram of a type that appears once', () => {
+    expect(svgFileNames('notes', ['sequence', 'class', 'sequence', 'sequence', 'mindmap', 'class'])).toEqual([
+      'notes-sequence-1.svg',
+      'notes-class-1.svg',
       'notes-sequence-2.svg',
       'notes-sequence-3.svg',
+      'notes-mindmap.svg',
       'notes-class-2.svg',
     ]);
   });
@@ -36,12 +37,15 @@ describe('svgFileNames', () => {
     expect(svgFileNames('notes', [undefined])).toEqual([undefined]);
     // With two diagrams, the file names carry the type, also when one of them has an error.
     expect(svgFileNames('notes', [undefined, 'sequence'])).toEqual([undefined, 'notes-sequence.svg']);
-    expect(svgFileNames('notes', ['class', undefined, 'class'])).toEqual(['notes-class.svg', undefined, 'notes-class-2.svg']);
+    expect(svgFileNames('notes', ['class', undefined, 'class'])).toEqual(['notes-class-1.svg', undefined, 'notes-class-2.svg']);
+    expect(svgFileNames('notes', ['class', undefined])).toEqual(['notes-class.svg', undefined]);
   });
 
   test('writes a type in small letters and digits only, so that it cannot leave the folder', () => {
     expect(svgFileNames('notes', ['../Sequence', 'a/b\\c'])).toEqual(['notes-sequence.svg', 'notes-abc.svg']);
-    expect(svgFileNames('notes', ['', '...'])).toEqual(['notes-uml.svg', 'notes-uml-2.svg']);
+    expect(svgFileNames('notes', ['', '...'])).toEqual(['notes-uml-1.svg', 'notes-uml-2.svg']);
+    // Types that give the same part of a file name count as one type.
+    expect(svgFileNames('notes', ['Sequence', 'sequence'])).toEqual(['notes-sequence-1.svg', 'notes-sequence-2.svg']);
   });
 
   test('has no name for a file without a diagram', () => {

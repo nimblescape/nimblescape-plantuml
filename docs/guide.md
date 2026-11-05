@@ -323,7 +323,7 @@ diagram:
 | --- | --- | --- |
 | `notes.md` | one diagram | `notes.svg` |
 | `notes.md` | a sequence diagram and a class diagram | `notes-sequence.svg`, `notes-class.svg` |
-| `notes.md` | two sequence diagrams and a mind map | `notes-sequence.svg`, `notes-sequence-2.svg`, `notes-mindmap.svg` |
+| `notes.md` | two sequence diagrams and a mind map | `notes-sequence-1.svg`, `notes-sequence-2.svg`, `notes-mindmap.svg` |
 | `shapes.puml` | one diagram | `shapes.svg` |
 | `shapes.puml` | an activity diagram and a Gantt chart | `shapes-activity.svg`, `shapes-gantt.svg` |
 

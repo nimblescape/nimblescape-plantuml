@@ -75,9 +75,11 @@ replaces the decision of 2026-10-15 that the extension exports nothing.
   names. A file with one diagram gives one SVG file with the name of the file,
   for example `notes.svg` for `notes.md`. A file with several diagrams gives
   one SVG file for each diagram, with the name of the file and the type of the
-  diagram, for example `notes-sequence.svg` and `notes-class.svg`. The second
-  diagram of a type gets the number 2, the third the number 3, and so on, for
-  example `notes-sequence-2.svg`.
+  diagram, for example `notes-sequence.svg` and `notes-class.svg`. When the
+  file has several diagrams of the same type, each of them also gets its
+  number among them, from 1, for example `notes-sequence-1.svg` and
+  `notes-sequence-2.svg` (Hannes, 2026-11-05); a type that the file has once
+  gets no number.
 - The type of a diagram is the word after its `@start`, for example `mindmap`
   or `gantt`. For `@startuml`, and for a text without `@start`, it is the type
   of UML diagram that PlantUML assumes for the text, with the name that
@@ -325,7 +327,8 @@ included files and layout engine as in the Markdown preview:
 SVG" ([R-GEN-003](#r-gen-003)) exports the diagrams of all PlantUML blocks of
 a Markdown file, in the order of the file, and names the files by the
 Markdown file: `notes.svg` when the file has one diagram, and
-`notes-<type>.svg`, `notes-<type>-2.svg` … when it has several. A block can
+`notes-<type>.svg` when it has several; several diagrams of the same type get
+`notes-<type>-1.svg`, `notes-<type>-2.svg` …. A block can
 hold several diagrams; the names count the diagrams, not the blocks. The
 command palette shows the command in every editor of a Markdown file, also
 in the Markdown preview. The explorer does not
@@ -448,8 +451,8 @@ rendered diff whose file no longer exists closes, without an error.
 **SVG export of PlantUML files.** The command "PlantUML: Export Diagrams as
 SVG" ([R-GEN-003](#r-gen-003)) exports the diagrams of a PlantUML file and
 names the files by the PlantUML file: `shapes.svg` when the file has one
-diagram, and `shapes-<type>.svg`, `shapes-<type>-2.svg` … when it has
-several. The command palette shows the command in every editor of a PlantUML
+diagram, and `shapes-<type>.svg` when it has several; several diagrams of the
+same type get `shapes-<type>-1.svg`, `shapes-<type>-2.svg` …. The command palette shows the command in every editor of a PlantUML
 file, also in its preview, and the context menu of the explorer shows it for
 PlantUML files; with several selected files, it exports each of them.
 

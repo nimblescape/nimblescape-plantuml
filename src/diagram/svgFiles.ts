@@ -11,8 +11,9 @@
  * A file with one diagram gives one SVG file with the name of the file, for
  * example `notes.svg` for `notes.md`. A file with several diagrams gives one
  * SVG file for each diagram, named by the file and the type of the diagram,
- * for example `notes-sequence.svg` and `notes-class.svg`; a second diagram of
- * the same type gets a number, for example `notes-sequence-2.svg`
+ * for example `notes-sequence.svg` and `notes-class.svg`; when the file has
+ * several diagrams of the same type, each of them gets its number among them,
+ * for example `notes-sequence-1.svg` and `notes-sequence-2.svg`
  * ([R-MD-008](../../docs/requirements.md#r-md-008),
  * [R-PUML-009](../../docs/requirements.md#r-puml-009)).
  *
@@ -77,10 +78,10 @@ export function baseName(fileName: string): string {
 
 /**
  * svgFileNames returns the name of the SVG file of each diagram of a file, in the order of the diagrams. With one
- * diagram, the name is the base name; with several, the base name and the type of the diagram, and from the second
- * diagram of a type on, its number among the diagrams of that type: `notes-sequence.svg`, `notes-sequence-2.svg`. A
- * diagram without a type, because it has an error, gets no name, and the numbers of the other diagrams do not count
- * it; it still counts as a diagram of the file.
+ * diagram, the name is the base name; with several, the base name and the type of the diagram: `notes-class.svg`.
+ * When several diagrams have the same type, each of them also gets its number among the diagrams of that type, from 1
+ * (Hannes, 2026-11-05): `notes-sequence-1.svg`, `notes-sequence-2.svg`. A diagram without a type, because it has an
+ * error, gets no name, and the numbers of the other diagrams do not count it; it still counts as a diagram of the file.
  * @param base - The base name of the file, for example `notes` for `notes.md`.
  * @param types - The type of each diagram of the file, or undefined for a diagram with an error.
  */
@@ -88,15 +89,24 @@ export function svgFileNames(base: string, types: readonly (string | undefined)[
   if (types.length === 1) {
     return [types[0] === undefined ? undefined : `${base}.svg`];
   }
+  const names = types.map((type) => (type === undefined ? undefined : fileType(type)));
+  const totals = new Map<string, number>();
+  for (const name of names) {
+    if (name !== undefined) {
+      totals.set(name, (totals.get(name) ?? 0) + 1);
+    }
+  }
   const counts = new Map<string, number>();
-  return types.map((type) => {
-    if (type === undefined) {
+  return names.map((name) => {
+    if (name === undefined) {
       return undefined;
     }
-    const name = fileType(type);
+    if (totals.get(name) === 1) {
+      return `${base}-${name}.svg`;
+    }
     const count = (counts.get(name) ?? 0) + 1;
     counts.set(name, count);
-    return count === 1 ? `${base}-${name}.svg` : `${base}-${name}-${count}.svg`;
+    return `${base}-${name}-${count}.svg`;
   });
 }
 

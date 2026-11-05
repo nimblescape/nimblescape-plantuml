@@ -84,8 +84,9 @@ describes each step and where its protection ends.
 - **Export as SVG.** The command "PlantUML: Export Diagrams as SVG" writes
   one SVG file for each diagram of a PlantUML file or of the PlantUML blocks of
   a Markdown file, next to the file: `notes.svg` for one diagram, and
-  `notes-sequence.svg`, `notes-class.svg`, `notes-sequence-2.svg` … for
-  several, named by the type of each diagram.
+  `notes-sequence.svg`, `notes-class.svg` … for several, named by the type of
+  each diagram, and `notes-sequence-1.svg`, `notes-sequence-2.svg` … for
+  several diagrams of the same type.
 
 ## Usage
 

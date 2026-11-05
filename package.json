@@ -232,7 +232,7 @@
         },
         {
           "command": "nimblescape.plantuml.exportSvg",
-          "when": "editorLangId == plantuml || editorLangId == markdown || activeCustomEditorId == 'nimblescape.plantuml.preview'"
+          "when": "editorLangId == plantuml || editorLangId == markdown || resourceLangId == plantuml || resourceLangId == markdown || activeWebviewPanelId == 'markdown.preview'"
         }
       ],
       "explorer/context": [

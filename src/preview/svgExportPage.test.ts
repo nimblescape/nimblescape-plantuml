@@ -112,14 +112,15 @@ describe('exportBlocks', () => {
 
 describe('wellFormedSvg', () => {
   test('keeps the text of an image that is well-formed XML', () => {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>a &amp; b</text></svg>';
+    // The background of the root element keeps svgFile from adding the white one.
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" style="background-color:#FFFFAA;"><text>a &amp; b</text></svg>';
     expect(wellFormedSvg(document, svg)).toBe(`${xmlDeclaration}\n${svg}\n`);
   });
 
   test('writes an image that is not well-formed XML as XML', () => {
     // The HTML parser of the page closes the open elements of the image.
-    const text = wellFormedSvg(document, '<svg xmlns="http://www.w3.org/2000/svg"><g><rect width="1"></svg>');
-    expect(text).toBe(`${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg"><g><rect width="1"/></g></svg>\n`);
+    const text = wellFormedSvg(document, '<svg xmlns="http://www.w3.org/2000/svg" style="background-color:#FFFFAA;"><g><rect width="1"></svg>');
+    expect(text).toBe(`${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg" style="background-color:#FFFFAA;"><g><rect width="1"/></g></svg>\n`);
     expect(new DOMParser().parseFromString(text, 'image/svg+xml').getElementsByTagName('parsererror')).toHaveLength(0);
   });
 });

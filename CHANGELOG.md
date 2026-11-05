@@ -11,10 +11,11 @@ of a Markdown file, into the folder of the file. A file with one diagram
 gives `notes.svg`; a file with several diagrams gives one file for each,
 named by the type of the diagram, for example `notes-sequence.svg`,
 `notes-class.svg` and `notes-sequence-2.svg`. The files have the normal
-colors of PlantUML for a light background, the UML notation of the setting
+colors of PlantUML with a white background, so that a viewer with a dark
+theme shows them, the UML notation of the setting
 `nimblescape.plantuml.umlNotation`, and the included files. Run the command
-from the command palette in a PlantUML or Markdown file, or from the context
-menu of a PlantUML file in the explorer.
+from the command palette in any editor of a PlantUML or Markdown file, also
+in its preview, or from the context menu of a PlantUML file in the explorer.
 
 ## 0.2.2
 

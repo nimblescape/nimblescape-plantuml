@@ -53,6 +53,15 @@ replaces the decision of 2026-10-15 that the extension exports nothing.
   Graphviz layout ([R-GEN-011](#r-gen-011)), in the normal colors of PlantUML
   for a light background, also with a dark color theme of VS Code. It exports
   the text of the editor, also with changes that are not saved yet.
+- Each SVG file has the white background of PlantUML, so that a viewer with
+  a dark theme shows the black lines and texts (Hannes, 2026-11-05). A
+  diagram that sets another background color, for example with
+  `skinparam backgroundColor`, keeps its color.
+- The command palette shows the command in every editor of a PlantUML file or
+  a Markdown file: the text editor, the previews of the extension and of
+  VS Code, and the editors of other extensions (Hannes, 2026-11-05). In the
+  Markdown preview beside the editor, which names no file, the command
+  exports the Markdown file of the visible text editor.
 - The engine needs a page to measure the texts, so the export renders in a
   webview of the extension, which shows in a tab next to the editor while it
   renders and closes when the files are written. A notification shows the
@@ -318,7 +327,8 @@ a Markdown file, in the order of the file, and names the files by the
 Markdown file: `notes.svg` when the file has one diagram, and
 `notes-<type>.svg`, `notes-<type>-2.svg` … when it has several. A block can
 hold several diagrams; the names count the diagrams, not the blocks. The
-command palette shows the command in Markdown files. The explorer does not
+command palette shows the command in every editor of a Markdown file, also
+in the Markdown preview. The explorer does not
 show it for Markdown files, so that a Markdown file without PlantUML blocks
 gets no new entry ([R-MD-006](#r-md-006)). The export changes no text of the
 Markdown file.
@@ -439,9 +449,9 @@ rendered diff whose file no longer exists closes, without an error.
 SVG" ([R-GEN-003](#r-gen-003)) exports the diagrams of a PlantUML file and
 names the files by the PlantUML file: `shapes.svg` when the file has one
 diagram, and `shapes-<type>.svg`, `shapes-<type>-2.svg` … when it has
-several. The command palette shows the command in a PlantUML file and in its
-preview, and the context menu of the explorer shows it for PlantUML files;
-with several selected files, it exports each of them.
+several. The command palette shows the command in every editor of a PlantUML
+file, also in its preview, and the context menu of the explorer shows it for
+PlantUML files; with several selected files, it exports each of them.
 
 ---
 

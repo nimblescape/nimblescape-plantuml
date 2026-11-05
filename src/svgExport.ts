@@ -30,7 +30,7 @@ import { baseName, svgFileNames } from './diagram/svgFiles';
 import { plantUmlBlocks } from './markdown/blocks';
 import { previewHtml } from './preview/previewHtml';
 import type { ExportBlock, ExportedDiagram, PageMessage } from './preview/svgExportPage';
-import { IncludesLoader, previewViewType } from './pumlPreviews';
+import { IncludesLoader } from './pumlPreviews';
 import { Settings } from './settings';
 
 /** exportSvgCommand is the command that exports the diagrams of a file as SVG files. */
@@ -158,7 +158,7 @@ export class SvgExport {
 
   /**
    * export writes an SVG file for each diagram of a file, next to the file.
-   * @param uri - The file; without it, the file of the active text editor or of the active preview of a PlantUML file.
+   * @param uri - The file; without it, the file of the active tab (see activeFile).
    */
   async export(uri?: vscode.Uri): Promise<void> {
     const target = uri ?? activeFile();
@@ -328,12 +328,40 @@ export class SvgExport {
   }
 }
 
-/** activeFile returns the file of the active text editor, if it is a PlantUML or a Markdown file, or of the active preview of a PlantUML file. */
+/**
+ * activeFile returns the file that the active tab shows: the file of the active text editor, if it is a PlantUML or a
+ * Markdown file, or the file of any other editor of a file, for example the preview of a PlantUML file, the Markdown
+ * preview of VS Code (Ctrl+Shift+V) or the Markdown editor of another extension. The Markdown preview beside the editor
+ * (Ctrl+K V) names no file, so for it, activeFile returns the Markdown file of the visible text editors, when they show
+ * exactly one. The export checks the kind of the file.
+ */
 function activeFile(): vscode.Uri | undefined {
   const document = vscode.window.activeTextEditor?.document;
   if (document && (document.languageId === 'plantuml' || document.languageId === 'markdown')) {
     return document.uri;
   }
   const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-  return input instanceof vscode.TabInputCustom && input.viewType === previewViewType ? input.uri : undefined;
+  if (input instanceof vscode.TabInputCustom) {
+    return input.uri;
+  }
+  if (input instanceof vscode.TabInputWebview && isMarkdownPreviewPanel(input.viewType)) {
+    const shown = new Map(
+      vscode.window.visibleTextEditors
+        .map((editor) => editor.document)
+        .filter((shownDocument) => shownDocument.languageId === 'markdown')
+        .map((shownDocument) => [shownDocument.uri.toString(), shownDocument.uri]),
+    );
+    return shown.size === 1 ? [...shown.values()][0] : undefined;
+  }
+  return undefined;
 }
+
+/** markdownPreviewPanel is the type of the webview panel of the Markdown preview of VS Code beside the editor (Ctrl+K V). */
+export const markdownPreviewPanel = 'markdown.preview';
+
+/**
+ * isMarkdownPreviewPanel tells whether the view type of a webview tab is the one of the Markdown preview beside the
+ * editor. VS Code puts a prefix before the type that the extension gave, for example `mainThreadWebview-`.
+ * @param viewType - The view type of the tab.
+ */
+const isMarkdownPreviewPanel = (viewType: string): boolean => viewType === markdownPreviewPanel || viewType.endsWith(`-${markdownPreviewPanel}`);

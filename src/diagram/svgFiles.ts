@@ -106,12 +106,22 @@ export const xmlDeclaration = '<?xml version="1.0" encoding="UTF-8" standalone="
 /** xlinkNamespace is the namespace of the attributes `xlink:…` of SVG. */
 const xlinkNamespace = 'http://www.w3.org/1999/xlink';
 
+/** svgBackground is the color of the background that svgFile gives an image without one: the white of PlantUML. */
+export const svgBackground = '#FFFFFF';
+
 /**
- * svgFile returns the text of an SVG file for the SVG image of the engine: the XML declaration and the image. In the
- * browser of VS Code, the engine declares the namespace of the attribute `xlink:href`, which it writes for the image of
- * a sprite, on the element that uses it. An SVG file is XML and needs this declaration, so for an image that uses the
- * prefix `xlink:` without any declaration, svgFile adds the declaration to the root element. Nothing else of the image
- * changes.
+ * svgFile returns the text of an SVG file for the SVG image of the engine: the XML declaration and the image.
+ *
+ * - In the browser of VS Code, the engine declares the namespace of the attribute `xlink:href`, which it writes for the
+ *   image of a sprite, on the element that uses it. An SVG file is XML and needs this declaration, so for an image that
+ *   uses the prefix `xlink:` without any declaration, svgFile adds the declaration to the root element.
+ * - The engine draws the background of a diagram only when the diagram sets a color other than white, for example with
+ *   `skinparam backgroundColor`, and then marks the root element with the style `background-color`. Without it, the
+ *   image is transparent, and a viewer with a dark theme hides the black lines and texts of PlantUML. So for an image
+ *   without this style, svgFile adds a white rectangle of the size of the image as its first element, as the engine
+ *   draws a background.
+ *
+ * Nothing else of the image changes.
  * @param svg - The SVG text of the engine.
  */
 export function svgFile(svg: string): string {
@@ -119,5 +129,22 @@ export function svgFile(svg: string): string {
   if (/\sxlink:[a-z]/i.test(text) && !/\sxmlns:xlink=/.test(text)) {
     text = text.replace(/^<svg\b/, `<svg xmlns:xlink="${xlinkNamespace}"`);
   }
-  return `${xmlDeclaration}\n${text}\n`;
+  return `${xmlDeclaration}\n${withBackground(text)}\n`;
+}
+
+/**
+ * withBackground returns an SVG image with a white rectangle behind all its elements, of the size of its `viewBox`, or
+ * of its `width` and `height` without a `viewBox`. An image whose root element has a background color already stays as
+ * it is.
+ * @param svg - The SVG text, which starts with the root element.
+ */
+function withBackground(svg: string): string {
+  const root = /^<svg\b[^>]*>/.exec(svg)?.[0];
+  if (!root || root.endsWith('/>') || /\sstyle="[^"]*background/i.test(root)) {
+    return svg;
+  }
+  const attribute = (name: string): string | undefined => new RegExp(`\\s${name}="([^"]*)"`).exec(root)?.[1];
+  const box = attribute('viewBox')?.trim().split(/[\s,]+/);
+  const [x, y, width, height] = box?.length === 4 ? box : ['0', '0', attribute('width') ?? '100%', attribute('height') ?? '100%'];
+  return `${root}<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${svgBackground}" stroke="none"/>${svg.slice(root.length)}`;
 }

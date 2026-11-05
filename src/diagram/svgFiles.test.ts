@@ -4,13 +4,13 @@
 
 /**
  * These tests check the names and the texts of the SVG files of the export
- * (R-GEN-003, R-MD-008, R-PUML-009) and the probe that asks the engine for the
+ * (R-GEN-003, R-MD-008, R-PUML-009), with their white background, and the probe that asks the engine for the
  * type of a UML diagram. `src/engine.test.ts` checks the probe with the real
  * engine.
  */
 
 import { describe, expect, test } from 'vitest';
-import { baseName, declaredType, svgFile, svgFileNames, typeOfError, typeProbe, typeProbeLine, xmlDeclaration } from './svgFiles';
+import { baseName, declaredType, svgBackground, svgFile, svgFileNames, typeOfError, typeProbe, typeProbeLine, xmlDeclaration } from './svgFiles';
 
 describe('svgFileNames', () => {
   test('names the file of the only diagram of a file by the file alone', () => {
@@ -89,24 +89,55 @@ describe('the type of a diagram', () => {
 });
 
 describe('svgFile', () => {
+  /** white is the rectangle of the white background of an image of 10 by 10 units. */
+  const white = `<rect x="0" y="0" width="10" height="10" fill="${svgBackground}" stroke="none"/>`;
+
   test('puts the XML declaration before the image and ends with a line break', () => {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><g/></svg>';
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" style="background-color:#FFFFAA;" width="10" height="10"><g/></svg>';
     expect(svgFile(svg)).toBe(`${xmlDeclaration}\n${svg}\n`);
   });
 
+  test('gives an image without a background the white background of PlantUML, of the size of its viewBox', () => {
+    expect(svgFile('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="20" height="20"><defs/><g/></svg>')).toBe(
+      `${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="20" height="20">${white}<defs/><g/></svg>\n`,
+    );
+    expect(svgFile('<svg xmlns="http://www.w3.org/2000/svg" viewBox="-5,-5 20 20"><g/></svg>')).toBe(
+      `${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="-5,-5 20 20"><rect x="-5" y="-5" width="20" height="20" fill="${svgBackground}" stroke="none"/><g/></svg>\n`,
+    );
+    // Without a viewBox, the rectangle has the width and the height of the image, or covers it.
+    expect(svgFile('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><g/></svg>')).toBe(
+      `${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">${white}<g/></svg>\n`,
+    );
+    expect(svgFile('<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>')).toBe(
+      `${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100%" height="100%" fill="${svgBackground}" stroke="none"/><g/></svg>\n`,
+    );
+  });
+
+  test('keeps the background of a diagram that sets its own color, and an empty image', () => {
+    // The engine draws the background of a color other than white itself, and marks the root element with it.
+    const yellow =
+      '<svg xmlns="http://www.w3.org/2000/svg" style="background-color:#FFFFAA;" viewBox="0 0 10 10"><defs/><rect x="0" y="0" width="10" height="10" fill="#FFFFAA" stroke="none"/><g/></svg>';
+    expect(svgFile(yellow)).toBe(`${xmlDeclaration}\n${yellow}\n`);
+    expect(svgFile('<svg xmlns="http://www.w3.org/2000/svg"/>')).toBe(`${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg"/>\n`);
+  });
+
   test('declares the namespace xlink on the root element of an image that uses it', () => {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:," xlink:href="data:,"/></svg>';
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image href="data:," xlink:href="data:,"/></svg>';
     expect(svgFile(svg)).toBe(
-      `${xmlDeclaration}\n<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg"><image href="data:," xlink:href="data:,"/></svg>\n`,
+      `${xmlDeclaration}\n<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${white}<image href="data:," xlink:href="data:,"/></svg>\n`,
     );
   });
 
   test('keeps a declaration of the namespace xlink, also on the element that uses it, and does not repeat the XML declaration', () => {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><a xlink:href="https://plantuml.com"/></svg>';
-    expect(svgFile(svg)).toBe(`${xmlDeclaration}\n${svg}\n`);
-    expect(svgFile(`<?xml version="1.0"?>\n${svg}`)).toBe(`${xmlDeclaration}\n${svg}\n`);
+    const root = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10">';
+    const svg = `${root}<a xlink:href="https://plantuml.com"/></svg>`;
+    const file = `${xmlDeclaration}\n${root}${white}<a xlink:href="https://plantuml.com"/></svg>\n`;
+    expect(svgFile(svg)).toBe(file);
+    expect(svgFile(`<?xml version="1.0"?>\n${svg}`)).toBe(file);
     // The engine in a browser declares the namespace on the image of a sprite.
-    const sprite = '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:," xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="data:,"/></svg>';
-    expect(svgFile(sprite)).toBe(`${xmlDeclaration}\n${sprite}\n`);
+    const sprite = '<image href="data:," xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="data:,"/></svg>';
+    expect(svgFile(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${sprite}`)).toBe(
+      `${xmlDeclaration}\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${white}${sprite}\n`,
+    );
   });
 });

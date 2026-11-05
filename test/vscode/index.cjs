@@ -6,8 +6,9 @@
  * The tests of the extension in VS Code. `scripts/vscode-test.mjs` starts VS Code with the extension and the folder
  * `test/vscode/workspace`, and VS Code calls `run` of this module in its extension host. The tests use the API of
  * VS Code itself, so they find a change of VS Code that the fakes of the unit tests do not show: the activation, the
- * markdown-it plugin in the Markdown extension, the commands, the code completion, the formatting and the custom
- * editor of PlantUML files. They cannot look into a webview, so they do not check the rendered diagrams.
+ * markdown-it plugin in the Markdown extension, the commands, the code completion, the formatting, the custom
+ * editor of PlantUML files and the SVG export. They cannot look into a webview, so they do not check the diagrams of
+ * the previews; the SVG export renders in a webview and writes files, so its test checks the files.
  */
 
 const assert = require('node:assert/strict');
@@ -86,6 +87,7 @@ const tests = [
         'nimblescape.plantuml.reopenAsSource',
         'nimblescape.plantuml.showPreviewToSide',
         'nimblescape.plantuml.formatBlocks',
+        'nimblescape.plantuml.exportSvg',
       ]) {
         assert.ok(commands.includes(command), command);
       }
@@ -123,6 +125,30 @@ const tests = [
       await until(() => activeViewType() === 'text', 'the text editor');
       await vscode.commands.executeCommand('nimblescape.plantuml.togglePreview');
       await until(() => activeViewType() === 'nimblescape.plantuml.preview', 'the preview again');
+    },
+  },
+  {
+    name: 'the SVG export renders the diagrams of a Markdown file and of a PlantUML file in its webview and writes the files',
+    run: async () => {
+      const files = ['diagrams-sequence.svg', 'diagrams-class.svg', 'classes.svg'].map(workspace);
+      try {
+        // diagrams.md has two diagrams, so the names carry their types; classes.puml has one.
+        await vscode.commands.executeCommand('nimblescape.plantuml.exportSvg', workspace('diagrams.md'));
+        await vscode.commands.executeCommand('nimblescape.plantuml.exportSvg', workspace('classes.puml'));
+        for (const file of files) {
+          const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(file));
+          assert.match(text, /^<\?xml version="1\.0" encoding="UTF-8" standalone="no"\?>\n<svg\b[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, file.path);
+        }
+        const sequence = new TextDecoder().decode(await vscode.workspace.fs.readFile(files[0]));
+        assert.match(sequence, />Alice</);
+        // The export tabs are closed again.
+        const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs);
+        assert.ok(!tabs.some((tab) => tab.label.startsWith('Export ')), tabs.map((tab) => tab.label).join(', '));
+      } finally {
+        for (const file of files) {
+          await vscode.workspace.fs.delete(file).then(undefined, () => undefined);
+        }
+      }
     },
   },
 ];

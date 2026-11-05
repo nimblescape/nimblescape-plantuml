@@ -14,12 +14,15 @@ comes first, the support of PlantUML files second.
 ## Plan
 
 The plan of nimblescape PlantUML is a part of the Claude document
-[One plan of all products](https://claude.ai/artifact/SatbygA2FkJiW3ob623NEy). All its steps, 1 to 6, are built, and
-version 0.2.2 is released; their list is in the
+[One plan of all products](https://claude.ai/artifact/SatbygA2FkJiW3ob623NEy). Its steps 1 to 6 are built
+and released in version 0.2.2; their list is in the
 [last version of the plan file](https://github.com/nimblescape/markdown/blob/23c2c0a/docs/plan.md#74-nimblescape-plantuml) in the history
-of nimblescape Markdown. No repository holds a plan; the plan lists the
-decisions that wait for the owner, each with a short description and a
-recommendation, and the requirements stay the normative text.
+of nimblescape Markdown. Step 7, the SVG export of the diagrams of Markdown
+files and PlantUML files ([R-GEN-003](#r-gen-003), [R-MD-008](#r-md-008),
+[R-PUML-009](#r-puml-009)), is built for version 0.3.0. No repository holds
+a plan; the plan lists the decisions that wait for the owner, each with a
+short description and a recommendation, and the requirements stay the
+normative text.
 
 ## General
 
@@ -39,8 +42,45 @@ renders. It hides or blocks no diagram type.
 
 ### R-GEN-003
 
-**No export.** The extension only renders diagrams. It exports no diagram to a
-file, neither SVG nor any other format.
+**SVG export.** The command "PlantUML: Export Diagrams as SVG" writes one SVG
+file for each diagram of a PlantUML file ([R-PUML-009](#r-puml-009)) or of
+the PlantUML blocks of a Markdown file ([R-MD-008](#r-md-008)). The extension
+exports no other format. Hannes asked for the SVG export on 2026-11-04; it
+replaces the decision of 2026-10-15 that the extension exports nothing.
+
+- The export renders with the same engine, settings ([R-GEN-007](#r-gen-007))
+  and included files ([R-GEN-008](#r-gen-008)) as the previews, with the
+  Graphviz layout ([R-GEN-011](#r-gen-011)), in the normal colors of PlantUML
+  for a light background, also with a dark color theme of VS Code. It exports
+  the text of the editor, also with changes that are not saved yet.
+- The engine needs a page to measure the texts, so the export renders in a
+  webview of the extension, which shows in a tab next to the editor while it
+  renders and closes when the files are written. A notification shows the
+  progress and can cancel the export. A page that does not start within 30
+  seconds stops the export with a message.
+- An SVG file holds the SVG image of the engine as it is, after the XML
+  declaration. When the image uses the prefix `xlink:` without declaring its
+  namespace, the file declares it on the root element, so that the file is
+  well-formed XML.
+- The files go into the folder of the file, and replace files with the same
+  names. A file with one diagram gives one SVG file with the name of the file,
+  for example `notes.svg` for `notes.md`. A file with several diagrams gives
+  one SVG file for each diagram, with the name of the file and the type of the
+  diagram, for example `notes-sequence.svg` and `notes-class.svg`. The second
+  diagram of a type gets the number 2, the third the number 3, and so on, for
+  example `notes-sequence-2.svg`.
+- The type of a diagram is the word after its `@start`, for example `mindmap`
+  or `gantt`. For `@startuml`, and for a text without `@start`, it is the type
+  of UML diagram that PlantUML assumes for the text, with the name that
+  PlantUML gives it, for example `sequence`, `class`, `activity`, `component`,
+  `state` or `timing`. PlantUML names use case and deployment diagrams
+  `component`, and object diagrams `class`.
+- A diagram with an error gets no SVG file; it still counts as a diagram for
+  the names of the other files. The message after the export names the
+  number of such diagrams, and the log "nimblescape PlantUML" names each error
+  with its line ([R-GEN-010](#r-gen-010)).
+- A file that is not saved yet (`Untitled-1`) cannot be exported, because it
+  has no folder.
 
 ### R-GEN-004
 
@@ -65,13 +105,12 @@ official product of the PlantUML project.
 ### R-GEN-006
 
 **Release.** The publisher is `nimblescape`. The release uses the same
-workflows and checks as the other extensions of the publisher (`release.yml`,
-`release-dry-run.yml`, `marketplace-identity.yml`,
-`scripts/release-checks.mjs`) and follows the
+workflows as the other extensions of the publisher (`release.yml`,
+`marketplace-identity.yml`) and follows the
 [release rules](../CONTRIBUTING.md#release-rules) of the publisher: the
 extension ID never changes, no deletion, only versions that change something
-for the users and at most one version in 7 days, a dry run before a change of
-the release process reaches `main`, and publishing only from GitHub Actions
+for the users and at most one version in 7 days, a dry run before a release
+uses a changed release workflow, and publishing only from GitHub Actions
 with Microsoft Entra ID. The release also publishes the npm package
 ([R-NPM-001](#r-npm-001)) to npmjs.com with trusted publishing, in the same
 version as the extension. Nobody publishes the extension or the npm package
@@ -239,7 +278,8 @@ behavior of the Markdown editor and of the Markdown preview outside the
 PlantUML blocks. Inside a PlantUML block, it adds the rendering in the preview
 ([R-MD-001](#r-md-001), [R-MD-002](#r-md-002)), the syntax highlighting
 ([R-MD-003](#r-md-003)), the code completion ([R-MD-004](#r-md-004)) and the
-formatting ([R-MD-005](#r-md-005)).
+formatting ([R-MD-005](#r-md-005)), and its command "Export Diagrams as SVG"
+reads the PlantUML blocks ([R-MD-008](#r-md-008)).
 
 For the formatting, the extension registers a formatter for Markdown files
 that changes only the PlantUML blocks. VS Code lists it with the other
@@ -269,6 +309,19 @@ included files and layout engine as in the Markdown preview:
   when it shows them, or the message of an error in their place. The diagrams
   are in the open shadow root of that element, so that the page can copy them,
   for example into its pages before it prints them.
+
+### R-MD-008
+
+**SVG export of Markdown files.** The command "PlantUML: Export Diagrams as
+SVG" ([R-GEN-003](#r-gen-003)) exports the diagrams of all PlantUML blocks of
+a Markdown file, in the order of the file, and names the files by the
+Markdown file: `notes.svg` when the file has one diagram, and
+`notes-<type>.svg`, `notes-<type>-2.svg` … when it has several. A block can
+hold several diagrams; the names count the diagrams, not the blocks. The
+command palette shows the command in Markdown files. The explorer does not
+show it for Markdown files, so that a Markdown file without PlantUML blocks
+gets no new entry ([R-MD-006](#r-md-006)). The export changes no text of the
+Markdown file.
 
 ## npm package
 
@@ -379,6 +432,16 @@ other types than UML stay as they are.
 files that were open show again: the preview in the tab of a file, the
 preview to the side and the rendered diff. A restored preview to the side or
 rendered diff whose file no longer exists closes, without an error.
+
+### R-PUML-009
+
+**SVG export of PlantUML files.** The command "PlantUML: Export Diagrams as
+SVG" ([R-GEN-003](#r-gen-003)) exports the diagrams of a PlantUML file and
+names the files by the PlantUML file: `shapes.svg` when the file has one
+diagram, and `shapes-<type>.svg`, `shapes-<type>-2.svg` … when it has
+several. The command palette shows the command in a PlantUML file and in its
+preview, and the context menu of the explorer shows it for PlantUML files;
+with several selected files, it exports each of them.
 
 ---
 

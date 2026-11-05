@@ -54,6 +54,7 @@ import { diagramLines } from '../diagram/diagramLines';
 import { Diagram, diagramsOf } from '../diagram/diagramRanges';
 import { Expansion, expandWith, IncludedFiles, parseIncludedFiles } from '../diagram/includes';
 import { blockClass, contentClass, includesClass, pageIncludesClass, settingsAttribute, sourceAttribute, stateAttribute } from '../markdown/markdownIt';
+import { declaredType, typeOfError, typeProbe, umlType } from '../diagram/svgFiles';
 import { parseSettings, Settings } from '../settings';
 
 /** Engine is the part of the API of `@plantuml/core` that the preview uses. */
@@ -80,6 +81,13 @@ export interface Engine {
  * included files, the index names a line of the diagram text with the texts of the files.
  */
 export type Result = { svg: string } | { error: string; line?: number };
+
+/**
+ * DiagramResult is the result of a diagram of a block for the SVG export: the SVG text of the engine, as it is, with
+ * the lines that the engine rendered, or the message of its error as the block shows it, with the number of the line
+ * of the block text.
+ */
+export type DiagramResult = { svg: string; lines: string[] } | { error: string };
 
 /**
  * renderTimeout is the time in milliseconds after which a rendering counts as failed. Large diagrams have no other
@@ -506,6 +514,44 @@ export class PreviewRenderer {
         return;
       }
     }
+  }
+
+  /**
+   * resultsOf returns the result of each diagram of a block for the SVG export
+   * ([R-GEN-003](../../docs/requirements.md#r-gen-003)), or undefined while a diagram of the block has no result yet.
+   * @param element - The element of the block.
+   */
+  resultsOf(element: HTMLElement): DiagramResult[] | undefined {
+    const block = this.#blocks().find((candidate) => candidate.element === element);
+    if (!block || block.diagrams.some(isPending)) {
+      return undefined;
+    }
+    const results = block.diagrams.map((diagram) => this.#results.get(diagram.key));
+    if (!results.every((result): result is Result => result !== undefined)) {
+      return undefined;
+    }
+    return results.map((result, index) => {
+      const diagram = block.diagrams[index];
+      return 'error' in result ? { error: errorText(diagram, result) } : { svg: result.svg, lines: diagramLines(diagram.text, block.settings).lines };
+    });
+  }
+
+  /**
+   * typeOf returns the type of a diagram that the engine rendered without an error, for the names of the SVG files
+   * (`src/diagram/svgFiles.ts`): the word after its `@start`, and for `@startuml` the type of UML diagram that the
+   * engine names when it renders the lines once more with the line of the probe; `uml` when it names none. The
+   * rendering of the probe waits for the renderings in the queue.
+   * @param lines - The lines of the diagram that the engine rendered.
+   */
+  async typeOf(lines: readonly string[]): Promise<string> {
+    const declared = declaredType(lines);
+    if (declared !== umlType) {
+      return declared;
+    }
+    const probe = this.#queue.then(() => this.#render(typeProbe(lines), [], false));
+    this.#queue = probe.then(() => undefined);
+    const result = await probe;
+    return ('error' in result ? typeOfError(result.error) : undefined) ?? umlType;
   }
 
   /**

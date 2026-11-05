@@ -13,7 +13,8 @@
  * previews of PlantUML files (`src/pumlPreviews.ts`), and registers the code
  * completion (`src/completionProvider.ts`) and the formatting
  * (`src/formattingProvider.ts`) for `.puml` files and for the PlantUML blocks
- * of Markdown files. Problems that no diagram shows go to the log channel
+ * of Markdown files, and the SVG export of both (`src/svgExport.ts`). Problems
+ * that no diagram shows, and the errors of an export, go to the log channel
  * "nimblescape PlantUML" in the Output view.
  */
 
@@ -25,6 +26,7 @@ import { IncludeFiles, isInFolder } from './includeFiles';
 import { extendMarkdownIt, Rendering } from './markdown/markdownIt';
 import { Log, PumlPreviews } from './pumlPreviews';
 import { defaultSettings, Settings, settingsSection } from './settings';
+import { SvgExport } from './svgExport';
 
 /** Api is the export of the extension. */
 export interface Api {
@@ -118,7 +120,10 @@ export function activate(context: vscode.ExtensionContext): Api {
   const pumlIncludes = new IncludeFiles({ diskAtOnce: false });
   // The log shows the problems that no diagram shows, in the Output view of VS Code.
   const log = vscode.window.createOutputChannel('nimblescape PlantUML', { log: true });
-  const previews = new PumlPreviews(context.extensionUri, readSettings, (document, text) => pumlIncludes.load(document, text), log);
+  const loadPumlIncludes = (document: vscode.Uri, text: string) => pumlIncludes.load(document, text);
+  const previews = new PumlPreviews(context.extensionUri, readSettings, loadPumlIncludes, log);
+  // The export waits for the included files of a file, as a preview of a PlantUML file does.
+  const svgExport = new SvgExport(context.extensionUri, readSettings, loadPumlIncludes, log);
   const refresh = () => refreshMarkdownPreviews(log);
   context.subscriptions.push(
     log,
@@ -134,6 +139,7 @@ export function activate(context: vscode.ExtensionContext): Api {
     markdownIncludes.onDidChange(refresh),
     pumlIncludes.onDidChange(() => previews.refreshAll()),
     ...previews.register(),
+    ...svgExport.register(),
     ...registerCompletion(),
     ...registerFormatting(),
   );

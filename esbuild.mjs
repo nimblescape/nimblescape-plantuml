@@ -3,8 +3,9 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 // Bundle the extension into dist/extension.js, the script of the Markdown
-// preview into dist/markdownPreview.js and the script of the preview of
-// PlantUML files into dist/pumlPreview.js, write the TextMate grammars into
+// preview into dist/markdownPreview.js, the script of the preview of
+// PlantUML files into dist/pumlPreview.js and the script of the page of the
+// SVG export into dist/svgExport.js, write the TextMate grammars into
 // dist/syntaxes/, and copy the PlantUML engine into dist/engine/. Then build
 // the npm package @nimblescape/plantuml of cli/ from the same sources: the
 // library for Node.js 22 or later (engines of cli/package.json) into
@@ -14,7 +15,7 @@
 // of cli/. VS Code provides the module `vscode` at run time, so the bundle
 // of the extension leaves it out. A preview loads its script as a module in
 // the browser of the webview; that script imports the engine from
-// ./engine/plantuml.js at run time. The three bundles are readable JavaScript:
+// ./engine/plantuml.js at run time. The bundles are readable JavaScript:
 // not minified, so that they keep the names of the source and anyone can read
 // the code of the package and compare it with the source (CONTRIBUTING.md,
 // "Reviewing the package"). The option `keepNames` stays off: without
@@ -42,13 +43,14 @@ const production = process.argv.includes('--production');
 const outfile = 'dist/extension.js';
 const previewOutfile = 'dist/markdownPreview.js';
 const pumlPreviewOutfile = 'dist/pumlPreview.js';
+const svgExportOutfile = 'dist/svgExport.js';
 const engineDir = 'dist/engine';
 
 // A production build writes no source maps: remove the maps of an earlier
 // development build, so that no map that does not match a bundle of the
 // production build stays in dist/.
 if (production) {
-  for (const file of [outfile, previewOutfile, pumlPreviewOutfile]) fs.rmSync(`${file}.map`, { force: true });
+  for (const file of [outfile, previewOutfile, pumlPreviewOutfile, svgExportOutfile]) fs.rmSync(`${file}.map`, { force: true });
 }
 
 await esbuild.build({
@@ -69,6 +71,7 @@ await esbuild.build({
 for (const [entry, file] of [
   ['src/preview/markdownPreview.ts', previewOutfile],
   ['src/preview/pumlPreview.ts', pumlPreviewOutfile],
+  ['src/preview/svgExportPage.ts', svgExportOutfile],
 ]) {
   await esbuild.build({
     entryPoints: [entry],

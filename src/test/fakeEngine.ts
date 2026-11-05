@@ -7,6 +7,7 @@
  * answers like the engine, without the time that the engine needs.
  */
 
+import { typeProbeLine } from '../diagram/svgFiles';
 import { Engine } from '../preview/renderer';
 
 /**
@@ -21,22 +22,30 @@ export const escapeXml = (text: string): string => text.replace(/&/g, '&amp;').r
 const localInclude = /^\s*!include\S*\s+([^<\s].*)$/;
 
 /**
- * failsAt tells whether the engine fails at a line: a line that contains `wrong`, and a line that includes a file
- * by its path.
+ * failsAt tells whether the engine fails at a line: a line that contains `wrong`, a line that includes a file by its
+ * path, and the line of the probe of the SVG export, which no diagram type accepts.
  * @param line - The line.
  */
-const failsAt = (line: string): boolean => line.includes('wrong') || localInclude.test(line);
+const failsAt = (line: string): boolean => line.includes('wrong') || localInclude.test(line) || line === typeProbeLine;
 
 /**
- * errorPicture returns the picture of the engine for an error in the first line that contains `wrong` or includes a
- * file by its path: the version, the number of the line among the lines that the engine received, those lines up to
- * the error, and the message.
+ * assumedType returns the type of UML diagram that the fake assumes for an error at the line of the probe: `sequence`
+ * for lines with an arrow `->`, `class` else.
+ * @param lines - The lines that the engine received.
+ */
+const assumedType = (lines: readonly string[]): string => (lines.some((line) => line.includes('->')) ? 'sequence' : 'class');
+
+/**
+ * errorPicture returns the picture of the engine for an error in the first line that contains `wrong`, includes a
+ * file by its path or is the probe of the SVG export: the version, the number of the line among the lines that the
+ * engine received, those lines up to the error, and the message.
  * @param lines - The lines that the engine received.
  */
 export function errorPicture(lines: readonly string[]): string {
   const line = lines.findIndex(failsAt) + 1;
   const path = localInclude.exec(lines[line - 1])?.[1];
-  const message = path === undefined ? ' Syntax Error? (Assumed diagram type: class)' : ` cannot include ${path}`;
+  const type = lines[line - 1] === typeProbeLine ? assumedType(lines) : 'class';
+  const message = path === undefined ? ` Syntax Error? (Assumed diagram type: ${type})` : ` cannot include ${path}`;
   const texts = ['PlantUML version 1.2026.9', `[From textarea (line ${line}) ]`, ' ', ...lines.slice(0, line), message];
   return `<svg>${texts.map((text) => `<text>${escapeXml(text)}</text>`).join('')}</svg>`;
 }
@@ -44,8 +53,8 @@ export function errorPicture(lines: readonly string[]): string {
 /**
  * FakeEngine records its calls and answers each call after a turn of the event loop: with an error for a text with
  * the line `fail`, with the error picture for a text with a line that contains `wrong` or includes a file by its
- * path, as the engine cannot read files, and with an image of the lines else, with the title of a line `title …`. It holds the answer to a text with the line `slow` until the test
- * releases it.
+ * path, as the engine cannot read files, or with the probe of the SVG export, and with an image of the lines else,
+ * with the title of a line `title …`. It holds the answer to a text with the line `slow` until the test releases it.
  */
 export class FakeEngine implements Engine {
   readonly calls: { lines: string[]; options?: { dark?: boolean; maxSvgSize?: number } }[] = [];

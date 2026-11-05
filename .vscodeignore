@@ -9,6 +9,7 @@
 !dist/extension.js
 !dist/markdownPreview.js
 !dist/pumlPreview.js
+!dist/svgExport.js
 !dist/engine/**
 !dist/syntaxes/**
 !media/markdownPreview.css
